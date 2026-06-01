@@ -37,20 +37,20 @@ const getQrToken = () => {
 };
 
 const QR_TABLES = {
-  A7K92: { tableId: 7, tableLabel: "Mesa 7", zone: "Salón", restaurantId: "nido", active: true },
-  B2M18: { tableId: 2, tableLabel: "Mesa 2", zone: "Terraza", restaurantId: "nido", active: true },
-  VIP09: { tableId: 9, tableLabel: "Mesa VIP 9", zone: "Privado", restaurantId: "nido", active: true },
+  A7K92: { tableId: 7, tableLabel: "Mesa 7", zone: "Salón", restaurantId: "holu", active: true },
+  B2M18: { tableId: 2, tableLabel: "Mesa 2", zone: "Terraza", restaurantId: "holu", active: true },
+  VIP09: { tableId: 9, tableLabel: "Mesa VIP 9", zone: "Privado", restaurantId: "holu", active: true },
 };
 
 const FALLBACK_CONTEXT = { ...QR_TABLES[QR_FALLBACK], qrToken: QR_FALLBACK };
 const resolveQrContext = async (qrToken) => {
   await wait(450);
-  return { ...(QR_TABLES[qrToken] || { tableId: 0, tableLabel: "QR no registrado", zone: "", restaurantId: "nido", active: false }), qrToken };
+  return { ...(QR_TABLES[qrToken] || { tableId: 0, tableLabel: "QR no registrado", zone: "", restaurantId: "holu", active: false }), qrToken };
 };
 
 const RESTAURANT = {
-  id: "nido",
-  name: "NIDO",
+  id: "holu",
+  name: "HOLU",
   concept: "Cocina italiana de autor",
   city: "Santiago",
   service: "Cena",
@@ -58,8 +58,8 @@ const RESTAURANT = {
   googleReviewUrl: "https://g.page/r/CODIGO-DE-RESTAURANTE/review",
 };
 
-const buildSessionId = (qrToken, tableId) => `nido-${qrToken}-table-${tableId}-${new Date().toISOString().slice(0, 10)}`;
-const buildStorageKey = (sessionId) => `nido:session:${sessionId}`;
+const buildSessionId = (qrToken, tableId) => `holu-${qrToken}-table-${tableId}-${new Date().toISOString().slice(0, 10)}`;
+const buildStorageKey = (sessionId) => `holu:session:${sessionId}`;
 const money = (n) => `$${Number(n || 0).toLocaleString("es-CL")}`;
 
 const WEBHOOKS = {
@@ -266,7 +266,7 @@ function Nav({ tab, setTab, cartCount }) {
   return <nav className="nav">{items.map(([id, label, icon]) => <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{id === "menu" && cartCount > 0 && <span className="cart-badge">{cartCount}</span>}{icon}<span>{label}</span></button>)}</nav>;
 }
 
-export default function GastroMesaPro() {
+export default function HoluMesa() {
   const [qrToken] = useState(() => getQrToken());
   const [qrContext, setQrContext] = useState(FALLBACK_CONTEXT);
   const [loadingQr, setLoadingQr] = useState(true);

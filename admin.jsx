@@ -28,19 +28,19 @@ const buildWebhookUrl = (path) => {
 const money = (n) => `$${Number(n || 0).toLocaleString("es-CL")}`;
 
 const RESTAURANT = {
-  name: "NIDO",
-  legalName: "NIDO SpA",
+  name: "HOLU",
+  legalName: "HOLU SpA",
   rut: "76.543.210-9",
   address: "Av. Italia 1450, Providencia, Santiago",
   phone: "+56 2 2345 6789",
-  website: "nido.cl",
+  website: "holu.cl",
   location: "Santiago · Salón Principal",
   service: "Cena",
 };
 
 const RECEIPT_CONFIG = {
   title: "BOLETA ELECTRÓNICA",
-  footer: "Gracias por visitar NIDO · Vuelve pronto",
+  footer: "Gracias por visitar HOLU · Vuelve pronto",
   taxLabel: "IVA incluido",
   showWaiter: true,
   showQr: true,
@@ -51,10 +51,10 @@ const RECEIPT_CONFIG = {
 };
 
 const STAFF = [
-  { id: "w1", name: "Marco", role: "camarero", shift: "18:00–00:00", status: "Activo", tables: [2, 7, 8], avatar: "M", photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop", phone: "+56 9 1111 2222", email: "marco@nido.cl" },
-  { id: "w2", name: "Isabella", role: "camarero", shift: "18:00–00:00", status: "Activo", tables: [3, 4, 9], avatar: "I", photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop", phone: "+56 9 3333 4444", email: "isabella@nido.cl" },
-  { id: "w3", name: "Tomás", role: "camarero", shift: "19:00–01:00", status: "Pausa", tables: [5], avatar: "T", photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop", phone: "+56 9 5555 6666", email: "tomas@nido.cl" },
-  { id: "a1", name: "Valentina", role: "admin", shift: "Full", status: "Activo", tables: [], avatar: "V", photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop", phone: "+56 9 7777 8888", email: "valentina@nido.cl" },
+  { id: "w1", name: "Marco", pin: "1111", role: "camarero", shift: "18:00–00:00", status: "Activo", tables: [2, 7, 8], avatar: "M", photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop", phone: "+56 9 1111 2222", email: "marco@holu.cl" },
+  { id: "w2", name: "Isabella", pin: "2222", role: "camarero", shift: "18:00–00:00", status: "Activo", tables: [3, 4, 9], avatar: "I", photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop", phone: "+56 9 3333 4444", email: "isabella@holu.cl" },
+  { id: "w3", name: "Tomás", pin: "3333", role: "camarero", shift: "19:00–01:00", status: "Pausa", tables: [5], avatar: "T", photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop", phone: "+56 9 5555 6666", email: "tomas@holu.cl" },
+  { id: "a1", name: "Valentina", pin: "0000", role: "admin", shift: "Full", status: "Activo", tables: [], avatar: "V", photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop", phone: "+56 9 7777 8888", email: "valentina@holu.cl" },
 ];
 
 const TABLES = [
@@ -604,7 +604,7 @@ function SettingsView() {
   const simulateWebhook = async (event) => {
     const payload = {
       event,
-      restaurantId: "nido",
+      restaurantId: "holu",
       tableId: 7,
       qrToken: "A7K92",
       source: "admin-demo-local",
@@ -659,12 +659,67 @@ POST /inventory/update
 POST /qr/regenerate</pre></div></div></div>;
 }
 
-export default function GastroAdminBackoffice() {
-  const [role, setRole] = useState("camarero");
-  const [staffId, setStaffId] = useState("w1");
+function PinGate({ onAuth }) {
+  const [digits, setDigits] = useState("");
+  const [error, setError] = useState(false);
+
+  const handleDigit = (d) => {
+    if (digits.length >= 4) return;
+    const next = digits + d;
+    setDigits(next);
+    if (next.length === 4) {
+      const found = STAFF.find((s) => s.pin === next);
+      if (found) {
+        onAuth(found);
+      } else {
+        setError(true);
+        setTimeout(() => { setDigits(""); setError(false); }, 800);
+      }
+    }
+  };
+
+  const handleDel = () => setDigits((d) => d.slice(0, -1));
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0f1117", gap: 32 }}>
+      <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#fff" }}>HOLU</div>
+      <div style={{ fontSize: 14, color: "#888" }}>Ingresa tu PIN</div>
+      <div style={{ display: "flex", gap: 14 }}>
+        {[0,1,2,3].map((i) => (
+          <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", background: digits.length > i ? (error ? "#ef4444" : "#6366f1") : "#333", transition: "background .15s" }} />
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        {["1","2","3","4","5","6","7","8","9","","0","⌫"].map((k, i) => (
+          <button key={i} onClick={() => k === "⌫" ? handleDel() : k ? handleDigit(k) : null}
+            style={{ width: 72, height: 72, borderRadius: 16, border: "none", fontSize: 24, fontWeight: 700, cursor: k ? "pointer" : "default", background: k ? "#1e2130" : "transparent", color: "#fff" }}>
+            {k}
+          </button>
+        ))}
+      </div>
+      {error && <div style={{ color: "#ef4444", fontSize: 13 }}>PIN incorrecto</div>}
+    </div>
+  );
+}
+
+export default function HoluAdmin() {
+  const [authed, setAuthed] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("holu:staff") || "null"); } catch { return null; }
+  });
+  const [role, setRole] = useState(authed?.role || "camarero");
+  const [staffId, setStaffId] = useState(authed?.id || "w1");
   const [tab, setTab] = useState("dashboard");
   const state = useBackofficeState();
   const safeTab = role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab;
+
+  const handleAuth = (staff) => {
+    try { sessionStorage.setItem("holu:staff", JSON.stringify(staff)); } catch {}
+    setAuthed(staff);
+    setRole(staff.role);
+    setStaffId(staff.id);
+  };
+
+  if (!authed) return <PinGate onAuth={handleAuth} />;
 
   const content = useMemo(() => {
     switch (safeTab) {

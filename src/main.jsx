@@ -2,12 +2,14 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import Admin from '../admin.jsx'
 import Mesa from '../mesa.jsx'
+import Kiosco from '../kiosco.jsx'
 
 const FORCED_VIEW = import.meta.env.VITE_FORCE_VIEW || ''
 
 function AppShell() {
   if (FORCED_VIEW === 'admin') return <Admin />
   if (FORCED_VIEW === 'mesa') return <Mesa />
+  if (FORCED_VIEW === 'kiosco') return <Kiosco />
 
   // fallback de desarrollo: selector visible solo si no hay VITE_FORCE_VIEW
   const [view, setView] = React.useState(() => {
