@@ -7,8 +7,6 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG VITE_N8N_WEBHOOK_BASE
-ENV VITE_N8N_WEBHOOK_BASE=$VITE_N8N_WEBHOOK_BASE
 RUN npm run build
 
 FROM node:20-alpine AS runner
