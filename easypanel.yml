@@ -1,0 +1,26 @@
+services:
+  - name: holux
+    type: app
+    params:
+      source:
+        type: github
+        repo: alexanderestradaconsuegra-tech/holux
+        ref: main
+      build:
+        type: dockerfile
+        file: Dockerfile
+        buildArgs:
+          - VITE_N8N_WEBHOOK_BASE=https://n8n-n8n.fa2cjf.easypanel.host
+      deploy:
+        replicas: 1
+        zeroDowntime: true
+      domains:
+        - host: "$(EASYPANEL_DOMAIN)"
+          port: 3000
+          https: true
+      env: |
+        NODE_ENV=production
+        PORT=3000
+        N8N_WEBHOOK_BASE=https://n8n-n8n.fa2cjf.easypanel.host
+        SUPABASE_URL=https://nlwrkumlrudfgsdnhfhw.supabase.co
+        SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc1NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg
