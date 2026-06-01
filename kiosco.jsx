@@ -54,7 +54,7 @@ export default function HoluKiosco() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           source: "kiosco-barra",
-          restaurantId: "holu",
+          restaurant_id: "holu",
           tableLabel: "Barra",
           customerName: name || "Cliente barra",
           items: cartItems.map((i) => ({ id: i.id, name: i.name, qty: i.qty, unitPrice: i.price })),

@@ -194,7 +194,7 @@ function useTableSession(qrContext, sessionId) {
   const removeItem = (id) => setCart((c) => { const next = { ...c }; if (!next[id]) return next; next[id].qty -= 1; if (next[id].qty <= 0) delete next[id]; return next; });
   const submitOrder = async (note = "") => {
     const items = Object.values(cart); if (!items.length) return null;
-    const payload = { qrToken: qrContext.qrToken, tableId, tableLabel: qrContext.tableLabel, zone: qrContext.zone, sessionId, items, note, total: items.reduce((s, i) => s + i.price * i.qty, 0) };
+    const payload = { qrToken: qrContext.qrToken, tableId, tableLabel: qrContext.tableLabel, zone: qrContext.zone, sessionId, items, note, total: items.reduce((s, i) => s + i.price * i.qty, 0), restaurant_id: RESTAURANT.id };
     await postWebhook("order", payload);
     const newOrder = { id: `ORD-${Math.floor(1000 + Math.random() * 8999)}`, createdAt: Date.now(), eta: 18, status: "received", items };
     setOrders((o) => [newOrder, ...o]); setCart({});
@@ -203,7 +203,7 @@ function useTableSession(qrContext, sessionId) {
     return newOrder;
   };
   const callWaiter = async (reason = "Atención solicitada") => {
-    setWaiterState("calling"); await postWebhook("camarero", { qrToken: qrContext.qrToken, tableId, tableLabel: qrContext.tableLabel, zone: qrContext.zone, sessionId, reason, priority: reason.toLowerCase().includes("urgente") ? "urgent" : "normal" });
+    setWaiterState("calling"); await postWebhook("camarero", { qrToken: qrContext.qrToken, tableId, tableLabel: qrContext.tableLabel, zone: qrContext.zone, sessionId, reason, priority: reason.toLowerCase().includes("urgente") ? "urgent" : "normal", restaurant_id: RESTAURANT.id });
     setWaiterState("sent"); setTimeout(() => setWaiterState("idle"), 3500);
   };
   return { cart, orders, waiterState, addItem, removeItem, submitOrder, callWaiter };

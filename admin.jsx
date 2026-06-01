@@ -604,7 +604,7 @@ function SettingsView() {
   const simulateWebhook = async (event) => {
     const payload = {
       event,
-      restaurantId: "holu",
+      restaurant_id: "holu",
       tableId: 7,
       qrToken: "A7K92",
       source: "admin-demo-local",
