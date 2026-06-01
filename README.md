@@ -1,22 +1,19 @@
 HOLU - producción
 
-Archivos incluidos:
-- admin.jsx
-- mesa.jsx
-- setup_github.sh
+Estructura
+- admin.jsx: backoffice/admin + camarero
+- mesa.jsx: experiencia cliente por QR
+- src/main.jsx: entrada Vite para alternar entre admin y mesa
+- setup_github.sh: helper para bootstrap de repo GitHub
+- .env.example: variables de entorno de ejemplo
 
-Variables de entorno necesarias:
-- VITE_N8N_WEBHOOK_BASE o N8N_WEBHOOK_BASE
+Variables de entorno
+- VITE_N8N_WEBHOOK_BASE
+- N8N_WEBHOOK_BASE
 
-Webhooks que usa la app:
-- /webhook/order-create
-- /webhook/camarero-call
-- /webhook/bill-request
-- /webhook/feedback
-- /webhook/receipt-print
-- /webhook/cash-close
-
-Notas:
-- admin.jsx y mesa.jsx ya están preparados para apuntar a la base de n8n por variable de entorno.
-- No subas /opt/data/.env al repo.
-- Si vas a desplegar en Easy Panel, define la URL real de n8n en la variable de entorno del servicio.
+Notas
+- No subas /opt/data/.env ni secretos al repo.
+- En Easy Panel define la URL real de n8n en las variables del servicio.
+- Para ver la app:
+  - /?view=admin
+  - /?view=mesa
