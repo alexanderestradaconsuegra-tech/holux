@@ -168,16 +168,25 @@ function useTableSession(qrContext, sessionId) {
   const removeItem = (id) => setCart((c) => { const next = { ...c }; if (!next[id]) return next; next[id].qty -= 1; if (next[id].qty <= 0) delete next[id]; return next; });
   const submitOrder = async (note = "") => {
     const items = Object.values(cart); if (!items.length) return null;
-    await postWebhook("order", { qrToken: qrContext.qrToken, tableId, tableLabel: qrContext.tableLabel, zone: qrContext.zone, sessionId, items, note, total: items.reduce((s, i) => s + i.price * i.qty, 0) });
+    await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })), total: items.reduce((s, i) => s + i.price * i.qty, 0) });
     const newOrder = { id: `ORD-${Math.floor(1000 + Math.random() * 8999)}`, createdAt: Date.now(), eta: 18, status: "received", items };
     setOrders((o) => [newOrder, ...o]); setCart({});
     setTimeout(() => setOrders((o) => o.map((x) => x.id === newOrder.id ? { ...x, status: "prep", eta: 14 } : x)), 1800);
     setTimeout(() => setOrders((o) => o.map((x) => x.id === newOrder.id ? { ...x, status: "plating", eta: 5 } : x)), 6000);
     return newOrder;
   };
+  const toCallType = (reason) => {
+    if (!reason) return "Camarero";
+    const r = reason.toLowerCase();
+    if (r.includes("alergia")) return "Alergia";
+    if (r.includes("agua")) return "Agua";
+    if (r.includes("servilleta")) return "Servilletas";
+    if (r.includes("cobro") || r.includes("cuenta")) return "Cuenta";
+    return "Camarero";
+  };
   const callWaiter = async (reason = "Atención solicitada") => {
     setWaiterState("calling");
-    await postWebhook("camarero", { qrToken: qrContext.qrToken, tableId, tableLabel: qrContext.tableLabel, zone: qrContext.zone, sessionId, reason, priority: reason.toLowerCase().includes("urgente") ? "urgent" : "normal" });
+    await postWebhook("camarero", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, call_type: toCallType(reason), message: reason });
     setWaiterState("sent"); setTimeout(() => setWaiterState("idle"), 3500);
   };
   return { cart, orders, waiterState, addItem, removeItem, submitOrder, callWaiter };
@@ -222,7 +231,7 @@ function Bill({ session, qrContext = FALLBACK_CONTEXT }) {
   const tip = Math.round(subtotal * 0.1); const total = subtotal + tip;
   const requestPayment = async () => {
     setPaying(true);
-    await postWebhook("bill", { qrToken: qrContext.qrToken, tableId: qrContext.tableId, tableLabel: qrContext.tableLabel, zone: qrContext.zone, amount: total, action: "request_camarero_charge", session_id: null });
+    await postWebhook("bill", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: null });
     await session.callWaiter("Cliente solicita cobro presencial en mesa");
     setPaying(false);
     alert("Solicitud enviada. El camarero irá a la mesa para el cobro.");
@@ -233,7 +242,7 @@ function Bill({ session, qrContext = FALLBACK_CONTEXT }) {
 function Feedback({ qrContext = FALLBACK_CONTEXT }) {
   const [rating, setRating] = useState(5); const [comment, setComment] = useState(""); const [sent, setSent] = useState(false);
   const submitFeedback = async () => {
-    await postWebhook("feedback", { qrToken: qrContext.qrToken, tableId: qrContext.tableId, tableLabel: qrContext.tableLabel, rating, comment, source: "table_qr" });
+    await postWebhook("feedback", { table_id: qrContext.tableId, rating: Number(rating), comment: comment || null, source: "table_qr" });
     setSent(true);
   };
   return <main className="screen fade"><Header title="Reseña" /><section className="review-card glass"><div className="section-title" style={{ display: "block", textAlign: "center", margin: 0 }}><h2>¿Qué tal estuvo?</h2><span>Tu opinión ayuda al restaurante a mejorar.</span></div><div className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} className={`star-btn ${n <= rating ? "on" : ""}`} onClick={() => setRating(n)}>{icons.star}</button>)}</div><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 96, border: "1px solid rgba(255,255,255,.12)" }} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comentario opcional..." /><button className="btn primary" style={{ width: "100%", marginTop: 12 }} onClick={submitFeedback}>{sent ? "Reseña enviada ✓" : "Enviar valoración"}</button><button className="btn ghost" style={{ width: "100%", marginTop: 10 }} onClick={() => window.open(RESTAURANT.googleReviewUrl, "_blank")}>Dejar reseña en Google</button></section></main>;

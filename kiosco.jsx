@@ -53,13 +53,12 @@ export default function HoluKiosco() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: "kiosco-barra",
           restaurant_id: "holu",
-          tableLabel: "Barra",
-          customerName: name || "Cliente barra",
-          items: cartItems.map((i) => ({ id: i.id, name: i.name, qty: i.qty, unitPrice: i.price })),
+          qr_token: "BARRA",
+          channel: "kiosco-barra",
+          notes: name ? `Cliente: ${name}` : null,
+          items: cartItems.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })),
           total,
-          createdAt: new Date().toISOString(),
         }),
       });
       setStep("done");
