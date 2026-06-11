@@ -189,8 +189,6 @@ function useTableSession(qrContext, sessionId) {
     await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })), total: items.reduce((s, i) => s + i.price * i.qty, 0) }, qrContext.restaurantId);
     const newOrder = { id: `ORD-${Math.floor(1000 + Math.random() * 8999)}`, createdAt: Date.now(), eta: 18, status: "received", items };
     setOrders((o) => [newOrder, ...o]); setCart({});
-    setTimeout(() => setOrders((o) => o.map((x) => x.id === newOrder.id ? { ...x, status: "prep", eta: 14 } : x)), 1800);
-    setTimeout(() => setOrders((o) => o.map((x) => x.id === newOrder.id ? { ...x, status: "plating", eta: 5 } : x)), 6000);
     return newOrder;
   };
   const toCallType = (reason) => {

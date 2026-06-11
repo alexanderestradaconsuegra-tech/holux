@@ -343,6 +343,9 @@ function useBackofficeState(authToken = null) {
   const [qrTokens, setQrTokens] = useState(QR_TOKENS);
   const [expenses, setExpenses] = useState(EXPENSES);
 
+  // Track locally-changed order IDs so the poll doesn't overwrite them right away
+  const localOrderUpdates = useRef({});
+
   useEffect(() => {
     const poll = async () => {
       try {
@@ -351,7 +354,20 @@ function useBackofficeState(authToken = null) {
           supaGet(`orders?status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, null),
           supaGet(`calls?status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, null),
         ]);
-        if (Array.isArray(rawOrders)) setOrders(rawOrders.map(dbOrderToUI));
+        if (Array.isArray(rawOrders)) {
+          const now = Date.now();
+          setOrders((prev) => {
+            const incoming = rawOrders.map(dbOrderToUI);
+            // Keep local state for orders touched in the last 20s
+            return incoming.map((o) => {
+              const lockedUntil = localOrderUpdates.current[o.id];
+              if (lockedUntil && now < lockedUntil) {
+                return prev.find((p) => p.id === o.id) || o;
+              }
+              return o;
+            });
+          });
+        }
         if (Array.isArray(rawCalls)) setCalls(rawCalls.map(dbCallToUI));
       } catch (err) {
         console.error("[holu admin] Supabase poll:", err.message);
@@ -371,7 +387,9 @@ function useBackofficeState(authToken = null) {
     setMessages((rows) => rows.map((m) => m.id === id ? { ...m, status: `resuelto por ${actor}` } : m));
   };
   const updateOrderStatus = async (id, uiStatus) => {
-    setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta_minutes: uiStatus === "Servido" ? 0 : o.eta_minutes } : o));
+    localOrderUpdates.current[id] = Date.now() + 20000;
+    setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta: uiStatus === "Servido" ? 0 : o.eta } : o));
+    if (uiStatus === "Servido") setOrders((rows) => rows.filter((o) => o.id !== id));
     if (STATUS_DB[uiStatus]) {
       try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }, null); }
       catch (e) { console.error("[holu admin] updateOrderStatus:", e.message); }
