@@ -687,14 +687,60 @@ function SettingsView() {
   };
   const updateWebhook = (key, value) => setWebhooks((w)=>({ ...w, [key]: value }));
   const simulateWebhook = async (event) => {
-    const payload = {
-      event,
-      restaurant_id: "holu",
-      tableId: 7,
-      qrToken: "A7K92",
-      source: "admin-demo-local",
-      createdAt: new Date().toISOString(),
+    const DEMO_PAYLOADS = {
+      orderCreate: {
+        restaurant_id: "holu",
+        qr_token: "A7K92",
+        table_id: 7,
+        session_id: null,
+        notes: "Test desde admin",
+        items: [{ menu_item_id: "tagliatelle", dish_name: "Tagliatelle al Ragù", unit_price: 21500, qty: 1 }],
+        total: 21500,
+        channel: "admin-test",
+      },
+      camareroCall: {
+        restaurant_id: "holu",
+        qr_token: "A7K92",
+        table_id: 7,
+        call_type: "Camarero",
+        message: "Test llamado desde admin",
+      },
+      kitchenCall: {
+        restaurant_id: "holu",
+        qr_token: "A7K92",
+        table_id: 7,
+        call_type: "Confirmar plato",
+        message: "Test cocina desde admin",
+      },
+      billRequest: {
+        restaurant_id: "holu",
+        qr_token: "A7K92",
+        table_id: 7,
+      },
+      feedback: {
+        restaurant_id: "holu",
+        qr_token: "A7K92",
+        table_id: 7,
+        rating: 5,
+        comment: "Test feedback desde admin",
+        source: "table_qr",
+      },
+      receiptPrint: {
+        restaurant_id: "holu",
+        qr_token: "A7K92",
+        table_id: 7,
+        items: [{ dish_name: "Tagliatelle al Ragù", unit_price: 21500, qty: 1 }],
+        total: 21500,
+      },
+      cashClose: {
+        restaurant_id: "holu",
+        session_id: "SHIFT-TEST",
+        cash: 428500,
+        card: 691200,
+        total: 1119700,
+      },
     };
+    const payload = DEMO_PAYLOADS[event] || { restaurant_id: "holu", event, source: "admin-test" };
     setLogs((rows)=>[{ time: new Date().toLocaleTimeString("es-CL", { hour:"2-digit", minute:"2-digit" }), event, status: demoMode ? "demo" : "pending", detail: demoMode ? `Simulado local: ${JSON.stringify(payload)}` : `POST ${webhooks[event] || "sin endpoint"}` }, ...rows]);
     if (!demoMode && webhooks[event]) {
       try {
