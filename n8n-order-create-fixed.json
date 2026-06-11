@@ -1,0 +1,327 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-create",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e024bea9-327e-462d-880a-0a677c6e417b",
+      "name": "Webhook - Order Create",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        16528,
+        5552
+      ],
+      "webhookId": "order-create"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Validate & Transform ─────────────────────────────────────\nconst body = $input.first().json.body ?? $input.first().json;\n\nconst restaurant_id = body.restaurant_id || 'holu';\n\nif (!body.qr_token) throw new Error('Missing required field: qr_token');\n\nif (!Array.isArray(body.items) || body.items.length === 0) {\n  throw new Error('items must be a non-empty array');\n}\n\nconst items = body.items.map(item => {\n  const menu_item_id = item.menu_item_id || item.id;\n  const dish_name    = item.dish_name    || item.name;\n  const unit_price   = item.unit_price   || item.price;\n  const qty          = (typeof item.qty === 'number' && item.qty >= 1) ? item.qty : 1;\n  if (!menu_item_id || !dish_name || !unit_price) {\n    throw new Error('Item inválido: se requiere id, nombre y precio');\n  }\n  return { menu_item_id, dish_name, unit_price, qty };\n});\n\nconst digits   = String(Math.floor(Math.random() * 10000)).padStart(4, '0');\nconst orderId  = `ORD-${digits}`;\nconst sessionId = body.session_id || `SES-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;\nconst total    = items.reduce((sum, item) => sum + (item.unit_price * item.qty), 0);\n\nreturn [{\n  json: {\n    orderId,\n    sessionId,\n    restaurant_id,\n    qr_token:    body.qr_token,\n    table_id:    body.table_id    ?? null,\n    waiter_id:   body.waiter_id   ?? null,\n    notes:       body.notes       ?? null,\n    channel:     body.channel     ?? 'QR Mesa',\n    priority:    body.priority    ?? 'Normal',\n    eta_minutes: body.eta_minutes ?? 18,\n    total,\n    items\n  }\n}];"
+      },
+      "id": "b6551ff0-bd05-444e-9443-d338e7cb30ea",
+      "name": "Validate & Transform",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16768,
+        5552
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/sessions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\": \"{{ $json.sessionId }}\",\n  \"restaurant_id\": \"{{ $json.restaurant_id }}\",\n  \"table_id\": {{ $json.table_id !== null ? $json.table_id : 'null' }},\n  \"qr_token\": \"{{ $json.qr_token }}\",\n  \"status\": \"active\"\n}",
+        "options": {}
+      },
+      "id": "ffd16e1f-3a2b-4e6c-a2c3-707c11fa1000",
+      "name": "Insert Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17008,
+        5552
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/orders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\": \"{{ $('Validate & Transform').item.json.orderId }}\",\n  \"restaurant_id\": \"{{ $('Validate & Transform').item.json.restaurant_id }}\",\n  \"session_id\": \"{{ $('Validate & Transform').item.json.sessionId }}\",\n  \"table_id\": {{ $('Validate & Transform').item.json.table_id !== null ? $('Validate & Transform').item.json.table_id : 'null' }},\n  \"waiter_id\": {{ $('Validate & Transform').item.json.waiter_id ? '\"' + $('Validate & Transform').item.json.waiter_id + '\"' : 'null' }},\n  \"status\": \"received\",\n  \"priority\": \"{{ $('Validate & Transform').item.json.priority }}\",\n  \"channel\": \"{{ $('Validate & Transform').item.json.channel }}\",\n  \"eta_minutes\": {{ $('Validate & Transform').item.json.eta_minutes }},\n  \"notes\": {{ $('Validate & Transform').item.json.notes ? '\"' + $('Validate & Transform').item.json.notes + '\"' : 'null' }},\n  \"total\": {{ $('Validate & Transform').item.json.total }}\n}",
+        "options": {}
+      },
+      "id": "b860cd46-04a4-4d1d-9263-a78dc1316bfd",
+      "name": "Insert Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17488,
+        5552
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Validate & Transform').item.json;\nconst orderId = data.orderId;\n\nconst orderItems = data.items.map(item => ({\n  order_id: orderId,\n  menu_item_id: item.menu_item_id,\n  dish_name: item.dish_name,\n  qty: item.qty ?? 1,\n  unit_price: item.unit_price,\n  status: 'pending'\n}));\n\nreturn [{ json: { orderItems, orderId, restaurant_id: data.restaurant_id, qr_token: data.qr_token } }];"
+      },
+      "id": "268c207a-dba4-439c-93df-689fac097fac",
+      "name": "Build Items Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17728,
+        5552
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/order_items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.orderItems) }}",
+        "options": {}
+      },
+      "id": "a277e482-58f7-4601-a372-30165b322e26",
+      "name": "Insert Order Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17968,
+        5552
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/tables?qr_token=eq.{{ $('Validate & Transform').item.json.qr_token }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"Pedido nuevo\",\n  \"last_activity_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "id": "46c87174-abfd-4488-8462-d0eb384d5287",
+      "name": "Update Table - Pedido nuevo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        18208,
+        5552
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": true,\n  \"orderId\": \"{{ $('Validate & Transform').item.json.orderId }}\",\n  \"sessionId\": \"{{ $('Validate & Transform').item.json.sessionId }}\"\n}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "id": "c9af1fef-8398-4ac4-865e-13a62ab255e9",
+      "name": "Respond - Order OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        18448,
+        5552
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass Validate & Transform data through regardless of Insert Session result\n// (session may already exist → merge-duplicates returns the row → chain continues)\nreturn [{ json: $('Validate & Transform').item.json }];"
+      },
+      "id": "c3f1bf71-75e7-40b6-9a38-3d2da5805251",
+      "name": "Passthrough Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17248,
+        5552
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Order Create": {
+      "main": [
+        [
+          {
+            "node": "Validate & Transform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Transform": {
+      "main": [
+        [
+          {
+            "node": "Insert Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Session": {
+      "main": [
+        [
+          {
+            "node": "Passthrough Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Order": {
+      "main": [
+        [
+          {
+            "node": "Build Items Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Items Payload": {
+      "main": [
+        [
+          {
+            "node": "Insert Order Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Order Items": {
+      "main": [
+        [
+          {
+            "node": "Update Table - Pedido nuevo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Table - Pedido nuevo": {
+      "main": [
+        [
+          {
+            "node": "Respond - Order OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passthrough Session": {
+      "main": [
+        [
+          {
+            "node": "Insert Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "6290c3d4f9aa211038547748dbc318e34a55720313532ce42cef99af97f41779"
+  }
+}
