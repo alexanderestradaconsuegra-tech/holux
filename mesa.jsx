@@ -11,9 +11,9 @@ const getEnv = (key, fallback = "") => {
   return fallback;
 };
 
-const N8N_BASE = getEnv("VITE_N8N_WEBHOOK_BASE", "").replace(/\/+$/, "");
+const N8N_BASE = getEnv("VITE_N8N_WEBHOOK_BASE", "https://n8n-n8n.fa2cjf.easypanel.host").replace(/\/+$/, "");
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
-const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "");
+const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc3NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
 
 const QR_FALLBACK = "A7K92";
 const FALLBACK_RESTAURANT_ID = "holu";
