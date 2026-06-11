@@ -59,7 +59,7 @@ const dbOrderToUI = (o) => ({
   waiterId: o.waiter_id || "w1",
   status: STATUS_UI[o.status] || o.status || "Recibido",
   priority: o.priority || "Normal",
-  eta: o.eta || 0,
+  eta: o.eta_minutes || o.eta || 0,
   channel: o.channel || "QR Mesa",
   items: (o.order_items || []).map((i) => ({
     dish: i.dish_name,
