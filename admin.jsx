@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOLU ADMIN — ADMIN + CAMARERO
@@ -27,6 +28,7 @@ const buildWebhookUrl = (path) => {
 
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "");
+const MESA_URL = getEnv("VITE_MESA_URL", "").replace(/\/+$/, "");
 
 const supaFetch = (path, opts = {}, authToken = null) => {
   const token = authToken || SUPABASE_ANON_KEY;
@@ -765,9 +767,78 @@ function InventoryView({ state }) {
   return <div className="grid"><div className="kpis"><div className="kpi"><span>Ingredientes</span><strong>{state.inventory.length}</strong><small>Control operativo</small></div><div className="kpi"><span>Stock bajo</span><strong>{low.length}</strong><small>Ocultar platos si aplica</small></div><div className="kpi"><span>Platos afectados</span><strong>{low.reduce((s,i)=>s+i.linkedDishes.length,0)}</strong><small>Conexión con carta cliente</small></div><div className="kpi"><span>Actualización</span><strong>Live</strong><small>Cocina/Admin</small></div></div><div className="panel"><div className="panel-head"><div><h2>Inventario básico</h2><p style={{margin:"4px 0 0"}}>Cuando un ingrediente queda bajo o agotado, Admin puede ocultar el plato en la carta del cliente.</p></div><span className="badge red">Stock crítico</span></div><div className="list">{state.inventory.map((i)=><div className={`row ${i.status === "Bajo" ? "inventory-low" : ""}`} key={i.id}><span className={`badge ${i.status === "Bajo" ? "red" : "green"}`}>{i.status}</span><div className="row-main"><b>{i.name}</b><small>{i.category} · mínimo {i.min} {i.unit} · afecta: {i.linkedDishes.join(", ")}</small></div><div style={{display:"flex",gap:8,alignItems:"center"}}><input className="input" style={{width:90}} type="number" value={i.stock} onChange={(e)=>state.updateInventoryStock(i.id, e.target.value)} /><strong>{i.unit}</strong></div></div>)}</div></div></div>;
 }
 
+function QRCard({ q, state }) {
+  const canvasRef = useRef(null);
+  const qrUrl = `${MESA_URL || window.location.origin}/?qr=${q.token}`;
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    QRCode.toCanvas(canvasRef.current, qrUrl, {
+      width: 200, margin: 2,
+      color: { dark: "#000000", light: "#ffffff" },
+    }).catch(() => {});
+  }, [qrUrl]);
+
+  const downloadPng = () => {
+    const a = document.createElement("a");
+    a.download = `qr-mesa-${q.table}.png`;
+    a.href = canvasRef.current.toDataURL("image/png");
+    a.click();
+  };
+
+  const printQr = () => {
+    const dataUrl = canvasRef.current.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    win.document.write(`<!DOCTYPE html><html><head><title>QR Mesa ${q.table}</title>
+      <style>body{margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#fff;color:#111}
+      h2{margin:0 0 4px;font-size:22px}p{margin:4px 0;font-size:12px;color:#555}img{width:240px;height:240px;margin:16px 0}
+      .url{font-size:11px;word-break:break-all;max-width:260px;text-align:center;color:#333}</style></head>
+      <body><h2>Mesa ${q.table}</h2><p>${q.zone}</p><img src="${dataUrl}" /><p class="url">${qrUrl}</p>
+      <script>window.onload=()=>{window.print()}<\/script></body></html>`);
+    win.document.close();
+  };
+
+  return (
+    <div className="qr-card-admin">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <h3 style={{ margin: 0 }}>Mesa {q.table}</h3>
+        <span className={`badge ${q.active ? "green" : "red"}`}>{q.active ? "Activo" : "Inactivo"}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", background: "#fff", borderRadius: 14, padding: 10, margin: "0 0 12px" }}>
+        <canvas ref={canvasRef} style={{ borderRadius: 8 }} />
+      </div>
+      <div className="meta" style={{ marginBottom: 4 }}><span>Zona</span><b>{q.zone}</b></div>
+      <div className="meta" style={{ marginBottom: 4 }}><span>Escaneos</span><b>{q.scans}</b></div>
+      <div className="meta" style={{ marginBottom: 10 }}><span>Último scan</span><b>{q.lastScan}</b></div>
+      <p style={{ color: "var(--muted)", fontSize: 11, wordBreak: "break-all", margin: "0 0 12px", lineHeight: 1.4 }}>{qrUrl}</p>
+      <div style={{ display: "grid", gap: 8 }}>
+        <div className="table-actions">
+          <button className="btn ghost" onClick={downloadPng}>Descargar PNG</button>
+          <button className="btn primary" onClick={printQr}>Imprimir QR</button>
+        </div>
+        <div className="table-actions">
+          <button className="btn ghost" onClick={() => state.toggleQr(q.table)}>{q.active ? "Desactivar" : "Activar"}</button>
+          <button className="btn ghost" onClick={() => state.regenerateQr(q.table)}>Regenerar token</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function QRView({ state }) {
-  const baseUrl = "https://app.tusistema.com/q/";
-  return <div className="grid"><div className="panel"><div className="panel-head"><div><h2>QR de mesas</h2><p style={{margin:"4px 0 0"}}>Una sola app de cliente; cada mesa usa token QR interno, no URL manual.</p></div><span className="badge blue">Tokens</span></div><div className="three">{state.qrTokens.map((q)=><div className="qr-card-admin" key={q.table}><div className="qr-visual" /><div style={{display:"flex",justifyContent:"space-between",gap:10}}><h3 style={{margin:0}}>Mesa {q.table}</h3><span className={`badge ${q.active ? "green" : "red"}`}>{q.active ? "Activo" : "Inactivo"}</span></div><p style={{color:"var(--muted)",fontSize:12,wordBreak:"break-all"}}>{baseUrl}{q.token}</p><div className="meta"><span>Zona</span><b>{q.zone}</b></div><div className="meta"><span>Escaneos</span><b>{q.scans}</b></div><div className="meta"><span>Último scan</span><b>{q.lastScan}</b></div><div className="table-actions"><button className="btn ghost" onClick={()=>state.toggleQr(q.table)}>{q.active ? "Desactivar" : "Activar"}</button><button className="btn primary" onClick={()=>state.regenerateQr(q.table)}>Regenerar</button></div></div>)}</div></div></div>;
+  return (
+    <div className="grid">
+      <div className="panel">
+        <div className="panel-head">
+          <div><h2>QR de mesas</h2><p style={{ margin: "4px 0 0" }}>Descarga o imprime el QR de cada mesa. El cliente lo escanea y abre la carta directamente, sin instalar nada.</p></div>
+          <span className="badge blue">Tokens</span>
+        </div>
+        <div className="three">
+          {state.qrTokens.map((q) => <QRCard key={q.table} q={q} state={state} />)}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function StaffView() {
