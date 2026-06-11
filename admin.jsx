@@ -346,9 +346,10 @@ function useBackofficeState(authToken = null) {
   useEffect(() => {
     const poll = async () => {
       try {
+        const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const [rawOrders, rawCalls] = await Promise.all([
-          supaGet("orders?status=neq.served&select=*,order_items(*)&order=created_at.desc&limit=50", null),
-          supaGet("calls?status=neq.Resuelto&select=*&order=created_at.desc", null),
+          supaGet(`orders?status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, null),
+          supaGet(`calls?status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, null),
         ]);
         if (Array.isArray(rawOrders)) setOrders(rawOrders.map(dbOrderToUI));
         if (Array.isArray(rawCalls)) setCalls(rawCalls.map(dbCallToUI));
@@ -362,19 +363,17 @@ function useBackofficeState(authToken = null) {
   }, []);
 
   const attendCall = async (id, actor) => {
-    setCalls((rows) => rows.map((c) => c.id === id ? { ...c, status: `Atendido por ${actor}` } : c));
-    if (SUPABASE_ANON_KEY) {
-      try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken); }
-      catch (e) { console.error("[holu admin] attendCall:", e.message); }
-    }
+    setCalls((rows) => rows.filter((c) => c.id !== id));
+    try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null); }
+    catch (e) { console.error("[holu admin] attendCall:", e.message); }
   };
   const resolveMessage = (id, actor) => {
     setMessages((rows) => rows.map((m) => m.id === id ? { ...m, status: `resuelto por ${actor}` } : m));
   };
   const updateOrderStatus = async (id, uiStatus) => {
     setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta_minutes: uiStatus === "Servido" ? 0 : o.eta_minutes } : o));
-    if (SUPABASE_ANON_KEY && STATUS_DB[uiStatus]) {
-      try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }, authToken); }
+    if (STATUS_DB[uiStatus]) {
+      try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }, null); }
       catch (e) { console.error("[holu admin] updateOrderStatus:", e.message); }
     }
   };
@@ -437,12 +436,10 @@ function useBackofficeState(authToken = null) {
       expected: s.expected + total,
       history: [{ time, userId: staffUserId, action: "Cobro registrado", detail: `Mesa ${tableId} · ${money(total)} · ${method}` }, ...s.history],
     }));
-    if (authToken) {
-      try {
-        await supaPatch(`tables?table_number=eq.${tableId}`, { status: "Libre", bill_total: 0, tip_accepted: false, tip_amount: 0, guests: 0, last_activity_at: new Date().toISOString() }, authToken);
-        await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken);
-      } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
-    }
+    try {
+      await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.holu`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null);
+      await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.holu`, { status: "served" }, null);
+    } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
   };
   return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }

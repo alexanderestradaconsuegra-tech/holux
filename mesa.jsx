@@ -247,8 +247,9 @@ function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !qrContext.tableId) return;
     const poll = async () => {
       try {
+        const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/orders?table_id=eq.${qrContext.tableId}&select=id,status,eta_minutes,created_at,order_items(dish_name,qty,unit_price,status)&order=created_at.desc&limit=5`,
+          `${SUPABASE_URL}/rest/v1/orders?table_id=eq.${qrContext.tableId}&status=neq.served&created_at=gte.${since}&select=id,status,eta_minutes,created_at,order_items(dish_name,qty,unit_price,status)&order=created_at.desc&limit=5`,
           { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
         );
         if (!res.ok) return;
