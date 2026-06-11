@@ -40,6 +40,8 @@ const supaFetch = (path, opts = {}, authToken = null) => {
   };
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...opts, headers }).then((r) => {
     if (!r.ok) return r.text().then((t) => Promise.reject(new Error(`Supabase ${r.status}: ${t.slice(0, 120)}`)));
+    const ct = r.headers.get("content-type") || "";
+    if (r.status === 204 || !ct.includes("json")) return null;
     return r.json();
   });
 };

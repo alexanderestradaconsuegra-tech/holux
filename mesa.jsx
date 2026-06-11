@@ -239,8 +239,7 @@ const STATUS_STEP = { received: "received", preparing: "prep", "listo para servi
 function normalizeDbStatus(s) { return STATUS_STEP[(s || "").toLowerCase()] || s || "received"; }
 
 function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
-  const [liveOrders, setLiveOrders] = useState(session.orders);
-  useEffect(() => { setLiveOrders(session.orders); }, [session.orders]);
+  const [liveOrders, setLiveOrders] = useState(null);
   useEffect(() => {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !qrContext.tableId) return;
     const poll = async () => {
@@ -252,7 +251,7 @@ function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
         );
         if (!res.ok) return;
         const rows = await res.json();
-        if (!Array.isArray(rows) || rows.length === 0) return;
+        if (!Array.isArray(rows)) return;
         setLiveOrders(rows.map((o) => ({
           id: o.id,
           createdAt: new Date(o.created_at).getTime(),
@@ -266,7 +265,7 @@ function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
     const t = setInterval(poll, 10000);
     return () => clearInterval(t);
   }, [qrContext.tableId]);
-  const orders = liveOrders.length ? liveOrders : session.orders;
+  const orders = liveOrders !== null ? liveOrders : session.orders;
   return <main className="screen fade"><Header /><div className="section-title"><h2>Estado del pedido</h2><span>Live kitchen</span></div>{orders.length ? orders.map((o) => <article key={o.id} className="status-card glass"><div className="status-head"><div><h3>{o.id}</h3><small>{new Date(o.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</small></div><div className="eta">{o.status === "served" ? "Listo ✓" : `${o.eta} min`}</div></div><div className="steps">{KITCHEN_STEPS.map((s, i) => <span key={s.key} className={`step ${i <= statusIndex(o.status) ? "on" : ""}`} />)}</div><div className="order-lines">{KITCHEN_STEPS.map((s, i) => <div key={s.key} style={{ opacity: i <= statusIndex(o.status) ? 1 : .38 }}>● {s.label} — {s.detail}</div>)}<br />{o.items.map((it) => <div key={it.id || it.name}>{it.qty}× {it.name}</div>)}</div></article>) : <div className="empty glass">No hay pedidos activos.</div>}</main>;
 }
 
