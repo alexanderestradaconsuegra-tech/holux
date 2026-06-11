@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOLU ADMIN — ADMIN + CAMARERO
@@ -24,6 +24,63 @@ const buildWebhookUrl = (path) => {
   const clean = String(path || "").replace(/^\/+/, "");
   return base ? `${base}/webhook/${clean}` : `/webhook/${clean}`;
 };
+
+const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
+const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "");
+
+const supaFetch = (path, opts = {}) => {
+  const headers = {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    "Content-Type": "application/json",
+    Prefer: opts.prefer || "return=representation",
+  };
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...opts, headers }).then((r) => {
+    if (!r.ok) return r.text().then((t) => Promise.reject(new Error(`Supabase ${r.status}: ${t.slice(0, 120)}`)));
+    return r.json();
+  });
+};
+
+const supaGet = (path) => supaFetch(path);
+const supaPatch = (path, body) =>
+  supaFetch(path, { method: "PATCH", body: JSON.stringify(body), prefer: "return=minimal" });
+
+const STATUS_UI = { received: "Recibido", preparing: "Preparando", ready: "Listo para servir", served: "Servido", pending: "Pendiente" };
+const STATUS_DB = { "Recibido": "received", "Preparando": "preparing", "Listo para servir": "ready", "Servido": "served" };
+
+const timeAgo = (iso) => {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  return diff < 1 ? "Ahora" : diff === 1 ? "1 min" : `${diff} min`;
+};
+
+const dbOrderToUI = (o) => ({
+  id: o.id,
+  table: o.table_id,
+  waiterId: o.waiter_id || "w1",
+  status: STATUS_UI[o.status] || o.status || "Recibido",
+  priority: o.priority || "Normal",
+  eta: o.eta || 0,
+  channel: o.channel || "QR Mesa",
+  items: (o.order_items || []).map((i) => ({
+    dish: i.dish_name,
+    qty: i.qty,
+    status: STATUS_UI[i.status] || i.status || "Recibido",
+    price: i.unit_price,
+  })),
+  notes: o.notes || "",
+});
+
+const dbCallToUI = (c) => ({
+  id: c.id,
+  source: c.call_type === "Confirmar plato" ? "cocina" : "mesa",
+  table: c.table_id,
+  waiterId: c.waiter_id || "w1",
+  type: c.call_type || "Llamado",
+  priority: c.priority || "Normal",
+  status: c.status || "Pendiente",
+  age: c.created_at ? timeAgo(c.created_at) : "Ahora",
+  text: c.message || "",
+});
 
 const money = (n) => `$${Number(n || 0).toLocaleString("es-CL")}`;
 
@@ -253,14 +310,42 @@ function useBackofficeState() {
   const [inventory, setInventory] = useState(INVENTORY_ITEMS);
   const [qrTokens, setQrTokens] = useState(QR_TOKENS);
   const [expenses, setExpenses] = useState(EXPENSES);
-  const attendCall = (id, actor) => {
+
+  useEffect(() => {
+    if (!SUPABASE_ANON_KEY) return;
+    const poll = async () => {
+      try {
+        const [rawOrders, rawCalls] = await Promise.all([
+          supaGet("orders?restaurant_id=eq.holu&status=neq.served&select=*,order_items(*)&order=created_at.desc&limit=50"),
+          supaGet("calls?restaurant_id=eq.holu&status=neq.Atendido&select=*&order=created_at.desc"),
+        ]);
+        if (Array.isArray(rawOrders)) setOrders(rawOrders.length > 0 ? rawOrders.map(dbOrderToUI) : ORDERS);
+        if (Array.isArray(rawCalls)) setCalls(rawCalls.length > 0 ? rawCalls.map(dbCallToUI) : CALLS);
+      } catch (err) {
+        console.error("[holu admin] Supabase poll:", err.message);
+      }
+    };
+    poll();
+    const t = setInterval(poll, 8000);
+    return () => clearInterval(t);
+  }, []);
+
+  const attendCall = async (id, actor) => {
     setCalls((rows) => rows.map((c) => c.id === id ? { ...c, status: `Atendido por ${actor}` } : c));
+    if (SUPABASE_ANON_KEY) {
+      try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Atendido" }); }
+      catch (e) { console.error("[holu admin] attendCall:", e.message); }
+    }
   };
   const resolveMessage = (id, actor) => {
     setMessages((rows) => rows.map((m) => m.id === id ? { ...m, status: `resuelto por ${actor}` } : m));
   };
-  const updateOrderStatus = (id, status) => {
-    setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status, eta: status === "Servido" ? 0 : o.eta } : o));
+  const updateOrderStatus = async (id, uiStatus) => {
+    setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta: uiStatus === "Servido" ? 0 : o.eta } : o));
+    if (SUPABASE_ANON_KEY && STATUS_DB[uiStatus]) {
+      try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }); }
+      catch (e) { console.error("[holu admin] updateOrderStatus:", e.message); }
+    }
   };
   const saveMenuItem = (item) => {
     setMenuItems((rows) => {
