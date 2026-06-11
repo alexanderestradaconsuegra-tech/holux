@@ -335,10 +335,10 @@ function useBackofficeState(authToken = null) {
       try {
         const [rawOrders, rawCalls] = await Promise.all([
           supaGet("orders?status=neq.served&select=*,order_items(*)&order=created_at.desc&limit=50", authToken),
-          supaGet("calls?status=neq.Atendido&select=*&order=created_at.desc", authToken),
+          supaGet("calls?status=neq.Resuelto&select=*&order=created_at.desc", authToken),
         ]);
-        if (Array.isArray(rawOrders)) setOrders(rawOrders.length > 0 ? rawOrders.map(dbOrderToUI) : ORDERS);
-        if (Array.isArray(rawCalls)) setCalls(rawCalls.length > 0 ? rawCalls.map(dbCallToUI) : CALLS);
+        if (Array.isArray(rawOrders)) setOrders(rawOrders.map(dbOrderToUI));
+        if (Array.isArray(rawCalls)) setCalls(rawCalls.map(dbCallToUI));
       } catch (err) {
         console.error("[holu admin] Supabase poll:", err.message);
       }
@@ -351,7 +351,7 @@ function useBackofficeState(authToken = null) {
   const attendCall = async (id, actor) => {
     setCalls((rows) => rows.map((c) => c.id === id ? { ...c, status: `Atendido por ${actor}` } : c));
     if (SUPABASE_ANON_KEY) {
-      try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Atendido" }, authToken); }
+      try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken); }
       catch (e) { console.error("[holu admin] attendCall:", e.message); }
     }
   };
@@ -411,7 +411,27 @@ function useBackofficeState(authToken = null) {
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, waiterId } : t));
     addCashHistory(waiterId, "Mesa reasignada", `Mesa ${tableId} asignada a ${getStaff(waiterId).name}`);
   };
-  return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter };
+  const cobrarMesa = async (tableId, callId, method, tipAccepted, total, tipAmt, staffUserId) => {
+    setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, status: "Libre", bill: 0, tipAccepted: false, tipAmount: 0, guests: 0, waiterId: null } : t));
+    if (callId) setCalls((rows) => rows.filter((c) => c.id !== callId));
+    const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+    setCashSession((s) => ({
+      ...s,
+      cash:     method === "Efectivo"      ? s.cash     + total : s.cash,
+      card:     method === "Tarjeta"       ? s.card     + total : s.card,
+      transfer: method === "Transferencia" ? s.transfer + total : s.transfer,
+      tips:     s.tips + tipAmt,
+      expected: s.expected + total,
+      history: [{ time, userId: staffUserId, action: "Cobro registrado", detail: `Mesa ${tableId} · ${money(total)} · ${method}` }, ...s.history],
+    }));
+    if (authToken) {
+      try {
+        await supaPatch(`tables?table_number=eq.${tableId}`, { status: "Libre", bill_total: 0, tip_accepted: false, tip_amount: 0, guests: 0, last_activity_at: new Date().toISOString() }, authToken);
+        if (callId) await supaPatch(`calls?id=eq.${encodeURIComponent(callId)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken);
+      } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
+    }
+  };
+  return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
 function Layout({ role, staffId, tab, setTab, onLogout, children }) {
@@ -488,11 +508,81 @@ function Dashboard({ role, staffId, state }) {
   </div>;
 }
 
+function CobrarModal({ table, callId, state, staffId, onClose }) {
+  const [method, setMethod] = useState("Efectivo");
+  const [tip, setTip] = useState(false);
+  const [done, setDone] = useState(false);
+  const subtotal = table.bill || 0;
+  const tipAmt = tip ? Math.round(subtotal * 0.1) : 0;
+  const total = subtotal + tipAmt;
+  const tableOrders = state.orders.filter((o) => o.table === table.id);
+
+  const handleCobrar = async () => {
+    await state.cobrarMesa(table.id, callId, method, tip, total, tipAmt, staffId);
+    setDone(true);
+    setTimeout(onClose, 1800);
+  };
+
+  if (done) return (
+    <div className="modal-backdrop">
+      <div className="modal" style={{ textAlign: "center", padding: "40px 24px" }}>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>✓</div>
+        <h2 style={{ margin: "0 0 8px" }}>Mesa {table.id} cobrada</h2>
+        <p style={{ color: "var(--muted)", margin: 0 }}>{money(total)} · {method}</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal">
+        <div className="panel-head">
+          <div><h2>Cobrar Mesa {table.id}</h2><p style={{ margin: "4px 0 0", color: "var(--muted)" }}>{table.zone} · {table.guests || 0} clientes</p></div>
+          <button className="btn ghost" onClick={onClose}>Cancelar</button>
+        </div>
+        {tableOrders.length > 0 && (
+          <div style={{ margin: "12px 0" }}>
+            {tableOrders.map((o) => o.items.map((item, i) => (
+              <div key={`${o.id}-${i}`} className="receipt-row"><span>{item.qty}× {item.dish}</span><span>{money((item.price || 0) * item.qty)}</span></div>
+            )))}
+          </div>
+        )}
+        {tableOrders.length === 0 && subtotal > 0 && (
+          <div className="receipt-row" style={{ margin: "12px 0" }}><span>Consumo mesa</span><span>{money(subtotal)}</span></div>
+        )}
+        <div className="dash" />
+        <div style={{ margin: "14px 0" }}>
+          <b style={{ fontSize: 13, color: "var(--muted)" }}>PROPINA</b>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button className={`btn ${tip ? "primary" : "ghost"}`} onClick={() => setTip(true)}>+ {money(Math.round(subtotal * 0.1))} (10%)</button>
+            <button className={`btn ${!tip ? "primary" : "ghost"}`} onClick={() => setTip(false)}>Sin propina</button>
+          </div>
+        </div>
+        <div style={{ margin: "14px 0" }}>
+          <b style={{ fontSize: 13, color: "var(--muted)" }}>MÉTODO DE PAGO</b>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            {["Efectivo", "Tarjeta", "Transferencia"].map((m) => (
+              <button key={m} className={`btn ${method === m ? "primary" : "ghost"}`} onClick={() => setMethod(m)}>{m}</button>
+            ))}
+          </div>
+        </div>
+        <div className="dash" />
+        <div className="receipt-row receipt-total" style={{ fontSize: 20, margin: "14px 0" }}>
+          <span>Total</span><b>{money(total)}</b>
+        </div>
+        <button className="btn primary" style={{ width: "100%", padding: "15px 0", fontSize: 16, marginTop: 4 }} onClick={handleCobrar}>
+          Cobrar {money(total)} · {method}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TablesView({ role, staffId, state }) {
   const isAdmin = role === "admin";
   const [selectedTable, setSelectedTable] = useState(null);
   const visible = state.tables.filter((t) => isAdmin || t.waiterId === staffId);
-  return <div className="grid"><div className="panel"><div className="panel-head"><h2>{isAdmin ? "Mapa de mesas" : "Mesas que atiendo"}</h2><span className="badge">{visible.length} mesas</span></div><div className="table-grid">{visible.map((t)=><div className="table-card" key={t.id}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h3>Mesa {t.id}</h3><span className={`badge ${statusBadge(t.status)}`}>{t.status}</span></div><div className="meta"><span>{t.zone}</span><span>{t.guests} pax</span></div><div className="meta"><span>Camarero</span><b>{getStaff(t.waiterId).name}</b></div>{isAdmin && <div className="meta"><span>Cuenta</span><b>{money(t.bill)}</b></div>}<p style={{color:"var(--muted)",fontSize:12,minHeight:34}}>{t.lastMessage || "Sin mensajes recientes"}</p><div className="tip-box" style={{marginTop:10}}><small style={{color:"var(--muted)"}}>Propina 10%</small><div style={{display:"flex",justifyContent:"space-between",marginTop:4}}><b>{t.tipAccepted ? "Aceptada" : "No agregada"}</b><span>{money(t.tipAmount)}</span></div></div><div className="field" style={{marginTop:10}}><label>Asignar camarero</label><select className="input" value={t.waiterId || ""} onChange={(e)=>state.assignWaiter(t.id, e.target.value)}><option value="">Sin asignar</option>{STAFF.filter((s)=>s.role === "camarero").map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div><div className="table-actions"><button className="btn primary" onClick={()=>setSelectedTable(t)}>Atender</button><button className="btn ghost" onClick={()=>setSelectedTable(t)}>Ver ficha</button></div></div>)}</div></div>{selectedTable && <TableDrawer table={selectedTable} role={role} state={state} onClose={()=>setSelectedTable(null)} />}</div>;
+  return <div className="grid"><div className="panel"><div className="panel-head"><h2>{isAdmin ? "Mapa de mesas" : "Mesas que atiendo"}</h2><span className="badge">{visible.length} mesas</span></div><div className="table-grid">{visible.map((t)=><div className="table-card" key={t.id}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h3>Mesa {t.id}</h3><span className={`badge ${statusBadge(t.status)}`}>{t.status}</span></div><div className="meta"><span>{t.zone}</span><span>{t.guests} pax</span></div><div className="meta"><span>Camarero</span><b>{getStaff(t.waiterId).name}</b></div>{isAdmin && <div className="meta"><span>Cuenta</span><b>{money(t.bill)}</b></div>}<p style={{color:"var(--muted)",fontSize:12,minHeight:34}}>{t.lastMessage || "Sin mensajes recientes"}</p><div className="tip-box" style={{marginTop:10}}><small style={{color:"var(--muted)"}}>Propina 10%</small><div style={{display:"flex",justifyContent:"space-between",marginTop:4}}><b>{t.tipAccepted ? "Aceptada" : "No agregada"}</b><span>{money(t.tipAmount)}</span></div></div><div className="field" style={{marginTop:10}}><label>Asignar camarero</label><select className="input" value={t.waiterId || ""} onChange={(e)=>state.assignWaiter(t.id, e.target.value)}><option value="">Sin asignar</option>{STAFF.filter((s)=>s.role === "camarero").map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div><div className="table-actions"><button className="btn primary" onClick={()=>setSelectedTable(t)}>Atender</button><button className="btn ghost" onClick={()=>setSelectedTable(t)}>Ver ficha</button></div></div>)}</div></div>{selectedTable && <TableDrawer table={selectedTable} role={role} staffId={staffId} state={state} onClose={()=>setSelectedTable(null)} />}</div>;
 }
 
 function TableReceipt({ table, waiter }) {
@@ -502,16 +592,17 @@ function TableReceipt({ table, waiter }) {
   return <div className="receipt-wrap"><div className="receipt"><h3>{RESTAURANT.name}</h3><div className="center muted2">{RESTAURANT.legalName}<br />RUT {RESTAURANT.rut}<br />{RESTAURANT.address}<br />{RESTAURANT.phone} · {RESTAURANT.website}</div><div className="dash" /><div className="center"><b>BOLETA MESA {table.id}</b><br /><span className="muted2">{new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" /><div className="receipt-row"><span>Consumo mesa</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Propina 10%</span><b>{tip ? money(tip) : "No agregada"}</b></div><div className="receipt-row"><span>IVA incluido</span><b>—</b></div><div className="dash" /><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div><div className="receipt-row"><span>Atendió</span><b>{waiter.name}</b></div><div className="receipt-qr" /><div className="center muted2">Escanea para reseña Google</div><div className="dash" /><div className="center muted2">Gracias por visitar HOLU · Vuelve pronto</div></div></div>;
 }
 
-function TableDrawer({ table, role, state, onClose }) {
+function TableDrawer({ table, role, state, staffId, onClose }) {
   const liveTable = state.tables.find((t) => t.id === table.id) || table;
   const [showReceipt, setShowReceipt] = useState(false);
+  const [cobrarOpen, setCobrarOpen] = useState(false);
   const waiter = getStaff(liveTable.waiterId);
   const tableOrders = state.orders.filter((o)=>o.table === liveTable.id);
   const tableMessages = state.messages.filter((m)=>m.table === liveTable.id);
   const suggestedTip = Math.round(liveTable.bill * 0.1);
   const total = liveTable.bill + liveTable.tipAmount;
   const generateReceipt = () => setShowReceipt(true);
-  return <aside className="drawer-lite"><div className="panel-head"><div><h2>Ficha Mesa {liveTable.id}</h2><p style={{margin:"4px 0 0"}}>Token QR {liveTable.qrToken} · {liveTable.zone}</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="list"><div className="row"><span className={`badge ${statusBadge(liveTable.status)}`}>{liveTable.status}</span><div className="row-main"><b>{liveTable.guests} clientes</b><small>Camarero: {waiter.name}</small></div><strong>{money(liveTable.bill)}</strong></div><div className="tip-box"><b>Propina sugerida 10%</b><p style={{margin:"6px 0",color:"var(--muted)"}}>El cliente decide si desea agregarla. Debe quedar registrado para cierre diario/semanal/mensual.</p><div className="receipt-row" style={{color:"var(--text)"}}><span>Subtotal mesa</span><b>{money(liveTable.bill)}</b></div><div className="receipt-row" style={{color:"var(--text)"}}><span>Propina 10%</span><b>{liveTable.tipAccepted ? money(liveTable.tipAmount) : `${money(suggestedTip)} sugerida`}</b></div><div className="receipt-row receipt-total" style={{color:"var(--text)"}}><span>Total cobro</span><b>{money(total)}</b></div><div className="tip-actions"><button className="btn primary" onClick={()=>state.setTableTip(liveTable.id, true)}>Agregar 10%</button><button className="btn ghost" onClick={()=>state.setTableTip(liveTable.id, false)}>Sin propina</button></div><small style={{display:"block",color:"var(--muted)",marginTop:10}}>Estado: {liveTable.tipAccepted ? "propina aceptada y registrada" : "sin propina registrada"}</small></div><div className="panel" style={{boxShadow:"none"}}><h2>Pedidos</h2>{tableOrders.map((o)=><p key={o.id} style={{color:"var(--muted)"}}><b>{o.id}</b> · {o.status} · {o.items.map(i=>`${i.qty}× ${i.dish}`).join(", ")}</p>)}</div><div className="panel" style={{boxShadow:"none"}}><h2>Mensajes del cliente</h2>{tableMessages.map((m)=><blockquote key={m.id} style={{borderLeft:"3px solid var(--gold)",paddingLeft:10,color:"#eadfd4"}}>{m.text}</blockquote>)}</div>{role === "admin" && <button className="btn primary" onClick={generateReceipt}>Generar boleta</button>}{showReceipt && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>Boleta generada</h2><p style={{margin:"4px 0 0"}}>Mesa {liveTable.id} · Total {money(total)}</p></div><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Cerrar</button></div><TableReceipt table={liveTable} waiter={waiter} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Volver</button><button className="btn primary" onClick={()=>window.print()}>Imprimir boleta</button></div></div></div>}</div></aside>;
+  return <aside className="drawer-lite"><div className="panel-head"><div><h2>Ficha Mesa {liveTable.id}</h2><p style={{margin:"4px 0 0"}}>Token QR {liveTable.qrToken} · {liveTable.zone}</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="list"><div className="row"><span className={`badge ${statusBadge(liveTable.status)}`}>{liveTable.status}</span><div className="row-main"><b>{liveTable.guests} clientes</b><small>Camarero: {waiter.name}</small></div><strong>{money(liveTable.bill)}</strong></div><div className="tip-box"><b>Propina sugerida 10%</b><p style={{margin:"6px 0",color:"var(--muted)"}}>El cliente decide si desea agregarla. Debe quedar registrado para cierre diario/semanal/mensual.</p><div className="receipt-row" style={{color:"var(--text)"}}><span>Subtotal mesa</span><b>{money(liveTable.bill)}</b></div><div className="receipt-row" style={{color:"var(--text)"}}><span>Propina 10%</span><b>{liveTable.tipAccepted ? money(liveTable.tipAmount) : `${money(suggestedTip)} sugerida`}</b></div><div className="receipt-row receipt-total" style={{color:"var(--text)"}}><span>Total cobro</span><b>{money(total)}</b></div><div className="tip-actions"><button className="btn primary" onClick={()=>state.setTableTip(liveTable.id, true)}>Agregar 10%</button><button className="btn ghost" onClick={()=>state.setTableTip(liveTable.id, false)}>Sin propina</button></div><small style={{display:"block",color:"var(--muted)",marginTop:10}}>Estado: {liveTable.tipAccepted ? "propina aceptada y registrada" : "sin propina registrada"}</small></div><div className="panel" style={{boxShadow:"none"}}><h2>Pedidos</h2>{tableOrders.map((o)=><p key={o.id} style={{color:"var(--muted)"}}><b>{o.id}</b> · {o.status} · {o.items.map(i=>`${i.qty}× ${i.dish}`).join(", ")}</p>)}</div><div className="panel" style={{boxShadow:"none"}}><h2>Mensajes del cliente</h2>{tableMessages.map((m)=><blockquote key={m.id} style={{borderLeft:"3px solid var(--gold)",paddingLeft:10,color:"#eadfd4"}}>{m.text}</blockquote>)}</div>{liveTable.bill > 0 && <button className="btn primary" style={{width:"100%",padding:"14px 0",fontSize:15,background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#160f02",marginBottom:8}} onClick={()=>setCobrarOpen(true)}>Cobrar mesa · {money(total)}</button>}{role === "admin" && <button className="btn ghost" style={{width:"100%"}} onClick={generateReceipt}>Generar boleta</button>}{showReceipt && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>Boleta generada</h2><p style={{margin:"4px 0 0"}}>Mesa {liveTable.id} · Total {money(total)}</p></div><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Cerrar</button></div><TableReceipt table={liveTable} waiter={waiter} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Volver</button><button className="btn primary" onClick={()=>window.print()}>Imprimir boleta</button></div></div></div>}{cobrarOpen && <CobrarModal table={liveTable} callId={null} state={state} staffId={staffId} onClose={()=>setCobrarOpen(false)} />}</div></aside>;
 }
 
 function OrdersView({ role, staffId, state }) {
@@ -535,7 +626,7 @@ function CallsView({ role, staffId, state }) {
   const cocina = visible.filter((c) => c.source === "cocina");
   const actor = getStaff(staffId).name;
   return <div className="grid">
-    {cobro.length > 0 && <div className="panel" style={{border:"1px solid rgba(247,211,123,.35)",background:"linear-gradient(145deg,rgba(247,211,123,.10),rgba(255,255,255,.025))"}}><div className="panel-head"><h2>Solicitudes de cobro</h2><span className="badge" style={{background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#171006"}}>{cobro.length}</span></div><div className="list">{cobro.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>)}</div></div>}
+    {cobro.length > 0 && <div className="panel" style={{border:"1px solid rgba(247,211,123,.35)",background:"linear-gradient(145deg,rgba(247,211,123,.10),rgba(255,255,255,.025))"}}><div className="panel-head"><h2>Solicitudes de cobro</h2><span className="badge" style={{background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#171006"}}>{cobro.length}</span></div><div className="list">{cobro.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor} staffId={staffId}/>)}</div></div>}
     <div className="two">
       <div className="panel"><div className="panel-head"><h2>Llamados de mesa</h2><span className="badge">Cliente QR</span></div><div className="list">{mesa.length ? mesa.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>) : <div style={{color:"var(--dim)",fontSize:13,padding:"8px 0"}}>Sin llamados activos.</div>}</div></div>
       <div className="panel"><div className="panel-head"><h2>Llamados de cocina</h2><span className="badge red">Cocina</span></div><div className="list">{cocina.length ? cocina.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>) : <div style={{color:"var(--dim)",fontSize:13,padding:"8px 0"}}>Sin llamados activos.</div>}</div></div>
@@ -543,8 +634,40 @@ function CallsView({ role, staffId, state }) {
   </div>;
 }
 
-function CallRow({ call, state, actor }) {
-  return <div className="row"><span className={`badge ${statusBadge(call.priority)}`}>Mesa {call.table}</span><div className="row-main"><b>{call.type}</b><small>{call.text} · {call.age} · {getStaff(call.waiterId).name}</small><small>Estado: {call.status}</small></div><button className="btn primary" onClick={()=>state.attendCall(call.id, actor)}>Atender</button></div>;
+function CallRow({ call, state, actor, staffId }) {
+  const [cobrarOpen, setCobrarOpen] = useState(false);
+  const [attended, setAttended] = useState(false);
+  const isCobro = call.type === "Cuenta" || call.type === "Solicita cobro";
+  const table = isCobro ? state.tables.find((t) => t.id === call.table) : null;
+  const isResuelto = attended || call.status === "Resuelto";
+
+  const handleAtender = async () => {
+    setAttended(true);
+    await state.attendCall(call.id, actor);
+  };
+
+  return (
+    <>
+      <div className="row">
+        <span className={`badge ${statusBadge(call.priority)}`}>Mesa {call.table}</span>
+        <div className="row-main">
+          <b>{call.type}</b>
+          <small>{call.text} · {call.age} · {getStaff(call.waiterId).name}</small>
+          <small style={{ color: isResuelto ? "var(--green, #4caf50)" : "var(--muted)" }}>
+            {isResuelto ? "✓ Resuelto" : call.status}
+          </small>
+        </div>
+        {!isResuelto && (
+          isCobro && table
+            ? <button className="btn primary" style={{ background: "linear-gradient(135deg,var(--gold),var(--gold2))", color: "#160f02" }} onClick={() => setCobrarOpen(true)}>Cobrar</button>
+            : <button className="btn primary" onClick={handleAtender}>Atender</button>
+        )}
+      </div>
+      {cobrarOpen && table && (
+        <CobrarModal table={table} callId={call.id} state={state} staffId={staffId} onClose={() => setCobrarOpen(false)} />
+      )}
+    </>
+  );
 }
 
 function MessagesView({ role, staffId, state }) {
