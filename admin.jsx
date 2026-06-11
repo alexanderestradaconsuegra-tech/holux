@@ -344,12 +344,11 @@ function useBackofficeState(authToken = null) {
   const [expenses, setExpenses] = useState(EXPENSES);
 
   useEffect(() => {
-    if (!SUPABASE_ANON_KEY) return;
     const poll = async () => {
       try {
         const [rawOrders, rawCalls] = await Promise.all([
-          supaGet("orders?status=neq.served&select=*,order_items(*)&order=created_at.desc&limit=50", authToken),
-          supaGet("calls?status=neq.Resuelto&select=*&order=created_at.desc", authToken),
+          supaGet("orders?status=neq.served&select=*,order_items(*)&order=created_at.desc&limit=50", null),
+          supaGet("calls?status=neq.Resuelto&select=*&order=created_at.desc", null),
         ]);
         if (Array.isArray(rawOrders)) setOrders(rawOrders.map(dbOrderToUI));
         if (Array.isArray(rawCalls)) setCalls(rawCalls.map(dbCallToUI));
@@ -360,7 +359,7 @@ function useBackofficeState(authToken = null) {
     poll();
     const t = setInterval(poll, 8000);
     return () => clearInterval(t);
-  }, [authToken]);
+  }, []);
 
   const attendCall = async (id, actor) => {
     setCalls((rows) => rows.map((c) => c.id === id ? { ...c, status: `Atendido por ${actor}` } : c));
@@ -1165,7 +1164,22 @@ function PinGate({ onAuth }) {
 
 export default function HoluAdmin() {
   const [session, setSession] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("holu:session") || "null"); } catch { return null; }
+    try {
+      const s = JSON.parse(localStorage.getItem("holu:session") || "null");
+      if (!s) return null;
+      // Validate session belongs to current Supabase project by checking JWT ref claim
+      const payload = JSON.parse(atob(s.access_token.split(".")[1]));
+      if (payload.iss !== "supabase" || !s.access_token.includes("nlwrkumlrudfgsdnhfhw")) {
+        localStorage.removeItem("holu:session");
+        return null;
+      }
+      // Expire check
+      if (s.expires_at && s.expires_at < Date.now()) {
+        localStorage.removeItem("holu:session");
+        return null;
+      }
+      return s;
+    } catch { localStorage.removeItem("holu:session"); return null; }
   });
   const [authed, setAuthed] = useState(() => {
     try {
