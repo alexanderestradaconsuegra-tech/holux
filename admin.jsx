@@ -843,15 +843,7 @@ export default function HoluAdmin() {
   const state = useBackofficeState();
   const safeTab = role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab;
 
-  const handleAuth = (staff) => {
-    try { sessionStorage.setItem("holu:staff", JSON.stringify(staff)); } catch {}
-    setAuthed(staff);
-    setRole(staff.role);
-    setStaffId(staff.id);
-  };
-
-  if (!authed) return <PinGate onAuth={handleAuth} />;
-
+  // useMemo MUST be before any conditional return (Rules of Hooks)
   const content = useMemo(() => {
     switch (safeTab) {
       case "tables": return <TablesView role={role} staffId={staffId} state={state} />;
@@ -869,6 +861,15 @@ export default function HoluAdmin() {
       default: return <Dashboard role={role} staffId={staffId} state={state} />;
     }
   }, [safeTab, role, staffId, state]);
+
+  const handleAuth = (staff) => {
+    try { sessionStorage.setItem("holu:staff", JSON.stringify(staff)); } catch {}
+    setAuthed(staff);
+    setRole(staff.role);
+    setStaffId(staff.id);
+  };
+
+  if (!authed) return <PinGate onAuth={handleAuth} />;
 
   return <Layout role={role} setRole={setRole} staffId={staffId} setStaffId={setStaffId} tab={safeTab} setTab={setTab}>
     <Topbar role={role} staffId={staffId} setStaffId={setStaffId} />
