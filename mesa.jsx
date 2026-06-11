@@ -221,7 +221,7 @@ function Header({ title = RESTAURANT.name, qrContext = FALLBACK_CONTEXT }) {
 
 function Home({ go, session, qrContext = FALLBACK_CONTEXT }) {
   const active = session.orders.find((o) => o.status !== "served");
-  return <main className="screen fade"><section className="hero"><div className="topbar"><button className="icon">{icons.menu}</button><div className="brand">{RESTAURANT.name}<small>RISTORANTE</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Benvenuto · {qrContext.zone}</span><h1>Disfruta tu experiencia</h1><p>{RESTAURANT.concept} · {RESTAURANT.city}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button><button className="action" onClick={() => go("ai")}>{icons.spark}<h3>Luca IA</h3><p>Recomendaciones, alergias y dudas.</p></button></div><div className="promo-row">{PROMOS.map((p) => <article className="promo glass" key={p.title}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div></main>;
+  return <main className="screen fade"><section className="hero"><div className="topbar"><button className="icon">{icons.menu}</button><div className="brand">{RESTAURANT.name}<small>RISTORANTE</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Benvenuto · {qrContext.zone}</span><h1>Disfruta tu experiencia</h1><p>{RESTAURANT.concept} · {RESTAURANT.city}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button></div><div className="promo-row">{PROMOS.map((p) => <article className="promo glass" key={p.title}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div></main>;
 }
 
 function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT }) {
@@ -229,7 +229,7 @@ function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT }) {
   const cats = ["Todos", ...Array.from(new Set(MENU.map((d) => d.category)))];
   const list = MENU.filter((d) => (cat === "Todos" || d.category === cat) && (d.name + d.subtitle + d.tags.join(" ")).toLowerCase().includes(q.toLowerCase()));
   const subtotal = Object.values(session.cart).reduce((s, i) => s + i.price * i.qty, 0); const count = getCartCount(session.cart);
-  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato, alérgeno o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.map((d) => <article className="dish glass" key={d.id}><div className="photo" style={{ backgroundImage: `url(${photos[d.id]})` }} /><div><h3>{d.name}</h3><p>{d.subtitle}</p><div className="tags">{d.tags.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}</div><div style={{ marginTop: 8, color: "#bfae9d", fontSize: 11 }}>{d.minutes} min · {d.kcal} kcal</div></div><div style={{ display: "grid", gap: 10, justifyItems: "end" }}><div className="price">{money(d.price)}</div><button className="add" onClick={() => session.addItem(d)}>{icons.plus}</button></div></article>)}</div>{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
+  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato, alérgeno o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.map((d) => <article className="dish glass" key={d.id}><div className="photo" style={{ backgroundImage: `url(${photos[d.id]})` }} /><div><h3>{d.name}</h3><p>{d.subtitle}</p><div className="tags">{d.tags.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}</div><div style={{ marginTop: 8, color: "#bfae9d", fontSize: 11 }}>{d.minutes} min · {d.kcal} kcal</div></div><div style={{ display: "grid", gap: 10, justifyItems: "end" }}><div className="price">{money(d.price)}</div><button className="add" style={session.cart[d.id]?.qty > 0 ? { background: "linear-gradient(135deg,var(--gold),var(--gold2))", color: "#171006", borderColor: "transparent", fontWeight: 900, fontSize: 13 } : {}} onClick={() => session.addItem(d)}>{session.cart[d.id]?.qty > 0 ? session.cart[d.id].qty : icons.plus}</button></div></article>)}</div>{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
 }
 
 function CartDrawer({ open, setOpen, session, go }) {
@@ -237,8 +237,38 @@ function CartDrawer({ open, setOpen, session, go }) {
   return <aside className={`drawer ${open ? "open" : ""}`}><div className="drawer-head"><h2>Tu pedido</h2><button className="icon" onClick={() => setOpen(false)}>{icons.x}</button></div><div className="cart-list">{items.length ? items.map((item) => <div className="cart-item" key={item.id}><div><h4>{item.name}</h4><small>{item.qty} × {money(item.price)}</small></div><div className="qty"><button onClick={() => session.removeItem(item.id)}>{icons.minus}</button><strong>{item.qty}</strong><button onClick={() => session.addItem(MENU.find((d) => d.id === item.id))}>{icons.plus}</button></div></div>) : <div className="empty">Aún no agregaste platos.</div>}</div>{!!items.length && <><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 72, border: "1px solid rgba(255,255,255,.12)" }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notas para cocina: sin cebolla, punto de carne, alergias..." /><div className="total-row"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="total-row"><span>Servicio sugerido 10%</span><strong>{money(subtotal * 0.1)}</strong></div><div className="total-row strong"><span>Total estimado</span><strong>{money(subtotal * 1.1)}</strong></div><button className="btn primary" style={{ width: "100%" }} onClick={async () => { await session.submitOrder(note); setNote(""); setOpen(false); go("order"); }}>Enviar a cocina</button></>}</aside>;
 }
 
-function OrderStatus({ session }) {
-  return <main className="screen fade"><Header /><div className="section-title"><h2>Estado del pedido</h2><span>Live kitchen</span></div>{session.orders.length ? session.orders.map((o) => <article key={o.id} className="status-card glass"><div className="status-head"><div><h3>{o.id}</h3><small>{new Date(o.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</small></div><div className="eta">{o.status === "served" ? "Listo" : `${o.eta} min`}</div></div><div className="steps">{KITCHEN_STEPS.map((s, i) => <span key={s.key} className={`step ${i <= statusIndex(o.status) ? "on" : ""}`} />)}</div><div className="order-lines">{KITCHEN_STEPS.map((s, i) => <div key={s.key} style={{ opacity: i <= statusIndex(o.status) ? 1 : .38 }}>● {s.label} — {s.detail}</div>)}<br />{o.items.map((it) => <div key={it.id}>{it.qty}× {it.name}</div>)}</div></article>) : <div className="empty glass">No hay pedidos activos.</div>}</main>;
+const STATUS_STEP = { received: "received", preparing: "prep", "listo para servir": "plating", ready: "plating", served: "served" };
+function normalizeDbStatus(s) { return STATUS_STEP[(s || "").toLowerCase()] || s || "received"; }
+
+function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
+  const [liveOrders, setLiveOrders] = useState(session.orders);
+  useEffect(() => { setLiveOrders(session.orders); }, [session.orders]);
+  useEffect(() => {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !qrContext.tableId) return;
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/orders?table_id=eq.${qrContext.tableId}&select=id,status,eta_minutes,created_at,order_items(dish_name,qty,unit_price,status)&order=created_at.desc&limit=5`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        if (!res.ok) return;
+        const rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        setLiveOrders(rows.map((o) => ({
+          id: o.id,
+          createdAt: new Date(o.created_at).getTime(),
+          eta: o.eta_minutes || 0,
+          status: normalizeDbStatus(o.status),
+          items: (o.order_items || []).map((i) => ({ id: i.dish_name, name: i.dish_name, qty: i.qty, price: i.unit_price })),
+        })));
+      } catch {}
+    };
+    poll();
+    const t = setInterval(poll, 10000);
+    return () => clearInterval(t);
+  }, [qrContext.tableId]);
+  const orders = liveOrders.length ? liveOrders : session.orders;
+  return <main className="screen fade"><Header /><div className="section-title"><h2>Estado del pedido</h2><span>Live kitchen</span></div>{orders.length ? orders.map((o) => <article key={o.id} className="status-card glass"><div className="status-head"><div><h3>{o.id}</h3><small>{new Date(o.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</small></div><div className="eta">{o.status === "served" ? "Listo ✓" : `${o.eta} min`}</div></div><div className="steps">{KITCHEN_STEPS.map((s, i) => <span key={s.key} className={`step ${i <= statusIndex(o.status) ? "on" : ""}`} />)}</div><div className="order-lines">{KITCHEN_STEPS.map((s, i) => <div key={s.key} style={{ opacity: i <= statusIndex(o.status) ? 1 : .38 }}>● {s.label} — {s.detail}</div>)}<br />{o.items.map((it) => <div key={it.id || it.name}>{it.qty}× {it.name}</div>)}</div></article>) : <div className="empty glass">No hay pedidos activos.</div>}</main>;
 }
 
 function Waiter({ session, qrContext = FALLBACK_CONTEXT }) {
@@ -279,26 +309,6 @@ function Feedback({ qrContext = FALLBACK_CONTEXT }) {
   return <main className="screen fade"><Header title="Reseña" /><section className="review-card glass"><div className="section-title" style={{ display: "block", textAlign: "center", margin: 0 }}><h2>¿Qué tal estuvo?</h2><span>Tu opinión ayuda al restaurante a mejorar.</span></div><div className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} className={`star-btn ${n <= rating ? "on" : ""}`} onClick={() => setRating(n)}>{icons.star}</button>)}</div><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 96, border: "1px solid rgba(255,255,255,.12)" }} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comentario opcional..." /><button className="btn primary" style={{ width: "100%", marginTop: 12 }} onClick={submitFeedback}>{sent ? "Reseña enviada ✓" : "Enviar valoración"}</button><button className="btn ghost" style={{ width: "100%", marginTop: 10 }} onClick={() => window.open(RESTAURANT.googleReviewUrl, "_blank")}>Dejar reseña en Google</button></section></main>;
 }
 
-function Assistant({ session, go, qrContext = FALLBACK_CONTEXT }) {
-  const [msgs, setMsgs] = useState([{ role: "ai", text: "Soy Luca. Puedo recomendar platos, explicar alérgenos, llamar al camarero, revisar tu pedido, pedir la cuenta o ayudarte a dejar una reseña." }]);
-  const [text, setText] = useState(""); const endRef = useRef(null);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [msgs]);
-  const reply = async (q) => {
-    const lower = q.toLowerCase();
-    if (lower.includes("cuenta") || lower.includes("pagar")) { go("bill"); return "Te llevo a la cuenta. El camarero irá a la mesa."; }
-    if (lower.includes("camarero") || lower.includes("ayuda")) { await session.callWaiter("Solicitado por asistente IA"); return "Listo, avisé al camarero."; }
-    if (lower.includes("estado") || lower.includes("pedido")) { go("order"); return "Abrí el estado de cocina."; }
-    if (lower.includes("reseña")) { go("feedback"); return "Te llevo a la sección de reseña."; }
-    if (lower.includes("sin gluten")) return "Para sin gluten: Branzino al Forno y Panna Cotta.";
-    if (lower.includes("recom")) return "Mi jugada: Arancini al Tartufo para abrir, Osso Buco si quieres algo potente.";
-    const found = MENU.find((d) => lower.includes(d.id));
-    if (found) return `${found.name}: ${found.detail} Maridaje: ${found.pair}.`;
-    return "Puedo ayudarte con recomendaciones, alérgenos, estado del pedido, camarero, cuenta o reseña.";
-  };
-  const send = async (value = text) => { const q = value.trim(); if (!q) return; setText(""); setMsgs((m) => [...m, { role: "user", text: q }]); const r = await reply(q); setMsgs((m) => [...m, { role: "ai", text: r }]); };
-  const chips = ["¿Qué recomiendas?", "¿Sin gluten?", "Ver estado", "Pedir cuenta", "Llamar camarero", "Dejar reseña"];
-  return <main className="chat fade"><Header /><div className="messages">{msgs.map((m, i) => <div key={i} className={`msg ${m.role}`}>{m.text}</div>)}<div ref={endRef} /></div><div className="chips">{chips.map((c) => <button key={c} onClick={() => send(c)}>{c}</button>)}</div><div className="composer"><textarea rows={1} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Pregúntale a Luca..." /><button onClick={() => send()}>{icons.send}</button></div></main>;
-}
 
 function Nav({ tab, setTab, cartCount }) {
   const items = [["home", "Inicio", icons.home], ["menu", "Carta", icons.menu], ["order", "Pedido", icons.order], ["waiter", "Camarero", icons.bell], ["bill", "Cuenta", icons.bill]];
@@ -326,5 +336,5 @@ export default function HoluMesa() {
 
   if (!qrContext.active) return <div className="app"><style>{CSS}</style><main className="screen fade"><section className="hero"><div className="brand">{RESTAURANT.name}<small>RISTORANTE</small></div><div className="hero-copy"><span className="eyebrow">QR no disponible</span><h1>Solicita ayuda</h1><p>Este código no está activo. Por favor avisa al camarero.</p></div></section></main></div>;
 
-  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} />}{tab === "feedback" && <Feedback qrContext={qrContext} />}{tab === "ai" && <Assistant session={session} qrContext={qrContext} go={setTab} />}<button className="btn primary" style={{ position: "fixed", right: 16, bottom: 92, zIndex: 22, width: 54, height: 54, borderRadius: 20, padding: 0 }} onClick={() => setTab("ai")}>{icons.spark}</button><CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
+  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} />}{tab === "feedback" && <Feedback qrContext={qrContext} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
 }

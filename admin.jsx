@@ -333,8 +333,8 @@ function statusBadge(status) {
 }
 
 function useBackofficeState(authToken = null) {
-  const [orders, setOrders] = useState(ORDERS);
-  const [calls, setCalls] = useState(CALLS);
+  const [orders, setOrders] = useState([]);
+  const [calls, setCalls] = useState([]);
   const [messages, setMessages] = useState(CLIENT_MESSAGES);
   const [menuItems, setMenuItems] = useState(MENU_ITEMS);
   const [tables, setTables] = useState(TABLES);
