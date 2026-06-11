@@ -28,10 +28,11 @@ const buildWebhookUrl = (path) => {
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "");
 
-const supaFetch = (path, opts = {}) => {
+const supaFetch = (path, opts = {}, authToken = null) => {
+  const token = authToken || SUPABASE_ANON_KEY;
   const headers = {
     apikey: SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
     Prefer: opts.prefer || "return=representation",
   };
@@ -41,9 +42,26 @@ const supaFetch = (path, opts = {}) => {
   });
 };
 
-const supaGet = (path) => supaFetch(path);
-const supaPatch = (path, body) =>
-  supaFetch(path, { method: "PATCH", body: JSON.stringify(body), prefer: "return=minimal" });
+const supaGet = (path, token = null) => supaFetch(path, {}, token);
+const supaPatch = (path, body, token = null) =>
+  supaFetch(path, { method: "PATCH", body: JSON.stringify(body), prefer: "return=minimal" }, token);
+
+const supaSignIn = async (email, password) => {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.message || "Credenciales incorrectas");
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    restaurant_id: data.user?.user_metadata?.restaurant_id || null,
+    email: data.user?.email,
+    expires_at: Date.now() + (data.expires_in || 3600) * 1000,
+  };
+};
 
 const STATUS_UI = { received: "Recibido", preparing: "Preparando", ready: "Listo para servir", served: "Servido", pending: "Pendiente" };
 const STATUS_DB = { "Recibido": "received", "Preparando": "preparing", "Listo para servir": "ready", "Servido": "served" };
@@ -300,7 +318,7 @@ function statusBadge(status) {
   return "";
 }
 
-function useBackofficeState() {
+function useBackofficeState(authToken = null) {
   const [orders, setOrders] = useState(ORDERS);
   const [calls, setCalls] = useState(CALLS);
   const [messages, setMessages] = useState(CLIENT_MESSAGES);
@@ -316,8 +334,8 @@ function useBackofficeState() {
     const poll = async () => {
       try {
         const [rawOrders, rawCalls] = await Promise.all([
-          supaGet("orders?restaurant_id=eq.holu&status=neq.served&select=*,order_items(*)&order=created_at.desc&limit=50"),
-          supaGet("calls?restaurant_id=eq.holu&status=neq.Atendido&select=*&order=created_at.desc"),
+          supaGet("orders?status=neq.served&select=*,order_items(*)&order=created_at.desc&limit=50", authToken),
+          supaGet("calls?status=neq.Atendido&select=*&order=created_at.desc", authToken),
         ]);
         if (Array.isArray(rawOrders)) setOrders(rawOrders.length > 0 ? rawOrders.map(dbOrderToUI) : ORDERS);
         if (Array.isArray(rawCalls)) setCalls(rawCalls.length > 0 ? rawCalls.map(dbCallToUI) : CALLS);
@@ -328,12 +346,12 @@ function useBackofficeState() {
     poll();
     const t = setInterval(poll, 8000);
     return () => clearInterval(t);
-  }, []);
+  }, [authToken]);
 
   const attendCall = async (id, actor) => {
     setCalls((rows) => rows.map((c) => c.id === id ? { ...c, status: `Atendido por ${actor}` } : c));
     if (SUPABASE_ANON_KEY) {
-      try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Atendido" }); }
+      try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Atendido" }, authToken); }
       catch (e) { console.error("[holu admin] attendCall:", e.message); }
     }
   };
@@ -341,9 +359,9 @@ function useBackofficeState() {
     setMessages((rows) => rows.map((m) => m.id === id ? { ...m, status: `resuelto por ${actor}` } : m));
   };
   const updateOrderStatus = async (id, uiStatus) => {
-    setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta: uiStatus === "Servido" ? 0 : o.eta } : o));
+    setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta_minutes: uiStatus === "Servido" ? 0 : o.eta_minutes } : o));
     if (SUPABASE_ANON_KEY && STATUS_DB[uiStatus]) {
-      try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }); }
+      try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }, authToken); }
       catch (e) { console.error("[holu admin] updateOrderStatus:", e.message); }
     }
   };
@@ -396,7 +414,7 @@ function useBackofficeState() {
   return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter };
 }
 
-function Layout({ role, setRole, staffId, setStaffId, tab, setTab, children }) {
+function Layout({ role, setRole, staffId, setStaffId, tab, setTab, onLogout, children }) {
   const currentStaff = getStaff(staffId);
   const adminTabs = [
     ["dashboard", "Resumen", icons.dashboard],
@@ -439,6 +457,7 @@ function Layout({ role, setRole, staffId, setStaffId, tab, setTab, children }) {
       </div>
       <nav className="nav">{tabs.map(([id, label, ic]) => <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{ic}<span>{label}</span></button>)}</nav>
       <div className="side-footer">Conectado a QR de mesas, cocina y panel de cliente. El rol Camarero no accede a ventas ni configuración financiera.</div>
+      {onLogout && <button className="btn ghost" style={{width:"100%",marginTop:10,fontSize:12}} onClick={onLogout}>Cerrar sesión</button>}
     </aside>
     <div className="mobile-top">{tabs.map(([id, label]) => <button className={`btn ${tab === id ? "primary" : "ghost"}`} key={id} onClick={() => setTab(id)}>{label}</button>)}</div>
     <main className="main">{children}</main>
@@ -790,6 +809,35 @@ POST /inventory/update
 POST /qr/regenerate</pre></div></div></div>;
 }
 
+function SessionLogin({ onAuth }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError("");
+    try { onAuth(await supaSignIn(email, password)); }
+    catch (err) { setError(err.message); setLoading(false); }
+  };
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#070604", gap:28, padding:20 }}>
+      <style>{CSS}</style>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:38, letterSpacing:".14em", color:"#f7d37b" }}>HOLU</div>
+        <div style={{ color:"var(--muted)", fontSize:11, letterSpacing:".22em", marginTop:6 }}>BACKOFFICE</div>
+      </div>
+      <form onSubmit={submit} style={{ width:"min(380px,100%)", display:"flex", flexDirection:"column", gap:12 }}>
+        <div className="field"><label>Correo del restaurante</label><input className="input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@mirestaurante.cl" required autoFocus /></div>
+        <div className="field"><label>Contraseña</label><input className="input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required /></div>
+        {error && <div style={{ color:"var(--red2)", fontSize:13, textAlign:"center", padding:"6px 0" }}>{error}</div>}
+        <button className="btn primary" type="submit" disabled={loading} style={{ marginTop:4 }}>{loading ? "Verificando..." : "Ingresar"}</button>
+      </form>
+      <p style={{ color:"var(--dim)", fontSize:12, textAlign:"center", margin:0 }}>¿Sin cuenta? Regístrate en holu.app</p>
+    </div>
+  );
+}
+
 function PinGate({ onAuth }) {
   const [digits, setDigits] = useState("");
   const [error, setError] = useState(false);
@@ -834,13 +882,19 @@ function PinGate({ onAuth }) {
 }
 
 export default function HoluAdmin() {
+  const [session, setSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("holu:session") || "null"); } catch { return null; }
+  });
   const [authed, setAuthed] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem("holu:staff") || "null"); } catch { return null; }
+    try {
+      const staff = JSON.parse(sessionStorage.getItem("holu:staff") || "null");
+      return staff && session ? staff : null;
+    } catch { return null; }
   });
   const [role, setRole] = useState(authed?.role || "camarero");
   const [staffId, setStaffId] = useState(authed?.id || "w1");
   const [tab, setTab] = useState("dashboard");
-  const state = useBackofficeState();
+  const state = useBackofficeState(session?.access_token || null);
   const safeTab = role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab;
 
   // useMemo MUST be before any conditional return (Rules of Hooks)
@@ -862,16 +916,30 @@ export default function HoluAdmin() {
     }
   }, [safeTab, role, staffId, state]);
 
-  const handleAuth = (staff) => {
+  const handleSessionAuth = (sess) => {
+    try { localStorage.setItem("holu:session", JSON.stringify(sess)); } catch {}
+    setSession(sess);
+  };
+
+  const handleStaffAuth = (staff) => {
     try { sessionStorage.setItem("holu:staff", JSON.stringify(staff)); } catch {}
     setAuthed(staff);
     setRole(staff.role);
     setStaffId(staff.id);
   };
 
-  if (!authed) return <PinGate onAuth={handleAuth} />;
+  const handleLogout = () => {
+    try { localStorage.removeItem("holu:session"); sessionStorage.removeItem("holu:staff"); } catch {}
+    setSession(null);
+    setAuthed(null);
+    setRole("camarero");
+    setStaffId("w1");
+  };
 
-  return <Layout role={role} setRole={setRole} staffId={staffId} setStaffId={setStaffId} tab={safeTab} setTab={setTab}>
+  if (!session) return <SessionLogin onAuth={handleSessionAuth} />;
+  if (!authed) return <PinGate onAuth={handleStaffAuth} />;
+
+  return <Layout role={role} setRole={setRole} staffId={staffId} setStaffId={setStaffId} tab={safeTab} setTab={setTab} onLogout={handleLogout}>
     <Topbar role={role} staffId={staffId} setStaffId={setStaffId} />
     {content}
   </Layout>;

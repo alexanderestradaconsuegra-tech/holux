@@ -12,9 +12,11 @@ const getEnv = (key, fallback = "") => {
 };
 
 const N8N_BASE = getEnv("VITE_N8N_WEBHOOK_BASE", "").replace(/\/+$/, "");
-const RESTAURANT_ID = "holu";
+const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
+const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "");
 
 const QR_FALLBACK = "A7K92";
+const FALLBACK_RESTAURANT_ID = "holu";
 const getQrToken = () => {
   try {
     const url = new URL(window.location.href);
@@ -23,15 +25,32 @@ const getQrToken = () => {
 };
 
 const QR_TABLES = {
-  A7K92: { tableId: 7, tableLabel: "Mesa 7", zone: "Salón", restaurantId: RESTAURANT_ID, active: true },
-  B2M18: { tableId: 2, tableLabel: "Mesa 2", zone: "Terraza", restaurantId: RESTAURANT_ID, active: true },
-  VIP09: { tableId: 9, tableLabel: "Mesa VIP 9", zone: "Privado", restaurantId: RESTAURANT_ID, active: true },
+  A7K92: { tableId: 7, tableLabel: "Mesa 7", zone: "Salón", restaurantId: FALLBACK_RESTAURANT_ID, active: true },
+  B2M18: { tableId: 2, tableLabel: "Mesa 2", zone: "Terraza", restaurantId: FALLBACK_RESTAURANT_ID, active: true },
+  VIP09: { tableId: 9, tableLabel: "Mesa VIP 9", zone: "Privado", restaurantId: FALLBACK_RESTAURANT_ID, active: true },
 };
 
 const FALLBACK_CONTEXT = { ...QR_TABLES[QR_FALLBACK], qrToken: QR_FALLBACK };
 const resolveQrContext = async (qrToken) => {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/tables?qr_token=eq.${encodeURIComponent(qrToken)}&select=table_number,label,zone,active,restaurant_id&limit=1`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const row = rows[0];
+          return { tableId: row.table_number, tableLabel: row.label || `Mesa ${row.table_number}`, zone: row.zone || "", restaurantId: row.restaurant_id, active: row.active !== false, qrToken };
+        }
+      }
+    } catch (e) {
+      console.warn("[holu mesa] QR lookup failed, using fallback:", e.message);
+    }
+  }
   await wait(450);
-  return { ...(QR_TABLES[qrToken] || { tableId: 0, tableLabel: "QR no registrado", zone: "", restaurantId: RESTAURANT_ID, active: false }), qrToken };
+  return { ...(QR_TABLES[qrToken] || { tableId: 0, tableLabel: "QR no registrado", zone: "", restaurantId: FALLBACK_RESTAURANT_ID, active: false }), qrToken };
 };
 
 const RESTAURANT = {
@@ -56,7 +75,7 @@ const WEBHOOKS = {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const postWebhook = async (event, payload) => {
+const postWebhook = async (event, payload, restaurantId = FALLBACK_RESTAURANT_ID) => {
   const url = WEBHOOKS[event];
   if (!url) {
     await wait(650);
@@ -67,7 +86,7 @@ const postWebhook = async (event, payload) => {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, restaurant_id: RESTAURANT_ID }),
+      body: JSON.stringify({ ...payload, restaurant_id: restaurantId }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res;
@@ -168,7 +187,7 @@ function useTableSession(qrContext, sessionId) {
   const removeItem = (id) => setCart((c) => { const next = { ...c }; if (!next[id]) return next; next[id].qty -= 1; if (next[id].qty <= 0) delete next[id]; return next; });
   const submitOrder = async (note = "") => {
     const items = Object.values(cart); if (!items.length) return null;
-    await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })), total: items.reduce((s, i) => s + i.price * i.qty, 0) });
+    await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })), total: items.reduce((s, i) => s + i.price * i.qty, 0) }, qrContext.restaurantId);
     const newOrder = { id: `ORD-${Math.floor(1000 + Math.random() * 8999)}`, createdAt: Date.now(), eta: 18, status: "received", items };
     setOrders((o) => [newOrder, ...o]); setCart({});
     setTimeout(() => setOrders((o) => o.map((x) => x.id === newOrder.id ? { ...x, status: "prep", eta: 14 } : x)), 1800);
@@ -186,7 +205,7 @@ function useTableSession(qrContext, sessionId) {
   };
   const callWaiter = async (reason = "Atención solicitada") => {
     setWaiterState("calling");
-    await postWebhook("camarero", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, call_type: toCallType(reason), message: reason });
+    await postWebhook("camarero", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, call_type: toCallType(reason), message: reason }, qrContext.restaurantId);
     setWaiterState("sent"); setTimeout(() => setWaiterState("idle"), 3500);
   };
   return { cart, orders, waiterState, addItem, removeItem, submitOrder, callWaiter };
@@ -231,7 +250,7 @@ function Bill({ session, qrContext = FALLBACK_CONTEXT }) {
   const tip = Math.round(subtotal * 0.1); const total = subtotal + tip;
   const requestPayment = async () => {
     setPaying(true);
-    await postWebhook("bill", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: null });
+    await postWebhook("bill", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: null }, qrContext.restaurantId);
     await session.callWaiter("Cliente solicita cobro presencial en mesa");
     setPaying(false);
     alert("Solicitud enviada. El camarero irá a la mesa para el cobro.");
@@ -242,7 +261,7 @@ function Bill({ session, qrContext = FALLBACK_CONTEXT }) {
 function Feedback({ qrContext = FALLBACK_CONTEXT }) {
   const [rating, setRating] = useState(5); const [comment, setComment] = useState(""); const [sent, setSent] = useState(false);
   const submitFeedback = async () => {
-    await postWebhook("feedback", { table_id: qrContext.tableId, rating: Number(rating), comment: comment || null, source: "table_qr" });
+    await postWebhook("feedback", { table_id: qrContext.tableId, rating: Number(rating), comment: comment || null, source: "table_qr" }, qrContext.restaurantId);
     setSent(true);
   };
   return <main className="screen fade"><Header title="Reseña" /><section className="review-card glass"><div className="section-title" style={{ display: "block", textAlign: "center", margin: 0 }}><h2>¿Qué tal estuvo?</h2><span>Tu opinión ayuda al restaurante a mejorar.</span></div><div className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} className={`star-btn ${n <= rating ? "on" : ""}`} onClick={() => setRating(n)}>{icons.star}</button>)}</div><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 96, border: "1px solid rgba(255,255,255,.12)" }} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comentario opcional..." /><button className="btn primary" style={{ width: "100%", marginTop: 12 }} onClick={submitFeedback}>{sent ? "Reseña enviada ✓" : "Enviar valoración"}</button><button className="btn ghost" style={{ width: "100%", marginTop: 10 }} onClick={() => window.open(RESTAURANT.googleReviewUrl, "_blank")}>Dejar reseña en Google</button></section></main>;
