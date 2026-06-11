@@ -413,7 +413,7 @@ function useBackofficeState(authToken = null) {
   };
   const cobrarMesa = async (tableId, callId, method, tipAccepted, total, tipAmt, staffUserId) => {
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, status: "Libre", bill: 0, tipAccepted: false, tipAmount: 0, guests: 0, waiterId: null } : t));
-    if (callId) setCalls((rows) => rows.filter((c) => c.id !== callId));
+    setCalls((rows) => rows.filter((c) => c.table !== tableId));
     const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
     setCashSession((s) => ({
       ...s,
@@ -427,7 +427,7 @@ function useBackofficeState(authToken = null) {
     if (authToken) {
       try {
         await supaPatch(`tables?table_number=eq.${tableId}`, { status: "Libre", bill_total: 0, tip_accepted: false, tip_amount: 0, guests: 0, last_activity_at: new Date().toISOString() }, authToken);
-        if (callId) await supaPatch(`calls?id=eq.${encodeURIComponent(callId)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken);
+        await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken);
       } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
     }
   };
@@ -501,7 +501,7 @@ function Dashboard({ role, staffId, state }) {
       <div className="kpi"><span>{isAdmin ? "Ventas hoy" : "Mensajes cliente"}</span><strong>{isAdmin ? money(salesToday) : pendingMessages.length}</strong><small>{isAdmin ? `Propina 10%: ${money(tipsToday)}` : "Por atender"}</small></div>
     </div>
     <div className="two">
-      <div className="panel"><div className="panel-head"><h2>Prioridad operativa</h2><span className="badge red">Live</span></div><div className="list">{staffCalls.slice(0,4).map((c)=><CallRow key={c.id} call={c} state={state} actor={getStaff(staffId).name} />)}</div></div>
+      <div className="panel"><div className="panel-head"><h2>Prioridad operativa</h2><span className="badge red">Live</span></div><div className="list">{staffCalls.slice(0,4).map((c)=><CallRow key={c.id} call={c} state={state} actor={getStaff(staffId).name} staffId={staffId} />)}</div></div>
       <div className="panel"><div className="panel-head"><h2>Mensajes del cliente</h2><span className="badge">QR</span></div><div className="list">{pendingMessages.slice(0,4).map((m)=><MessageCard key={m.id} msg={m} state={state} actor={getStaff(staffId).name} compact />)}</div></div>
     </div>
     <div className="panel"><div className="panel-head"><h2>Estado de platos</h2><span className="badge blue">Cocina</span></div><div className="list">{staffOrders.map((o)=><OrderRow key={o.id} order={o} state={state} />)}</div></div>
