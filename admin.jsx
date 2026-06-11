@@ -48,6 +48,18 @@ const supaGet = (path, token = null) => supaFetch(path, {}, token);
 const supaPatch = (path, body, token = null) =>
   supaFetch(path, { method: "PATCH", body: JSON.stringify(body), prefer: "return=minimal" }, token);
 
+const supaUploadImage = async (file, token) => {
+  const ext = file.name.split(".").pop().toLowerCase();
+  const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/menu-images/${name}`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": file.type },
+    body: file,
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(`Upload failed: ${t.slice(0, 100)}`); }
+  return `${SUPABASE_URL}/storage/v1/object/public/menu-images/${name}`;
+};
+
 const supaSignIn = async (email, password) => {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: "POST",
@@ -433,7 +445,7 @@ function useBackofficeState(authToken = null) {
       } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
     }
   };
-  return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
+  return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
 function Layout({ role, staffId, tab, setTab, onLogout, children }) {
@@ -856,18 +868,95 @@ function MenuView({ state }) {
   const [editing, setEditing] = useState(null);
   const openNew = () => setEditing({ id: `dish-${Date.now()}`, dish: "", category: "Principales", description: "", price: 0, avgPrep: 15, stock: "OK", available: true, visibleClient: true, tags: "", imageUrl: "" });
   const visibleClient = state.menuItems.filter((d) => d.available && d.visibleClient);
-  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><div><h2>Carta operativa</h2><p style={{margin:"4px 0 0"}}>Admin crea/edita platos. Lo visible aparece en el sistema del cliente QR.</p></div><button className="btn primary" onClick={openNew}>Nuevo plato</button></div><div className="list">{state.menuItems.map((d)=><div className="row" key={d.id}><span className={`badge ${d.available ? "green" : "red"}`}>{d.available ? "Activo" : "Oculto"}</span><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div className="row-main"><b>{d.dish}</b><small>{d.category} · {money(d.price)} · Prep {d.avgPrep} min · Tags: {d.tags || "—"}</small><small>{d.description}</small></div><div style={{display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end"}}><button className="btn ghost" onClick={()=>setEditing(d)}>Editar</button><button className="btn ghost" onClick={()=>state.toggleMenuAvailability(d.id)}>{d.available ? "Desactivar" : "Activar"}</button><button className="btn danger" onClick={()=>state.deleteMenuItem(d.id)}>Eliminar</button></div></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Vista cliente QR</h2><span className="badge blue">Sincronizada</span></div><div className="preview-phone">{visibleClient.length ? visibleClient.map((d)=><div className="client-dish" key={d.id}><div style={{display:"flex", gap:12}}><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div style={{flex:1}}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h4>{d.dish}</h4><b className="price">{money(d.price)}</b></div><p>{d.description}</p><small style={{color:"var(--gold2)",fontWeight:900}}>{d.category} · {d.avgPrep} min</small></div></div></div>) : <p style={{color:"var(--muted)"}}>No hay platos visibles para el cliente.</p>}</div></div></div>{editing && <MenuEditor item={editing} onClose={()=>setEditing(null)} onSave={(item)=>{ state.saveMenuItem(item); setEditing(null); }} />}</div>;
+  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><div><h2>Carta operativa</h2><p style={{margin:"4px 0 0"}}>Admin crea/edita platos. Lo visible aparece en el sistema del cliente QR.</p></div><button className="btn primary" onClick={openNew}>Nuevo plato</button></div><div className="list">{state.menuItems.map((d)=><div className="row" key={d.id}><span className={`badge ${d.available ? "green" : "red"}`}>{d.available ? "Activo" : "Oculto"}</span><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div className="row-main"><b>{d.dish}</b><small>{d.category} · {money(d.price)} · Prep {d.avgPrep} min · Tags: {d.tags || "—"}</small><small>{d.description}</small></div><div style={{display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end"}}><button className="btn ghost" onClick={()=>setEditing(d)}>Editar</button><button className="btn ghost" onClick={()=>state.toggleMenuAvailability(d.id)}>{d.available ? "Desactivar" : "Activar"}</button><button className="btn danger" onClick={()=>state.deleteMenuItem(d.id)}>Eliminar</button></div></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Vista cliente QR</h2><span className="badge blue">Sincronizada</span></div><div className="preview-phone">{visibleClient.length ? visibleClient.map((d)=><div className="client-dish" key={d.id}><div style={{display:"flex", gap:12}}><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div style={{flex:1}}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h4>{d.dish}</h4><b className="price">{money(d.price)}</b></div><p>{d.description}</p><small style={{color:"var(--gold2)",fontWeight:900}}>{d.category} · {d.avgPrep} min</small></div></div></div>) : <p style={{color:"var(--muted)"}}>No hay platos visibles para el cliente.</p>}</div></div></div>{editing && <MenuEditor item={editing} authToken={state.authToken} onClose={()=>setEditing(null)} onSave={(item)=>{ state.saveMenuItem(item); setEditing(null); }} />}</div>;
 }
 
-function MenuEditor({ item, onClose, onSave }) {
+function MenuEditor({ item, onClose, onSave, authToken }) {
   const [form, setForm] = useState(item);
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState("");
+  const fileRef = useRef(null);
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadErr("");
+    try {
+      const url = await supaUploadImage(file, authToken || SUPABASE_ANON_KEY);
+      update("imageUrl", url);
+    } catch (err) {
+      setUploadErr(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const submit = () => {
     if (!form.dish.trim()) return alert("Nombre del plato requerido");
     if (!Number(form.price)) return alert("Precio requerido");
     onSave({ ...form, price: Number(form.price), avgPrep: Number(form.avgPrep || 0) });
   };
-  return <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>{item.dish ? "Editar plato" : "Nuevo plato"}</h2><p style={{margin:"4px 0 0"}}>Estos datos alimentan la carta del cliente QR y la operación de cocina.</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="two" style={{gridTemplateColumns:".8fr 1.2fr", marginBottom:12}}><div className="image-upload"><img className="dish-thumb big" src={form.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt="Preview plato" /><div className="field"><label>Imagen del plato</label><input className="input" value={form.imageUrl || ""} onChange={(e)=>update("imageUrl", e.target.value)} placeholder="URL de imagen o CDN" /></div><div className="image-actions"><button className="btn ghost" onClick={()=>update("imageUrl", "https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=900&auto=format&fit=crop")}>Pasta</button><button className="btn ghost" onClick={()=>update("imageUrl", "https://images.unsplash.com/photo-1535400255456-984241443b29?q=80&w=900&auto=format&fit=crop")}>Pescado</button><button className="btn ghost" onClick={()=>update("imageUrl", "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?q=80&w=900&auto=format&fit=crop")}>Postre</button></div><small style={{color:"var(--muted)"}}>En producción aquí sería upload a S3/Supabase Storage/Cloudinary y se guarda la URL en BD.</small></div><div><div className="form-grid"><div className="field"><label>Nombre</label><input className="input" value={form.dish} onChange={(e)=>update("dish", e.target.value)} placeholder="Ej: Ravioli al Limone" /></div><div className="field"><label>Categoría</label><select className="input" value={form.category} onChange={(e)=>update("category", e.target.value)}><option>Entradas</option><option>Principales</option><option>Postres</option><option>Bebidas</option><option>Promos</option></select></div><div className="field"><label>Precio</label><input className="input" type="number" value={form.price} onChange={(e)=>update("price", e.target.value)} /></div><div className="field"><label>Tiempo prep min</label><input className="input" type="number" value={form.avgPrep} onChange={(e)=>update("avgPrep", e.target.value)} /></div><div className="field"><label>Stock</label><select className="input" value={form.stock} onChange={(e)=>update("stock", e.target.value)}><option>OK</option><option>Bajo</option><option>Agotado</option></select></div><div className="field"><label>Tags</label><input className="input" value={form.tags} onChange={(e)=>update("tags", e.target.value)} placeholder="TOP,CHEF,Sin gluten" /></div></div><div className="field" style={{marginTop:10}}><label>Descripción visible en cliente</label><textarea className="textarea" value={form.description} onChange={(e)=>update("description", e.target.value)} /></div></div></div><div style={{display:"flex", gap:14, flexWrap:"wrap", margin:"14px 0"}}><label className="toggle"><input type="checkbox" checked={form.available} onChange={(e)=>update("available", e.target.checked)} /> Activo en carta</label><label className="toggle"><input type="checkbox" checked={form.visibleClient} onChange={(e)=>update("visibleClient", e.target.checked)} /> Visible para cliente QR</label></div><div style={{display:"flex", gap:10, justifyContent:"flex-end"}}><button className="btn ghost" onClick={onClose}>Cancelar</button><button className="btn primary" onClick={submit}>Guardar y publicar</button></div></div></div>;
+
+  const placeholder = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop";
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal">
+        <div className="panel-head">
+          <div><h2>{item.dish ? "Editar plato" : "Nuevo plato"}</h2><p style={{ margin: "4px 0 0" }}>Estos datos alimentan la carta del cliente QR y la operación de cocina.</p></div>
+          <button className="btn ghost" onClick={onClose}>Cerrar</button>
+        </div>
+        <div className="two" style={{ gridTemplateColumns: ".8fr 1.2fr", marginBottom: 12 }}>
+          <div className="image-upload">
+            <img className="dish-thumb big" src={form.imageUrl || placeholder} alt="Preview plato" />
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={handleFile} />
+            <button
+              className={`btn ${uploading ? "ghost" : "primary"}`}
+              style={{ width: "100%", marginTop: 10 }}
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+            >
+              {uploading ? "Subiendo…" : "Subir foto desde dispositivo"}
+            </button>
+            {uploadErr && <small style={{ color: "var(--red2)", display: "block", marginTop: 6 }}>{uploadErr}</small>}
+            {form.imageUrl && (
+              <button className="btn ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => update("imageUrl", "")}>
+                Quitar imagen
+              </button>
+            )}
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>O pega URL directamente</label>
+              <input className="input" value={form.imageUrl || ""} onChange={(e) => update("imageUrl", e.target.value)} placeholder="https://..." />
+            </div>
+          </div>
+          <div>
+            <div className="form-grid">
+              <div className="field"><label>Nombre</label><input className="input" value={form.dish} onChange={(e) => update("dish", e.target.value)} placeholder="Ej: Ravioli al Limone" /></div>
+              <div className="field"><label>Categoría</label><select className="input" value={form.category} onChange={(e) => update("category", e.target.value)}><option>Entradas</option><option>Principales</option><option>Postres</option><option>Bebidas</option><option>Promos</option></select></div>
+              <div className="field"><label>Precio</label><input className="input" type="number" value={form.price} onChange={(e) => update("price", e.target.value)} /></div>
+              <div className="field"><label>Tiempo prep (min)</label><input className="input" type="number" value={form.avgPrep} onChange={(e) => update("avgPrep", e.target.value)} /></div>
+              <div className="field"><label>Stock</label><select className="input" value={form.stock} onChange={(e) => update("stock", e.target.value)}><option>OK</option><option>Bajo</option><option>Agotado</option></select></div>
+              <div className="field"><label>Tags</label><input className="input" value={form.tags} onChange={(e) => update("tags", e.target.value)} placeholder="TOP,CHEF,Sin gluten" /></div>
+            </div>
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>Descripción visible en cliente</label>
+              <textarea className="textarea" value={form.description} onChange={(e) => update("description", e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", margin: "14px 0" }}>
+          <label className="toggle"><input type="checkbox" checked={form.available} onChange={(e) => update("available", e.target.checked)} /> Activo en carta</label>
+          <label className="toggle"><input type="checkbox" checked={form.visibleClient} onChange={(e) => update("visibleClient", e.target.checked)} /> Visible para cliente QR</label>
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="btn ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn primary" onClick={submit} disabled={uploading}>Guardar y publicar</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ReviewsView({ role, staffId }) {
