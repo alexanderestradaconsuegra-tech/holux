@@ -414,7 +414,7 @@ function useBackofficeState(authToken = null) {
   return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter };
 }
 
-function Layout({ role, setRole, staffId, setStaffId, tab, setTab, onLogout, children }) {
+function Layout({ role, staffId, tab, setTab, onLogout, children }) {
   const currentStaff = getStaff(staffId);
   const adminTabs = [
     ["dashboard", "Resumen", icons.dashboard],
@@ -441,19 +441,12 @@ function Layout({ role, setRole, staffId, setStaffId, tab, setTab, onLogout, chi
     ["reviews", "Reseñas", icons.star],
   ];
   const tabs = role === "admin" ? adminTabs : waiterTabs;
-  const changeRole = (nextRole) => {
-    setRole(nextRole);
-    setTab("dashboard");
-    if (nextRole === "admin") setStaffId("a1");
-    if (nextRole === "camarero") setStaffId("w1");
-  };
   return <div className="app">
     <style>{CSS}</style>
     <aside className="sidebar">
       <div className="brand">{RESTAURANT.name}<small>BACKOFFICE</small></div>
       <div className="role-card">
         <div style={{display:"flex", gap:10, alignItems:"center"}}><StaffAvatar staff={currentStaff} /><div><b>{currentStaff.name}</b><small style={{display:"block", color:"var(--muted)", marginTop:3}}>{role === "admin" ? "Administrador" : "Camarero"}</small></div></div>
-        <div className="role-switch"><button className={role === "camarero" ? "on" : ""} onClick={() => changeRole("camarero")}>Camarero</button><button className={role === "admin" ? "on" : ""} onClick={() => changeRole("admin")}>Admin</button></div>
       </div>
       <nav className="nav">{tabs.map(([id, label, ic]) => <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{ic}<span>{label}</span></button>)}</nav>
       <div className="side-footer">Conectado a QR de mesas, cocina y panel de cliente. El rol Camarero no accede a ventas ni configuración financiera.</div>
@@ -464,12 +457,11 @@ function Layout({ role, setRole, staffId, setStaffId, tab, setTab, onLogout, chi
   </div>;
 }
 
-function Topbar({ role, staffId, setStaffId }) {
-  const staffOptions = role === "admin" ? STAFF : STAFF.filter((s) => s.role === "camarero");
+function Topbar({ role, staffId }) {
   const current = getStaff(staffId);
   return <div className="topbar">
     <div className="title"><h1>{role === "admin" ? "Control total del restaurante" : "Operación de camarero"}</h1><p>{RESTAURANT.location} · Servicio {RESTAURANT.service}</p></div>
-    <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{current.shift}</small></div><select className="select" value={staffId} onChange={(e)=>setStaffId(e.target.value)}>{staffOptions.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+    <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{role === "admin" ? "Administrador" : "Camarero"} · {current.shift}</small></div></div>
   </div>;
 }
 
@@ -538,10 +530,17 @@ function OrderDetail({ order, state, role }) {
 
 function CallsView({ role, staffId, state }) {
   const visible = state.calls.filter((c) => role === "admin" || c.waiterId === staffId);
-  const mesa = visible.filter((c)=>c.source === "mesa");
-  const cocina = visible.filter((c)=>c.source === "cocina");
+  const cobro = visible.filter((c) => c.type === "Cuenta" || c.type === "Solicita cobro");
+  const mesa = visible.filter((c) => c.source === "mesa" && c.type !== "Cuenta" && c.type !== "Solicita cobro");
+  const cocina = visible.filter((c) => c.source === "cocina");
   const actor = getStaff(staffId).name;
-  return <div className="two"><div className="panel"><div className="panel-head"><h2>Llamados de mesa</h2><span className="badge">Cliente QR</span></div><div className="list">{mesa.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>)}</div></div><div className="panel"><div className="panel-head"><h2>Llamados de cocina</h2><span className="badge red">Cocina</span></div><div className="list">{cocina.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>)}</div></div></div>;
+  return <div className="grid">
+    {cobro.length > 0 && <div className="panel" style={{border:"1px solid rgba(247,211,123,.35)",background:"linear-gradient(145deg,rgba(247,211,123,.10),rgba(255,255,255,.025))"}}><div className="panel-head"><h2>Solicitudes de cobro</h2><span className="badge" style={{background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#171006"}}>{cobro.length}</span></div><div className="list">{cobro.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>)}</div></div>}
+    <div className="two">
+      <div className="panel"><div className="panel-head"><h2>Llamados de mesa</h2><span className="badge">Cliente QR</span></div><div className="list">{mesa.length ? mesa.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>) : <div style={{color:"var(--dim)",fontSize:13,padding:"8px 0"}}>Sin llamados activos.</div>}</div></div>
+      <div className="panel"><div className="panel-head"><h2>Llamados de cocina</h2><span className="badge red">Cocina</span></div><div className="list">{cocina.length ? cocina.map((c)=><CallRow key={c.id} call={c} state={state} actor={actor}/>) : <div style={{color:"var(--dim)",fontSize:13,padding:"8px 0"}}>Sin llamados activos.</div>}</div></div>
+    </div>
+  </div>;
 }
 
 function CallRow({ call, state, actor }) {
@@ -939,8 +938,8 @@ export default function HoluAdmin() {
   if (!session) return <SessionLogin onAuth={handleSessionAuth} />;
   if (!authed) return <PinGate onAuth={handleStaffAuth} />;
 
-  return <Layout role={role} setRole={setRole} staffId={staffId} setStaffId={setStaffId} tab={safeTab} setTab={setTab} onLogout={handleLogout}>
-    <Topbar role={role} staffId={staffId} setStaffId={setStaffId} />
+  return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout}>
+    <Topbar role={role} staffId={staffId} />
     {content}
   </Layout>;
 }
