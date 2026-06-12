@@ -146,6 +146,7 @@ const STAFF = [
   { id: "w2", name: "Isabella", pin: "2222", role: "camarero", shift: "18:00–00:00", status: "Activo", tables: [3, 4, 9], avatar: "I", photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop", phone: "+56 9 3333 4444", email: "isabella@holu.cl" },
   { id: "w3", name: "Tomás", pin: "3333", role: "camarero", shift: "19:00–01:00", status: "Pausa", tables: [5], avatar: "T", photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop", phone: "+56 9 5555 6666", email: "tomas@holu.cl" },
   { id: "a1", name: "Valentina", pin: "0000", role: "admin", shift: "Full", status: "Activo", tables: [], avatar: "V", photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop", phone: "+56 9 7777 8888", email: "valentina@holu.cl" },
+  { id: "k1", name: "Cocina", pin: "5555", role: "cocina", shift: "Full", status: "Activo", tables: [], avatar: "K", photoUrl: "", phone: "", email: "" },
 ];
 
 const TABLES = [
@@ -466,6 +467,18 @@ function useBackofficeState(authToken = null) {
 
 function Layout({ role, staffId, tab, setTab, onLogout, children }) {
   const currentStaff = getStaff(staffId);
+
+  if (role === "cocina") return (
+    <div style={{ minHeight: "100dvh", background: "#050403", display: "flex", flexDirection: "column" }}>
+      <style>{CSS}</style>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 22px", borderBottom: "1px solid rgba(255,255,255,.09)", background: "rgba(10,8,6,.92)", position: "sticky", top: 0, zIndex: 10 }}>
+        <div style={{ fontFamily: "'Playfair Display',serif", color: "#f7d37b", fontSize: 24, letterSpacing: ".1em" }}>HOLU · <span style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: "#bfae9d", letterSpacing: 0 }}>Pantalla Cocina</span></div>
+        <button className="btn ghost" style={{ fontSize: 12 }} onClick={onLogout}>Salir</button>
+      </div>
+      <div style={{ flex: 1, padding: "18px" }}>{children}</div>
+    </div>
+  );
+
   const adminTabs = [
     ["dashboard", "Resumen", icons.dashboard],
     ["tables", "Mesas", icons.table],
@@ -712,19 +725,52 @@ function MessageCard({ msg, state, actor, compact = false }) {
 
 function KitchenView({ state }) {
   const columns = {
-    received: state.orders.filter((o)=>o.status.includes("Recibido")),
-    preparing: state.orders.filter((o)=>o.status.includes("Preparando") || o.status.includes("Cocina")),
-    ready: state.orders.filter((o)=>o.status.includes("Listo")),
-    delivered: state.orders.filter((o)=>o.status.includes("Servido")),
+    received: state.orders.filter((o) => o.status.includes("Recibido")),
+    preparing: state.orders.filter((o) => o.status.includes("Preparando") || o.status.includes("Cocina")),
+    ready: state.orders.filter((o) => o.status.includes("Listo")),
+    delivered: state.orders.filter((o) => o.status.includes("Servido")),
   };
+  const nextStatus = { received: "Preparando", preparing: "Listo para servir", ready: "Servido" };
+  const readyCount = columns.ready.length;
 
-  const nextStatus = {
-    received: "Preparando",
-    preparing: "Listo para servir",
-    ready: "Servido",
-  };
-
-  return <div className="grid"><div className="panel"><div className="panel-head"><div><h2>Pantalla cocina</h2><p style={{margin:"4px 0 0"}}>Flujo operativo en tiempo real conectado con mesas y camareros.</p></div><span className="badge red">LIVE</span></div><div className="kitchen-board">{Object.entries(KITCHEN_COLUMNS).map(([key,label])=><div className="kitchen-col" key={key}><div className="panel-head"><h2 style={{fontSize:22}}>{label}</h2><span className="badge">{columns[key].length}</span></div>{columns[key].map((o)=><div className="kitchen-ticket" key={o.id}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><h4>{o.id}</h4><span className={`badge ${statusBadge(o.priority)}`}>{o.priority}</span></div><p>Mesa {o.table} · {getStaff(o.waiterId).name}</p><div className="dish-lines">{o.items.map((i,idx)=><div className="dish-line" key={idx}><span>{i.qty}× {i.dish}</span><b>{i.status}</b></div>)}</div><p style={{marginTop:10}}>ETA {o.eta} min</p>{nextStatus[key] && <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={()=>state.updateOrderStatus(o.id,nextStatus[key])}>{nextStatus[key]}</button>}</div>)}</div>)}</div></div></div>;
+  return (
+    <div className="grid">
+      {readyCount > 0 && (
+        <div style={{ background: "linear-gradient(135deg,rgba(52,211,153,.18),rgba(52,211,153,.06))", border: "1px solid rgba(52,211,153,.35)", borderRadius: 18, padding: "14px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 26 }}>🔔</span>
+          <div><b style={{ color: "#34d399", fontSize: 16 }}>{readyCount} plato{readyCount > 1 ? "s" : ""} listo{readyCount > 1 ? "s" : ""} para servir</b><div style={{ color: "#bfae9d", fontSize: 13, marginTop: 2 }}>Avisar al camarero para llevar a la mesa</div></div>
+        </div>
+      )}
+      <div className="panel">
+        <div className="panel-head"><div><h2>Pantalla cocina</h2><p style={{ margin: "4px 0 0" }}>Flujo en tiempo real · actualiza cada 8s</p></div><span className="badge red">LIVE</span></div>
+        <div className="kitchen-board">
+          {Object.entries(KITCHEN_COLUMNS).map(([key, label]) => (
+            <div className="kitchen-col" key={key}>
+              <div className="panel-head"><h2 style={{ fontSize: 22 }}>{label}</h2><span className={`badge ${key === "ready" && columns[key].length ? "green" : ""}`}>{columns[key].length}</span></div>
+              {columns[key].length === 0 && <div style={{ color: "var(--dim)", fontSize: 13, marginTop: 8, textAlign: "center" }}>Sin pedidos</div>}
+              {columns[key].map((o) => (
+                <div className="kitchen-ticket" key={o.id}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <h4>{o.id}</h4>
+                    <span style={{ color: "var(--gold2)", fontWeight: 900, fontSize: 18 }}>Mesa {o.table}</span>
+                  </div>
+                  <div className="dish-lines" style={{ margin: "8px 0" }}>
+                    {o.items.map((i, idx) => <div className="dish-line" key={idx}><span>{i.qty}× {i.dish}</span></div>)}
+                  </div>
+                  {o.notes && <p style={{ color: "var(--gold2)", fontSize: 12, margin: "6px 0", background: "rgba(217,164,65,.1)", borderRadius: 8, padding: "4px 8px" }}>📝 {o.notes}</p>}
+                  {nextStatus[key] && (
+                    <button className="btn primary" style={{ width: "100%", marginTop: 10 }} onClick={() => state.updateOrderStatus(o.id, nextStatus[key])}>
+                      {nextStatus[key]}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CashCloseReport({ session, userId }) {
@@ -1208,7 +1254,7 @@ export default function HoluAdmin() {
   const [staffId, setStaffId] = useState(authed?.id || "w1");
   const [tab, setTab] = useState("dashboard");
   const state = useBackofficeState(session?.access_token || null);
-  const safeTab = role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab;
+  const safeTab = role === "cocina" ? "kitchen" : (role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab);
 
   // useMemo MUST be before any conditional return (Rules of Hooks)
   const content = useMemo(() => {
