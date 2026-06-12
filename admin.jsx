@@ -48,7 +48,7 @@ const supaFetch = (path, opts = {}, authToken = null) => {
 
 const supaGet = (path, token = null) => supaFetch(path, {}, token);
 const supaPatch = (path, body, token = null) =>
-  supaFetch(path, { method: "PATCH", body: JSON.stringify(body), prefer: "return=minimal" }, token);
+  supaFetch(path, { method: "PATCH", body: JSON.stringify(body) }, token);
 
 const supaUploadImage = async (file, token) => {
   const ext = file.name.split(".").pop().toLowerCase();
@@ -723,12 +723,58 @@ function MessageCard({ msg, state, actor, compact = false }) {
   return <article className={`message-card ${msg.status === "urgente" ? "urgent" : ""}`}><div className="message-top"><div><b>Mesa {msg.table}</b><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{msg.type} · {msg.time} · {getStaff(msg.waiterId).name}</small></div><span className={`badge ${msg.status === "urgente" ? "red" : msg.status === "resuelto" ? "green" : ""}`}>{msg.status}</span></div><blockquote>{msg.text}</blockquote>{!compact && <div style={{display:"flex",gap:8,marginTop:12}}><button className="btn primary" onClick={()=>state.resolveMessage(msg.id, actor)}>Responder/Resolver</button><button className="btn ghost">Asignar</button></div>}</article>;
 }
 
-function KitchenView({ state }) {
+function KitchenView() {
+  const [orders, setOrders] = useState([]);
+  const pendingRef = useRef({});
+
+  const fetchKitchenOrders = async () => {
+    const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/orders?status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      if (!res.ok) return;
+      const rows = await res.json();
+      if (!Array.isArray(rows)) return;
+      const now = Date.now();
+      setOrders((prev) => {
+        const incoming = rows.map(dbOrderToUI);
+        return incoming.map((o) => {
+          const lockedUntil = pendingRef.current[o.id];
+          if (lockedUntil && now < lockedUntil) return prev.find((p) => p.id === o.id) || o;
+          return o;
+        });
+      });
+    } catch (err) {
+      console.error("[holu kitchen] poll:", err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchKitchenOrders();
+    const t = setInterval(fetchKitchenOrders, 6000);
+    return () => clearInterval(t);
+  }, []);
+
+  const advance = async (id, nextUiStatus) => {
+    const dbStatus = STATUS_DB[nextUiStatus];
+    if (!dbStatus) return;
+    pendingRef.current[id] = Date.now() + 15000;
+    setOrders((rows) => nextUiStatus === "Servido" ? rows.filter((o) => o.id !== id) : rows.map((o) => o.id === id ? { ...o, status: nextUiStatus } : o));
+    try {
+      await supaFetch(`orders?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status: dbStatus }) });
+    } catch (e) {
+      console.error("[holu kitchen] advance:", e.message);
+    }
+    setTimeout(() => { delete pendingRef.current[id]; fetchKitchenOrders(); }, 1500);
+  };
+
   const columns = {
-    received: state.orders.filter((o) => o.status.includes("Recibido")),
-    preparing: state.orders.filter((o) => o.status.includes("Preparando") || o.status.includes("Cocina")),
-    ready: state.orders.filter((o) => o.status.includes("Listo")),
-    delivered: state.orders.filter((o) => o.status.includes("Servido")),
+    received: orders.filter((o) => o.status.includes("Recibido")),
+    preparing: orders.filter((o) => o.status.includes("Preparando") || o.status.includes("Cocina")),
+    ready: orders.filter((o) => o.status.includes("Listo")),
+    delivered: orders.filter((o) => o.status.includes("Servido")),
   };
   const nextStatus = { received: "Preparando", preparing: "Listo para servir", ready: "Servido" };
   const readyCount = columns.ready.length;
@@ -742,7 +788,7 @@ function KitchenView({ state }) {
         </div>
       )}
       <div className="panel">
-        <div className="panel-head"><div><h2>Pantalla cocina</h2><p style={{ margin: "4px 0 0" }}>Flujo en tiempo real · actualiza cada 8s</p></div><span className="badge red">LIVE</span></div>
+        <div className="panel-head"><div><h2>Pantalla cocina</h2><p style={{ margin: "4px 0 0" }}>Flujo en tiempo real · actualiza cada 6s</p></div><span className="badge red">LIVE</span></div>
         <div className="kitchen-board">
           {Object.entries(KITCHEN_COLUMNS).map(([key, label]) => (
             <div className="kitchen-col" key={key}>
@@ -759,7 +805,7 @@ function KitchenView({ state }) {
                   </div>
                   {o.notes && <p style={{ color: "var(--gold2)", fontSize: 12, margin: "6px 0", background: "rgba(217,164,65,.1)", borderRadius: 8, padding: "4px 8px" }}>📝 {o.notes}</p>}
                   {nextStatus[key] && (
-                    <button className="btn primary" style={{ width: "100%", marginTop: 10 }} onClick={() => state.updateOrderStatus(o.id, nextStatus[key])}>
+                    <button className="btn primary" style={{ width: "100%", marginTop: 10 }} onClick={() => advance(o.id, nextStatus[key])}>
                       {nextStatus[key]}
                     </button>
                   )}
@@ -1261,7 +1307,7 @@ export default function HoluAdmin() {
     switch (safeTab) {
       case "tables": return <TablesView role={role} staffId={staffId} state={state} />;
       case "orders": return <OrdersView role={role} staffId={staffId} state={state} />;
-      case "kitchen": return <KitchenView state={state} />;
+      case "kitchen": return <KitchenView />;
       case "calls": return <CallsView role={role} staffId={staffId} state={state} />;
       case "messages": return <MessagesView role={role} staffId={staffId} state={state} />;
       case "sales": return <><CashClosingView state={state} staffId={staffId} /><SalesView /></>;
