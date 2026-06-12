@@ -79,8 +79,8 @@ const supaSignIn = async (email, password) => {
   };
 };
 
-const STATUS_UI = { received: "Recibido", preparing: "Preparando", ready: "Listo para servir", served: "Servido", pending: "Pendiente" };
-const STATUS_DB = { "Recibido": "received", "Preparando": "preparing", "Listo para servir": "ready", "Servido": "served" };
+const STATUS_UI = { received: "Recibido", prep: "Preparando", preparing: "Preparando", plating: "Listo para servir", ready: "Listo para servir", served: "Servido", pending: "Pendiente" };
+const STATUS_DB = { "Recibido": "received", "Preparando": "prep", "Listo para servir": "plating", "Servido": "served" };
 
 const timeAgo = (iso) => {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
