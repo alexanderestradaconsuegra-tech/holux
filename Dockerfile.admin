@@ -7,7 +7,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG CACHEBUST=18
+ARG CACHEBUST=19
 RUN cp .env.admin.production .env.production && npm run build
 
 FROM node:20-alpine AS runner

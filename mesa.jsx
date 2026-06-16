@@ -250,10 +250,10 @@ function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
       try {
         const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/orders?table_id=eq.${qrContext.tableId}&status=neq.served&created_at=gte.${since}&select=id,status,eta_minutes,created_at,order_items(dish_name,qty,unit_price,status)&order=created_at.desc&limit=5`,
+          `${SUPABASE_URL}/rest/v1/orders?table_id=eq.${qrContext.tableId}&restaurant_id=eq.holu&status=neq.served&created_at=gte.${since}&select=id,status,eta_minutes,created_at,order_items(dish_name,qty,unit_price,status)&order=created_at.desc&limit=5`,
           { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
         );
-        if (!res.ok) return;
+        if (!res.ok) { console.error("[holu mesa] poll", res.status, await res.text()); return; }
         const rows = await res.json();
         if (!Array.isArray(rows)) return;
         setLiveOrders(rows.map((o) => ({
@@ -263,7 +263,7 @@ function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
           status: normalizeDbStatus(o.status),
           items: (o.order_items || []).map((i) => ({ id: i.dish_name, name: i.dish_name, qty: i.qty, price: i.unit_price })),
         })));
-      } catch {}
+      } catch (err) { console.error("[holu mesa] poll error:", err.message); }
     };
     poll();
     const t = setInterval(poll, 10000);
