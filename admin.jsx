@@ -887,7 +887,7 @@ function InventoryView({ state }) {
   return <div className="grid"><div className="kpis"><div className="kpi"><span>Ingredientes</span><strong>{state.inventory.length}</strong><small>Control operativo</small></div><div className="kpi"><span>Stock bajo</span><strong>{low.length}</strong><small>Ocultar platos si aplica</small></div><div className="kpi"><span>Platos afectados</span><strong>{low.reduce((s,i)=>s+i.linkedDishes.length,0)}</strong><small>Conexión con carta cliente</small></div><div className="kpi"><span>Actualización</span><strong>Live</strong><small>Cocina/Admin</small></div></div><div className="panel"><div className="panel-head"><div><h2>Inventario básico</h2><p style={{margin:"4px 0 0"}}>Cuando un ingrediente queda bajo o agotado, Admin puede ocultar el plato en la carta del cliente.</p></div><span className="badge red">Stock crítico</span></div><div className="list">{state.inventory.map((i)=><div className={`row ${i.status === "Bajo" ? "inventory-low" : ""}`} key={i.id}><span className={`badge ${i.status === "Bajo" ? "red" : "green"}`}>{i.status}</span><div className="row-main"><b>{i.name}</b><small>{i.category} · mínimo {i.min} {i.unit} · afecta: {i.linkedDishes.join(", ")}</small></div><div style={{display:"flex",gap:8,alignItems:"center"}}><input className="input" style={{width:90}} type="number" value={i.stock} onChange={(e)=>state.updateInventoryStock(i.id, e.target.value)} /><strong>{i.unit}</strong></div></div>)}</div></div></div>;
 }
 
-function QRCard({ q, state }) {
+function QRCard({ q, onToggle, onRegenerate, onDelete }) {
   const canvasRef = useRef(null);
   const qrUrl = `${MESA_URL || window.location.origin}/?qr=${q.token}`;
 
@@ -922,14 +922,15 @@ function QRCard({ q, state }) {
     <div className="qr-card-admin">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <h3 style={{ margin: 0 }}>Mesa {q.table}</h3>
-        <span className={`badge ${q.active ? "green" : "red"}`}>{q.active ? "Activo" : "Inactivo"}</span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span className={`badge ${q.active ? "green" : "red"}`}>{q.active ? "Activo" : "Inactivo"}</span>
+        </div>
       </div>
       <div style={{ display: "flex", justifyContent: "center", background: "#fff", borderRadius: 14, padding: 10, margin: "0 0 12px" }}>
         <canvas ref={canvasRef} style={{ borderRadius: 8 }} />
       </div>
       <div className="meta" style={{ marginBottom: 4 }}><span>Zona</span><b>{q.zone}</b></div>
-      <div className="meta" style={{ marginBottom: 4 }}><span>Escaneos</span><b>{q.scans}</b></div>
-      <div className="meta" style={{ marginBottom: 10 }}><span>Último scan</span><b>{q.lastScan}</b></div>
+      <div className="meta" style={{ marginBottom: 4 }}><span>Token</span><b style={{ fontSize: 11, letterSpacing: ".06em" }}>{q.token}</b></div>
       <p style={{ color: "var(--muted)", fontSize: 11, wordBreak: "break-all", margin: "0 0 12px", lineHeight: 1.4 }}>{qrUrl}</p>
       <div style={{ display: "grid", gap: 8 }}>
         <div className="table-actions">
@@ -937,24 +938,153 @@ function QRCard({ q, state }) {
           <button className="btn primary" onClick={printQr}>Imprimir QR</button>
         </div>
         <div className="table-actions">
-          <button className="btn ghost" onClick={() => state.toggleQr(q.table)}>{q.active ? "Desactivar" : "Activar"}</button>
-          <button className="btn ghost" onClick={() => state.regenerateQr(q.table)}>Regenerar token</button>
+          <button className="btn ghost" onClick={onToggle}>{q.active ? "Desactivar" : "Activar"}</button>
+          <button className="btn ghost" onClick={onRegenerate}>Regenerar token</button>
         </div>
+        <button className="btn danger" style={{ width: "100%" }} onClick={onDelete}>Eliminar mesa</button>
       </div>
     </div>
   );
 }
 
 function QRView({ state }) {
+  const authToken = state.authToken;
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [newTable, setNewTable] = useState({ table_number: "", zone: "Salón" });
+  const [saving, setSaving] = useState(false);
+  const [formErr, setFormErr] = useState("");
+
+  const fetchTables = async () => {
+    try {
+      const rows = await supaFetch(
+        `tables?restaurant_id=eq.holu&select=id,table_number,qr_token,zone&order=table_number.asc`,
+        {}, authToken
+      );
+      if (Array.isArray(rows)) {
+        setTables(rows.map((r) => ({
+          dbId: r.id,
+          table: r.table_number,
+          token: r.qr_token,
+          zone: r.zone || "Salón",
+          active: true,
+        })));
+      }
+    } catch (e) {
+      console.error("[holu qr] fetch tables:", e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchTables(); }, []);
+
+  const genToken = (num) => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const suffix = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+    return `M${num}${suffix}`;
+  };
+
+  const addTable = async () => {
+    const num = parseInt(newTable.table_number);
+    if (!num || num < 1) return setFormErr("Número de mesa requerido (mínimo 1)");
+    if (tables.some((t) => t.table === num)) return setFormErr(`Mesa ${num} ya existe`);
+    setSaving(true); setFormErr("");
+    try {
+      await supaFetch(`tables`, {
+        method: "POST",
+        body: JSON.stringify({ table_number: num, qr_token: genToken(num), zone: newTable.zone, restaurant_id: "holu" }),
+      }, authToken);
+      setAdding(false);
+      setNewTable({ table_number: "", zone: "Salón" });
+      await fetchTables();
+    } catch (e) {
+      setFormErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteTable = async (dbId, tableNum) => {
+    if (!window.confirm(`¿Eliminar Mesa ${tableNum}? Los QR impresos dejarán de funcionar.`)) return;
+    try {
+      await supaFetch(`tables?id=eq.${dbId}`, { method: "DELETE", prefer: "return=minimal" }, authToken);
+      setTables((rows) => rows.filter((t) => t.dbId !== dbId));
+    } catch (e) {
+      console.error("[holu qr] delete:", e.message);
+    }
+  };
+
+  const regenerateToken = async (dbId, tableNum) => {
+    const token = genToken(tableNum);
+    try {
+      await supaFetch(`tables?id=eq.${dbId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ qr_token: token }),
+      }, authToken);
+      setTables((rows) => rows.map((t) => t.dbId === dbId ? { ...t, token } : t));
+    } catch (e) {
+      console.error("[holu qr] regen:", e.message);
+    }
+  };
+
+  const toggleActive = (dbId) => {
+    setTables((rows) => rows.map((t) => t.dbId === dbId ? { ...t, active: !t.active } : t));
+  };
+
   return (
     <div className="grid">
       <div className="panel">
         <div className="panel-head">
-          <div><h2>QR de mesas</h2><p style={{ margin: "4px 0 0" }}>Descarga o imprime el QR de cada mesa. El cliente lo escanea y abre la carta directamente, sin instalar nada.</p></div>
-          <span className="badge blue">Tokens</span>
+          <div>
+            <h2>QR de mesas</h2>
+            <p style={{ margin: "4px 0 0" }}>Mesas sincronizadas con Supabase. Agrega, elimina o regenera tokens sin tocar código.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="badge blue">{tables.length} mesas</span>
+            <button className="btn primary" onClick={() => { setAdding(true); setFormErr(""); }}>+ Nueva mesa</button>
+          </div>
         </div>
+        {adding && (
+          <div className="config-card" style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: "0 0 12px", fontFamily: "'Playfair Display',serif" }}>Nueva mesa</h3>
+            <div className="form-grid">
+              <div className="field">
+                <label>Número de mesa</label>
+                <input className="input" type="number" min="1" value={newTable.table_number}
+                  onChange={(e) => setNewTable((n) => ({ ...n, table_number: e.target.value }))}
+                  placeholder="Ej: 10" autoFocus />
+              </div>
+              <div className="field">
+                <label>Zona</label>
+                <select className="input" value={newTable.zone}
+                  onChange={(e) => setNewTable((n) => ({ ...n, zone: e.target.value }))}>
+                  {["Salón", "Terraza", "Bar", "VIP", "Privado", "Interior", "Exterior"].map((z) => <option key={z}>{z}</option>)}
+                </select>
+              </div>
+            </div>
+            {formErr && <p style={{ color: "var(--red2)", margin: "8px 0 0", fontSize: 13 }}>{formErr}</p>}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button className="btn primary" onClick={addTable} disabled={saving}>{saving ? "Guardando..." : "Crear mesa"}</button>
+              <button className="btn ghost" onClick={() => { setAdding(false); setFormErr(""); }}>Cancelar</button>
+            </div>
+          </div>
+        )}
+        {loading && <p style={{ color: "var(--muted)", textAlign: "center", padding: "24px 0" }}>Cargando mesas...</p>}
+        {!loading && tables.length === 0 && !adding && (
+          <p style={{ color: "var(--muted)", textAlign: "center", padding: "24px 0" }}>No hay mesas configuradas. Usa "+ Nueva mesa" para agregar la primera.</p>
+        )}
         <div className="three">
-          {state.qrTokens.map((q) => <QRCard key={q.table} q={q} state={state} />)}
+          {tables.map((q) => (
+            <QRCard
+              key={q.dbId}
+              q={q}
+              onToggle={() => toggleActive(q.dbId)}
+              onRegenerate={() => regenerateToken(q.dbId, q.table)}
+              onDelete={() => deleteTable(q.dbId, q.table)}
+            />
+          ))}
         </div>
       </div>
     </div>
