@@ -883,8 +883,228 @@ function SalesView() {
 }
 
 function InventoryView({ state }) {
-  const low = state.inventory.filter((i)=>i.status === "Bajo");
-  return <div className="grid"><div className="kpis"><div className="kpi"><span>Ingredientes</span><strong>{state.inventory.length}</strong><small>Control operativo</small></div><div className="kpi"><span>Stock bajo</span><strong>{low.length}</strong><small>Ocultar platos si aplica</small></div><div className="kpi"><span>Platos afectados</span><strong>{low.reduce((s,i)=>s+i.linkedDishes.length,0)}</strong><small>Conexión con carta cliente</small></div><div className="kpi"><span>Actualización</span><strong>Live</strong><small>Cocina/Admin</small></div></div><div className="panel"><div className="panel-head"><div><h2>Inventario básico</h2><p style={{margin:"4px 0 0"}}>Cuando un ingrediente queda bajo o agotado, Admin puede ocultar el plato en la carta del cliente.</p></div><span className="badge red">Stock crítico</span></div><div className="list">{state.inventory.map((i)=><div className={`row ${i.status === "Bajo" ? "inventory-low" : ""}`} key={i.id}><span className={`badge ${i.status === "Bajo" ? "red" : "green"}`}>{i.status}</span><div className="row-main"><b>{i.name}</b><small>{i.category} · mínimo {i.min} {i.unit} · afecta: {i.linkedDishes.join(", ")}</small></div><div style={{display:"flex",gap:8,alignItems:"center"}}><input className="input" style={{width:90}} type="number" value={i.stock} onChange={(e)=>state.updateInventoryStock(i.id, e.target.value)} /><strong>{i.unit}</strong></div></div>)}</div></div></div>;
+  const authToken = state.authToken;
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const EMPTY_FORM = { name: "", category: "Ingrediente", stock: "", unit: "kg", min_stock: "", cost_price: "" };
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  const fetchItems = async () => {
+    try {
+      const rows = await supaFetch(`inventory?restaurant_id=eq.holu&order=name.asc`, {}, authToken);
+      if (Array.isArray(rows)) setItems(rows);
+    } catch (e) {
+      console.error("[holu inventory] fetch:", e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchItems(); }, []);
+
+  const minOf = (item) => item.min_stock ?? item.min ?? 0;
+  const isLow = (item) => Number(item.stock) <= Number(minOf(item));
+
+  const saveNew = async () => {
+    if (!form.name.trim()) return setErr("Nombre requerido");
+    setSaving(true); setErr("");
+    try {
+      await supaFetch(`inventory`, {
+        method: "POST",
+        body: JSON.stringify({
+          restaurant_id: "holu",
+          name: form.name.trim(),
+          category: form.category,
+          stock: Number(form.stock) || 0,
+          unit: form.unit || "unidades",
+          min_stock: Number(form.min_stock) || 0,
+          cost_price: Number(form.cost_price) || 0,
+        }),
+      }, authToken);
+      setAdding(false);
+      setForm(EMPTY_FORM);
+      await fetchItems();
+    } catch (e) {
+      setErr(e.message.slice(0, 160));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEdit = async (item) => {
+    setSaving(true);
+    try {
+      await supaFetch(`inventory?id=eq.${encodeURIComponent(item.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: item.name,
+          category: item.category,
+          stock: Number(item.stock) || 0,
+          unit: item.unit,
+          min_stock: Number(minOf(item)) || 0,
+          cost_price: Number(item.cost_price) || 0,
+        }),
+      }, authToken);
+      setEditingId(null);
+      await fetchItems();
+    } catch (e) {
+      console.error("[holu inventory] patch:", e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteItem = async (id, name) => {
+    if (!window.confirm(`¿Eliminar "${name}"?`)) return;
+    try {
+      await supaFetch(`inventory?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", prefer: "return=minimal" }, authToken);
+      setItems((rows) => rows.filter((r) => r.id !== id));
+    } catch (e) {
+      console.error("[holu inventory] delete:", e.message);
+    }
+  };
+
+  const updateField = (id, key, value) => {
+    setItems((rows) => rows.map((r) => r.id === id ? { ...r, [key]: value } : r));
+  };
+
+  const low = items.filter(isLow);
+  const CATEGORIES = ["Ingrediente", "Carne", "Pescado", "Vegetal", "Lácteo", "Bar", "Postre", "Limpieza", "Otro"];
+  const UNITS = ["kg", "g", "litros", "ml", "unidades", "botellas", "cajas", "porciones"];
+
+  return (
+    <div className="grid">
+      <div className="kpis">
+        <div className="kpi"><span>Ingredientes</span><strong>{items.length}</strong><small>En inventario</small></div>
+        <div className="kpi"><span>Stock bajo</span><strong>{low.length}</strong><small>Bajo mínimo</small></div>
+        <div className="kpi"><span>Costo promedio</span><strong>{items.length ? money(Math.round(items.reduce((s, i) => s + (Number(i.cost_price) || 0), 0) / items.length)) : "—"}</strong><small>Por ítem</small></div>
+        <div className="kpi"><span>Actualización</span><strong>Live</strong><small>Supabase</small></div>
+      </div>
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Inventario</h2>
+            <p style={{ margin: "4px 0 0" }}>Ingredientes con precio de costo. Agrega, edita o elimina lo que necesites.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {low.length > 0 && <span className="badge red">{low.length} bajo</span>}
+            <button className="btn primary" onClick={() => { setAdding(true); setErr(""); }}>+ Agregar</button>
+          </div>
+        </div>
+
+        {adding && (
+          <div className="config-card" style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: "0 0 12px", fontFamily: "'Playfair Display',serif" }}>Nuevo ingrediente</h3>
+            <div className="form-grid">
+              <div className="field" style={{ gridColumn: "1/-1" }}>
+                <label>Nombre</label>
+                <input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ej: Pasta fresca" autoFocus />
+              </div>
+              <div className="field">
+                <label>Categoría</label>
+                <select className="input" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>Unidad</label>
+                <select className="input" value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}>
+                  {UNITS.map((u) => <option key={u}>{u}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>Stock actual</label>
+                <input className="input" type="number" min="0" value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} placeholder="0" />
+              </div>
+              <div className="field">
+                <label>Stock mínimo</label>
+                <input className="input" type="number" min="0" value={form.min_stock} onChange={(e) => setForm((f) => ({ ...f, min_stock: e.target.value }))} placeholder="0" />
+              </div>
+              <div className="field" style={{ gridColumn: "1/-1" }}>
+                <label>Precio costo (por unidad)</label>
+                <input className="input" type="number" min="0" value={form.cost_price} onChange={(e) => setForm((f) => ({ ...f, cost_price: e.target.value }))} placeholder="0" />
+              </div>
+            </div>
+            {err && <p style={{ color: "var(--red2)", margin: "8px 0 0", fontSize: 13 }}>{err}</p>}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button className="btn primary" onClick={saveNew} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
+              <button className="btn ghost" onClick={() => { setAdding(false); setErr(""); setForm(EMPTY_FORM); }}>Cancelar</button>
+            </div>
+          </div>
+        )}
+
+        {loading && <p style={{ color: "var(--muted)", textAlign: "center", padding: "24px 0" }}>Cargando inventario...</p>}
+        {!loading && items.length === 0 && !adding && (
+          <p style={{ color: "var(--muted)", textAlign: "center", padding: "24px 0" }}>Sin ingredientes. Usa "+ Agregar" para crear el primero.</p>
+        )}
+
+        <div className="list">
+          {items.map((item) => {
+            const low = isLow(item);
+            const editing = editingId === item.id;
+            if (editing) {
+              return (
+                <div key={item.id} className="config-card" style={{ marginBottom: 10 }}>
+                  <div className="form-grid">
+                    <div className="field" style={{ gridColumn: "1/-1" }}>
+                      <label>Nombre</label>
+                      <input className="input" value={item.name} onChange={(e) => updateField(item.id, "name", e.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label>Categoría</label>
+                      <select className="input" value={item.category || "Ingrediente"} onChange={(e) => updateField(item.id, "category", e.target.value)}>
+                        {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label>Unidad</label>
+                      <select className="input" value={item.unit || "unidades"} onChange={(e) => updateField(item.id, "unit", e.target.value)}>
+                        {UNITS.map((u) => <option key={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label>Stock actual</label>
+                      <input className="input" type="number" min="0" value={item.stock ?? ""} onChange={(e) => updateField(item.id, "stock", e.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label>Stock mínimo</label>
+                      <input className="input" type="number" min="0" value={minOf(item)} onChange={(e) => updateField(item.id, "min_stock", e.target.value)} />
+                    </div>
+                    <div className="field" style={{ gridColumn: "1/-1" }}>
+                      <label>Precio costo (por unidad)</label>
+                      <input className="input" type="number" min="0" value={item.cost_price ?? ""} onChange={(e) => updateField(item.id, "cost_price", e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="btn primary" onClick={() => saveEdit(item)} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
+                    <button className="btn ghost" onClick={() => { setEditingId(null); fetchItems(); }}>Cancelar</button>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className={`row ${low ? "inventory-low" : ""}`} key={item.id}>
+                <span className={`badge ${low ? "red" : "green"}`}>{low ? "Bajo" : "OK"}</span>
+                <div className="row-main">
+                  <b>{item.name}</b>
+                  <small>{item.category} · stock: {item.stock} {item.unit} · mínimo: {minOf(item)} {item.unit}</small>
+                  <small style={{ color: "var(--gold2)" }}>Costo: {money(item.cost_price || 0)} / {item.unit}</small>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn ghost" onClick={() => setEditingId(item.id)}>Editar</button>
+                  <button className="btn danger" onClick={() => deleteItem(item.id, item.name)}>Eliminar</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function QRCard({ q, onToggle, onRegenerate, onDelete }) {
