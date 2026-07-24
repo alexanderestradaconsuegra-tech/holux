@@ -49,6 +49,10 @@ const supaFetch = (path, opts = {}, authToken = null) => {
 const supaGet = (path, token = null) => supaFetch(path, {}, token);
 const supaPatch = (path, body, token = null) =>
   supaFetch(path, { method: "PATCH", body: JSON.stringify(body) }, token);
+const supaPost = (path, body, token = null) =>
+  supaFetch(path, { method: "POST", body: JSON.stringify(body) }, token);
+const supaDelete = (path, token = null) =>
+  supaFetch(path, { method: "DELETE" }, token);
 
 const supaUploadImage = async (file, token) => {
   const ext = file.name.split(".").pop().toLowerCase();
@@ -114,6 +118,37 @@ const dbCallToUI = (c) => ({
   status: c.status || "Pendiente",
   age: c.created_at ? timeAgo(c.created_at) : "Ahora",
   text: c.message || "",
+});
+
+const dbTableToUI = (t) => ({
+  id: t.id,
+  zone: t.zone || "",
+  status: t.status || "Libre",
+  guests: t.guests || 0,
+  waiterId: t.waiter_id || null,
+  bill: t.bill_total || 0,
+  tipAccepted: t.tip_accepted || false,
+  tipAmount: t.tip_amount || 0,
+  qrToken: t.qr_token || "",
+  tableNumber: t.table_number,
+  label: t.label || `Mesa ${t.table_number}`,
+  lastMessage: "",
+});
+
+const dbMenuItemToUI = (m) => ({
+  id: m.id,
+  dish: m.name,
+  category: m.category,
+  description: m.subtitle || m.description || "",
+  price: m.price,
+  avgPrep: m.avg_prep_minutes || 15,
+  stock: m.stock_status || "OK",
+  available: m.available !== false,
+  visibleClient: m.visible_client !== false,
+  tags: (m.tags || []).join(","),
+  imageUrl: m.image_url || "",
+  allergens: m.allergens || [],
+  sortOrder: m.sort_order || 0,
 });
 
 const money = (n) => `$${Number(n || 0).toLocaleString("es-CL")}`;
@@ -353,9 +388,11 @@ function useBackofficeState(authToken = null) {
     const poll = async () => {
       try {
         const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-        const [rawOrders, rawCalls] = await Promise.all([
+        const [rawOrders, rawCalls, rawTables, rawMenu] = await Promise.all([
           supaGet(`orders?status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, null),
           supaGet(`calls?status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, null),
+          supaGet(`tables?restaurant_id=eq.holu&active=eq.true&order=table_number.asc`, null),
+          supaGet(`menu_items?restaurant_id=eq.holu&order=sort_order.asc,name.asc`, null),
         ]);
         if (Array.isArray(rawOrders)) {
           const now = Date.now();
@@ -372,6 +409,8 @@ function useBackofficeState(authToken = null) {
           });
         }
         if (Array.isArray(rawCalls)) setCalls(rawCalls.map(dbCallToUI));
+        if (Array.isArray(rawTables) && rawTables.length > 0) setTables(rawTables.map(dbTableToUI));
+        if (Array.isArray(rawMenu)) setMenuItems(rawMenu.map(dbMenuItemToUI));
       } catch (err) {
         console.error("[holu admin] Supabase poll:", err.message);
       }
@@ -398,19 +437,51 @@ function useBackofficeState(authToken = null) {
       catch (e) { console.error("[holu admin] updateOrderStatus:", e.message); }
     }
   };
-  const saveMenuItem = (item) => {
+  const saveMenuItem = async (item) => {
+    const isNew = !menuItems.some((r) => r.id === item.id);
+    const newId = item.id || `dish-${Date.now()}`;
+    const dbItem = {
+      id: newId,
+      restaurant_id: "holu",
+      name: item.dish,
+      category: item.category,
+      subtitle: item.description || null,
+      price: Number(item.price) || 0,
+      avg_prep_minutes: Number(item.avgPrep) || 15,
+      stock_status: item.stock || "OK",
+      available: item.available !== false,
+      visible_client: item.visibleClient !== false,
+      tags: item.tags ? String(item.tags).split(",").map((t) => t.trim()).filter(Boolean) : [],
+      image_url: item.imageUrl || null,
+    };
     setMenuItems((rows) => {
-      const exists = rows.some((r) => r.id === item.id);
-      if (exists) return rows.map((r) => r.id === item.id ? item : r);
-      return [{ ...item, id: item.id || `dish-${Date.now()}` }, ...rows];
+      if (!isNew) return rows.map((r) => r.id === item.id ? { ...item, id: newId } : r);
+      return [{ ...item, id: newId }, ...rows];
     });
+    try {
+      if (isNew) await supaPost(`menu_items`, dbItem, authToken);
+      else await supaPatch(`menu_items?id=eq.${encodeURIComponent(item.id)}`, dbItem, authToken);
+    } catch (e) { console.error("[holu admin] saveMenuItem:", e.message); }
   };
-  const toggleMenuAvailability = (id) => {
-    setMenuItems((rows) => rows.map((r) => r.id === id ? { ...r, available: !r.available, visibleClient: !r.available ? r.visibleClient : false } : r));
+  const toggleMenuAvailability = async (id) => {
+    const item = menuItems.find((r) => r.id === id);
+    if (!item) return;
+    const newAvailable = !item.available;
+    setMenuItems((rows) => rows.map((r) => r.id === id ? { ...r, available: newAvailable, visibleClient: newAvailable ? r.visibleClient : false } : r));
+    try { await supaPatch(`menu_items?id=eq.${encodeURIComponent(id)}`, { available: newAvailable, visible_client: newAvailable ? item.visibleClient : false }, authToken); }
+    catch (e) { console.error("[holu admin] toggleMenu:", e.message); }
   };
-  const deleteMenuItem = (id) => setMenuItems((rows) => rows.filter((r) => r.id !== id));
-  const setTableTip = (tableId, accepted) => {
-    setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, tipAccepted: accepted, tipAmount: accepted ? Math.round(t.bill * 0.1) : 0 } : t));
+  const deleteMenuItem = async (id) => {
+    setMenuItems((rows) => rows.filter((r) => r.id !== id));
+    try { await supaDelete(`menu_items?id=eq.${encodeURIComponent(id)}`, authToken); }
+    catch (e) { console.error("[holu admin] deleteMenuItem:", e.message); }
+  };
+  const setTableTip = async (tableId, accepted) => {
+    const table = tables.find((t) => t.id === tableId);
+    const tipAmt = accepted && table ? Math.round(table.bill * 0.1) : 0;
+    setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, tipAccepted: accepted, tipAmount: tipAmt } : t));
+    try { await supaPatch(`tables?id=eq.${tableId}`, { tip_accepted: accepted, tip_amount: tipAmt }, null); }
+    catch (e) { console.error("[holu admin] setTableTip:", e.message); }
   };
   const addCashHistory = (userId, action, detail) => {
     setCashSession((s) => ({ ...s, history: [{ time: new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }), userId, action, detail }, ...s.history] }));
@@ -440,9 +511,11 @@ function useBackofficeState(authToken = null) {
   };
   const toggleQr = (table) => setQrTokens((rows) => rows.map((q) => q.table === table ? { ...q, active: !q.active } : q));
   const regenerateQr = (table) => setQrTokens((rows) => rows.map((q) => q.table === table ? { ...q, token: `QR${table}${Math.floor(1000 + Math.random() * 8999)}`, scans: 0, lastScan: "—" } : q));
-  const assignWaiter = (tableId, waiterId) => {
+  const assignWaiter = async (tableId, waiterId) => {
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, waiterId } : t));
     addCashHistory(waiterId, "Mesa reasignada", `Mesa ${tableId} asignada a ${getStaff(waiterId).name}`);
+    try { await supaPatch(`tables?id=eq.${tableId}`, { waiter_id: waiterId || null }, null); }
+    catch (e) { console.error("[holu admin] assignWaiter:", e.message); }
   };
   const cobrarMesa = async (tableId, callId, method, tipAccepted, total, tipAmt, staffUserId) => {
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, status: "Libre", bill: 0, tipAccepted: false, tipAmount: 0, guests: 0, waiterId: null } : t));
@@ -460,6 +533,7 @@ function useBackofficeState(authToken = null) {
     try {
       await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.holu`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null);
       await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.holu`, { status: "served" }, null);
+      await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.holu`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, null);
     } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
   };
   return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };

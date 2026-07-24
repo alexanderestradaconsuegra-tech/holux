@@ -226,12 +226,12 @@ function Home({ go, session, qrContext = FALLBACK_CONTEXT, restaurant = RESTAURA
   return <main className="screen fade"><section className="hero"><div className="topbar"><button className="icon">{icons.menu}</button><div className="brand">{restaurant.name}<small>RISTORANTE</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Benvenuto · {qrContext.zone}</span><h1>Disfruta tu experiencia</h1><p>{restaurant.concept || RESTAURANT.concept} · {RESTAURANT.city}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button></div><div className="promo-row">{PROMOS.map((p) => <article className="promo glass" key={p.title}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div></main>;
 }
 
-function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT }) {
+function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT, menu = MENU }) {
   const [cat, setCat] = useState("Todos"); const [q, setQ] = useState("");
-  const cats = ["Todos", ...Array.from(new Set(MENU.map((d) => d.category)))];
-  const list = MENU.filter((d) => (cat === "Todos" || d.category === cat) && (d.name + d.subtitle + d.tags.join(" ")).toLowerCase().includes(q.toLowerCase()));
+  const cats = ["Todos", ...Array.from(new Set(menu.map((d) => d.category)))];
+  const list = menu.filter((d) => (cat === "Todos" || d.category === cat) && (d.name + d.subtitle + (Array.isArray(d.tags) ? d.tags.join(" ") : String(d.tags || ""))).toLowerCase().includes(q.toLowerCase()));
   const subtotal = Object.values(session.cart).reduce((s, i) => s + i.price * i.qty, 0); const count = getCartCount(session.cart);
-  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato, alérgeno o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.map((d) => <article className="dish glass" key={d.id}><div className="photo" style={{ backgroundImage: `url(${photos[d.id]})` }} /><div><h3>{d.name}</h3><p>{d.subtitle}</p><div className="tags">{d.tags.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}</div><div style={{ marginTop: 8, color: "#bfae9d", fontSize: 11 }}>{d.minutes} min · {d.kcal} kcal</div></div><div style={{ display: "grid", gap: 10, justifyItems: "end" }}><div className="price">{money(d.price)}</div><button className="add" style={session.cart[d.id]?.qty > 0 ? { background: "linear-gradient(135deg,var(--gold),var(--gold2))", color: "#171006", borderColor: "transparent", fontWeight: 900, fontSize: 13 } : {}} onClick={() => session.addItem(d)}>{session.cart[d.id]?.qty > 0 ? session.cart[d.id].qty : icons.plus}</button></div></article>)}</div>{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
+  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato, alérgeno o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.map((d) => { const imgUrl = d.imageUrl || photos[d.id] || ""; const tagList = Array.isArray(d.tags) ? d.tags : String(d.tags || "").split(",").map((t) => t.trim()).filter(Boolean); return <article className="dish glass" key={d.id}><div className="photo" style={imgUrl ? { backgroundImage: `url(${imgUrl})` } : {}} /><div><h3>{d.name}</h3><p>{d.subtitle}</p><div className="tags">{tagList.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}</div><div style={{ marginTop: 8, color: "#bfae9d", fontSize: 11 }}>{d.minutes || d.avgPrep || 0} min{d.kcal ? ` · ${d.kcal} kcal` : ""}</div></div><div style={{ display: "grid", gap: 10, justifyItems: "end" }}><div className="price">{money(d.price)}</div><button className="add" style={session.cart[d.id]?.qty > 0 ? { background: "linear-gradient(135deg,var(--gold),var(--gold2))", color: "#171006", borderColor: "transparent", fontWeight: 900, fontSize: 13 } : {}} onClick={() => session.addItem(d)}>{session.cart[d.id]?.qty > 0 ? session.cart[d.id].qty : icons.plus}</button></div></article>; })}</div>{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
 }
 
 function CartDrawer({ open, setOpen, session, go }) {
@@ -322,6 +322,21 @@ function Nav({ tab, setTab, cartCount }) {
   return <nav className="nav">{items.map(([id, label, icon]) => <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{id === "menu" && cartCount > 0 && <span className="cart-badge">{cartCount}</span>}{icon}<span>{label}</span></button>)}</nav>;
 }
 
+const dbItemToMenu = (m) => ({
+  id: m.id,
+  category: m.category,
+  name: m.name,
+  subtitle: m.subtitle || "",
+  detail: m.description || "",
+  price: m.price,
+  minutes: m.avg_prep_minutes || 15,
+  kcal: m.kcal || 0,
+  tags: m.tags || [],
+  allergens: m.allergens || [],
+  pair: m.wine_pair || "",
+  imageUrl: m.image_url || "",
+});
+
 export default function HoluMesa() {
   const [qrToken] = useState(() => getQrToken());
   const [qrContext, setQrContext] = useState(FALLBACK_CONTEXT);
@@ -329,6 +344,7 @@ export default function HoluMesa() {
   const [tab, setTab] = useState("home");
   const [cartOpen, setCartOpen] = useState(false);
   const [restaurantData, setRestaurantData] = useState(RESTAURANT);
+  const [liveMenu, setLiveMenu] = useState(null);
   const sessionId = buildSessionId(qrToken, qrContext.tableId);
   const session = useTableSession(qrContext, sessionId);
   const cartCount = useMemo(() => getCartCount(session.cart), [session.cart]);
@@ -358,9 +374,20 @@ export default function HoluMesa() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch(`${SUPABASE_URL}/rest/v1/menu_items?restaurant_id=eq.${FALLBACK_RESTAURANT_ID}&available=eq.true&visible_client=eq.true&order=sort_order.asc,name.asc`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((rows) => {
+        if (Array.isArray(rows) && rows.length > 0) setLiveMenu(rows.map(dbItemToMenu));
+      })
+      .catch(() => {});
+  }, []);
+
   if (loadingQr) return <div className="app"><style>{CSS}</style><main className="screen fade"><section className="hero"><div className="brand">{restaurantData.name}<small>RISTORANTE</small></div><div className="hero-copy"><span className="eyebrow">Validando QR</span><h1>Preparando tu mesa</h1><p>Un momento...</p></div></section></main></div>;
 
   if (!qrContext.active) return <div className="app"><style>{CSS}</style><main className="screen fade"><section className="hero"><div className="brand">{restaurantData.name}<small>RISTORANTE</small></div><div className="hero-copy"><span className="eyebrow">QR no disponible</span><h1>Solicita ayuda</h1><p>Este código no está activo. Por favor avisa al camarero.</p></div></section></main></div>;
 
-  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
+  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} menu={liveMenu || MENU} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
 }
