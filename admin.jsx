@@ -316,7 +316,7 @@ const icons = {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
 :root{--bg:#070604;--panel:#14110e;--panel2:#1f1a15;--card:#18130f;--line:rgba(255,255,255,.09);--text:#fff7ed;--muted:#bcae9f;--dim:#7d7064;--gold:#d9a441;--gold2:#f7d37b;--red:#ef4444;--red2:#fca5a5;--green:#34d399;--blue:#60a5fa;--purple:#a78bfa;--shadow:0 24px 80px rgba(0,0,0,.45)}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,rgba(217,164,65,.22),transparent 28%),radial-gradient(circle at 110% 20%,rgba(96,165,250,.12),transparent 34%),#050403;color:var(--text);font-family:Inter,system-ui,sans-serif}.app{min-height:100dvh;display:grid;grid-template-columns:286px 1fr;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.sidebar{position:sticky;top:0;height:100dvh;padding:18px;border-right:1px solid var(--line);background:rgba(10,8,6,.86);backdrop-filter:blur(22px);display:flex;flex-direction:column}.brand{font-family:'Playfair Display',serif;letter-spacing:.14em;color:var(--gold2);font-size:31px;line-height:.9}.brand small{display:block;font-family:Inter;font-size:10px;letter-spacing:.2em;color:var(--muted);margin-top:8px}.role-card{margin:18px 0;padding:14px;border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid var(--line)}.role-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.role-switch button,.nav button,.chip,.btn{border:0;cursor:pointer}.role-switch button{border-radius:14px;padding:11px 8px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:900}.role-switch .on,.tab .on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.nav{display:grid;gap:7px;margin-top:8px}.nav button{display:flex;align-items:center;gap:11px;text-align:left;border-radius:16px;padding:13px 12px;background:transparent;color:var(--muted);font-weight:800}.nav button.on{background:rgba(247,211,123,.12);color:var(--gold2)}.nav button.locked{opacity:.35;cursor:not-allowed}.side-footer{margin-top:auto;color:var(--dim);font-size:12px;line-height:1.5}.main{padding:22px;min-width:0}.topbar{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.title h1{font-family:'Playfair Display',serif;font-size:42px;line-height:.96;margin:0;letter-spacing:-.05em}.title p{margin:8px 0 0;color:var(--muted)}.operator{display:flex;gap:10px;align-items:center;padding:11px 13px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.045)}.avatar{width:42px;height:42px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006;font-weight:900;object-fit:cover}.avatar.img{background:#111;border:1px solid var(--line)}.staff-photo{width:76px;height:76px;border-radius:22px;object-fit:cover;border:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.28)}.select{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:10px;outline:none}.input,.textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:12px;outline:none;font:inherit}.textarea{min-height:82px;resize:vertical}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field label{display:block;color:var(--muted);font-size:12px;font-weight:800;margin-bottom:6px}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);display:grid;place-items:center;z-index:80;padding:18px}.modal{width:min(760px,100%);max-height:90dvh;overflow:auto;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.preview-phone{border-radius:24px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:14px}.client-dish{border-radius:18px;background:rgba(255,255,255,.055);border:1px solid var(--line);padding:12px;margin-bottom:8px}.dish-thumb{width:74px;height:74px;border-radius:16px;object-fit:cover;background:rgba(255,255,255,.08);border:1px solid var(--line);flex-shrink:0}.dish-thumb.big{width:100%;height:180px;border-radius:20px;margin-bottom:12px}.image-upload{border:1px dashed rgba(247,211,123,.35);border-radius:18px;padding:14px;background:rgba(247,211,123,.05);display:grid;gap:10px}.image-actions{display:flex;gap:8px;flex-wrap:wrap}.client-dish h4{margin:0 0 4px}.client-dish p{margin:0;color:var(--muted);font-size:12px}.toggle{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-weight:800}.toggle input{accent-color:#d9a441}.grid{display:grid;gap:14px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kpi,.panel,.table-card,.message-card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border:1px solid var(--line);box-shadow:var(--shadow)}.kpi{padding:16px;min-height:112px}.kpi span{color:var(--muted);font-size:12px;font-weight:700}.kpi strong{display:block;font-size:30px;margin:8px 0 4px}.kpi small{color:var(--dim)}.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.panel{padding:16px;min-width:0}.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}.panel h2{font-family:'Playfair Display',serif;font-size:27px;margin:0;letter-spacing:-.04em}.panel p{color:var(--muted)}.list{display:grid;gap:10px}.row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px;border-radius:17px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.065)}.row-main b{display:block}.row-main small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;background:rgba(247,211,123,.12);color:var(--gold2);white-space:nowrap}.badge.red{background:rgba(239,68,68,.12);color:var(--red2)}.badge.green{background:rgba(52,211,153,.12);color:var(--green)}.badge.blue{background:rgba(96,165,250,.12);color:#93c5fd}.badge.purple{background:rgba(167,139,250,.12);color:#c4b5fd}.btn{border-radius:14px;padding:11px 13px;font-weight:900}.btn.primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.btn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}.btn.danger{background:rgba(239,68,68,.16);color:var(--red2);border:1px solid rgba(239,68,68,.24)}.tab{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.tab button{white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.table-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.table-card{padding:14px;min-height:158px}.table-card h3{margin:0;font-size:20px}.table-card .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}.table-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:9px 0}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:999px}.dish-lines{display:grid;gap:7px;margin-top:10px}.dish-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}.chart{display:grid;gap:10px}.bar{display:grid;grid-template-columns:160px 1fr 90px;gap:10px;align-items:center}.bar-track{height:11px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold2))}.message-card{padding:14px}.message-card.urgent{border-color:rgba(239,68,68,.35);background:linear-gradient(145deg,rgba(239,68,68,.10),rgba(255,255,255,.025))}.message-top{display:flex;justify-content:space-between;gap:10px}.message-card blockquote{margin:10px 0 0;color:#eadfd4;line-height:1.45;border-left:3px solid var(--gold);padding-left:10px}.timeline{display:grid;gap:12px}.timeline-item{display:grid;grid-template-columns:20px 1fr;gap:12px}.dot{width:12px;height:12px;border-radius:50%;background:var(--gold2);margin-top:5px;box-shadow:0 0 0 5px rgba(247,211,123,.1)}.audit{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cbd5e1;font-size:12px;background:rgba(0,0,0,.22);border-radius:16px;padding:14px;overflow:auto}.receipt-wrap{display:grid;place-items:center}.receipt{width:320px;background:#fff;color:#111;border-radius:10px;padding:18px 18px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 26px 70px rgba(0,0,0,.42)}.receipt h3{font-family:Inter,system-ui,sans-serif;text-align:center;margin:0;font-size:22px;letter-spacing:.12em}.receipt .center{text-align:center}.receipt .muted2{color:#555;font-size:11px}.receipt .dash{border-top:1px dashed #111;margin:12px 0}.receipt-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin:7px 0}.receipt-total{font-size:16px;font-weight:900}.receipt-qr{width:78px;height:78px;margin:12px auto 4px;background:repeating-linear-gradient(45deg,#111 0 6px,#fff 6px 12px);border:6px solid #fff;outline:2px solid #111}.print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.config-card{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.print-preview-note{color:var(--muted);font-size:12px;line-height:1.45}.drawer-lite{position:fixed;right:22px;top:22px;width:min(440px,calc(100vw - 44px));max-height:calc(100dvh - 44px);overflow:auto;z-index:60;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.drawer-lite h2{font-family:'Playfair Display',serif;font-size:30px;margin:0}.tip-box{border-radius:18px;background:rgba(247,211,123,.08);border:1px solid rgba(247,211,123,.18);padding:14px}.tip-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.printer-card{border:1px solid rgba(96,165,250,.24);background:rgba(96,165,250,.08);border-radius:20px;padding:14px;margin-top:12px}.period-switch{display:flex;gap:8px;flex-wrap:wrap}.period-switch button{border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.period-switch button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.sales-split{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.sales-mini{border-radius:18px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.sales-mini span{color:var(--muted);font-size:12px}.sales-mini strong{display:block;font-size:22px;margin-top:6px}.kitchen-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kitchen-col{border-radius:22px;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:14px}.kitchen-ticket{border-radius:18px;background:#18130f;border:1px solid rgba(255,255,255,.06);padding:12px;margin-top:10px}.kitchen-ticket h4{margin:0 0 6px}.kitchen-ticket p{margin:0;color:var(--muted);font-size:12px}.cash-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.cash-card{border-radius:20px;padding:16px;background:rgba(255,255,255,.045);border:1px solid var(--line)}.cash-card span{display:block;color:var(--muted);font-size:12px}.cash-card strong{display:block;font-size:24px;margin-top:8px}.shift-banner{border-radius:22px;padding:16px;background:linear-gradient(135deg,rgba(217,164,65,.14),rgba(255,255,255,.04));border:1px solid rgba(247,211,123,.22);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.shift-actions{display:flex;gap:8px;flex-wrap:wrap}.close-report{width:min(760px,100%);background:#fff;color:#111;border-radius:14px;padding:24px;font-family:Inter,system-ui,sans-serif}.close-report h2{font-family:Inter,system-ui,sans-serif;margin:0 0 6px;color:#111}.close-report .muted2{color:#555}.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.report-box{border:1px solid #ddd;border-radius:10px;padding:12px}.report-box span{font-size:12px;color:#555}.report-box b{display:block;font-size:20px;margin-top:4px}.signature-line{border-top:1px solid #111;margin-top:34px;padding-top:8px;text-align:center}.whatsapp-card{border:1px solid rgba(52,211,153,.24);background:rgba(52,211,153,.08);border-radius:20px;padding:14px;margin-top:12px}.qr-card-admin{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.qr-visual{width:112px;height:112px;border-radius:16px;background:repeating-linear-gradient(45deg,#fff 0 7px,#111 7px 14px);border:10px solid #fff;margin:0 auto 12px}.permission-table{width:100%;border-collapse:collapse}.permission-table th,.permission-table td{border-bottom:1px solid var(--line);padding:12px;text-align:left}.permission-table th{color:var(--gold2);font-size:12px}.permission-ok{color:var(--green);font-weight:900}.permission-no{color:var(--red2);font-weight:900}.inventory-low{border-color:rgba(239,68,68,.32)!important;background:linear-gradient(145deg,rgba(239,68,68,.09),rgba(255,255,255,.025))!important}.integration-log{max-height:260px;overflow:auto;display:grid;gap:8px}.log-row{border-radius:14px;background:rgba(0,0,0,.22);border:1px solid var(--line);padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#dbeafe}.log-row b{color:var(--gold2)}.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.12)}.status-dot.off{background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.12)}.endpoint-grid{display:grid;grid-template-columns:1fr;gap:10px}.endpoint-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center}.demo-banner{border:1px solid rgba(96,165,250,.22);background:rgba(96,165,250,.08);border-radius:20px;padding:14px}.demo-banner b{color:#bfdbfe}@media print{body{background:#fff}.app,.sidebar,.mobile-top,.topbar,.panel:not(.print-target){display:none!important}.print-target{display:block!important;box-shadow:none!important;border:0!important}.receipt{box-shadow:none;border-radius:0;width:80mm}.main{padding:0}.receipt-wrap{display:block}}.mobile-top{display:none}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{display:none}.mobile-top{display:flex;position:sticky;top:0;z-index:20;background:rgba(7,6,4,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:12px;gap:8px;overflow:auto}.mobile-top button{white-space:nowrap}.main{padding:14px}.kpis,.two,.three,.table-grid{grid-template-columns:1fr}.topbar{display:block}.operator{margin-top:12px}.title h1{font-size:34px}.row{grid-template-columns:1fr}.bar{grid-template-columns:1fr}.table-actions{grid-template-columns:1fr 1fr}}`;
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,rgba(217,164,65,.22),transparent 28%),radial-gradient(circle at 110% 20%,rgba(96,165,250,.12),transparent 34%),#050403;color:var(--text);font-family:Inter,system-ui,sans-serif}.app{min-height:100dvh;display:grid;grid-template-columns:286px 1fr;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.sidebar{position:sticky;top:0;height:100dvh;padding:18px;border-right:1px solid var(--line);background:rgba(10,8,6,.86);backdrop-filter:blur(22px);display:flex;flex-direction:column}.brand{font-family:'Playfair Display',serif;letter-spacing:.14em;color:var(--gold2);font-size:31px;line-height:.9}.brand small{display:block;font-family:Inter;font-size:10px;letter-spacing:.2em;color:var(--muted);margin-top:8px}.role-card{margin:18px 0;padding:14px;border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid var(--line)}.role-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.role-switch button,.nav button,.chip,.btn{border:0;cursor:pointer}.role-switch button{border-radius:14px;padding:11px 8px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:900}.role-switch .on,.tab .on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.nav{display:grid;gap:7px;margin-top:8px}.nav button{display:flex;align-items:center;gap:11px;text-align:left;border-radius:16px;padding:13px 12px;background:transparent;color:var(--muted);font-weight:800}.nav button.on{background:rgba(247,211,123,.12);color:var(--gold2)}.nav button.locked{opacity:.35;cursor:not-allowed}.side-footer{margin-top:auto;color:var(--dim);font-size:12px;line-height:1.5}.main{padding:22px;min-width:0}.topbar{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.title h1{font-family:'Playfair Display',serif;font-size:42px;line-height:.96;margin:0;letter-spacing:-.05em}.title p{margin:8px 0 0;color:var(--muted)}.operator{display:flex;gap:10px;align-items:center;padding:11px 13px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.045)}.avatar{width:42px;height:42px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006;font-weight:900;object-fit:cover}.avatar.img{background:#111;border:1px solid var(--line)}.staff-photo{width:76px;height:76px;border-radius:22px;object-fit:cover;border:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.28)}.select{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:10px;outline:none}.input,.textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:12px;outline:none;font:inherit}.textarea{min-height:82px;resize:vertical}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field label{display:block;color:var(--muted);font-size:12px;font-weight:800;margin-bottom:6px}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);display:grid;place-items:center;z-index:80;padding:18px}.modal{width:min(760px,100%);max-height:90dvh;overflow:auto;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.preview-phone{border-radius:24px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:14px}.client-dish{border-radius:18px;background:rgba(255,255,255,.055);border:1px solid var(--line);padding:12px;margin-bottom:8px}.dish-thumb{width:74px;height:74px;border-radius:16px;object-fit:cover;background:rgba(255,255,255,.08);border:1px solid var(--line);flex-shrink:0}.dish-thumb.big{width:100%;height:180px;border-radius:20px;margin-bottom:12px}.image-upload{border:1px dashed rgba(247,211,123,.35);border-radius:18px;padding:14px;background:rgba(247,211,123,.05);display:grid;gap:10px}.image-actions{display:flex;gap:8px;flex-wrap:wrap}.client-dish h4{margin:0 0 4px}.client-dish p{margin:0;color:var(--muted);font-size:12px}.toggle{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-weight:800}.toggle input{accent-color:#d9a441}.grid{display:grid;gap:14px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kpi,.panel,.table-card,.message-card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border:1px solid var(--line);box-shadow:var(--shadow)}.kpi{padding:16px;min-height:112px}.kpi span{color:var(--muted);font-size:12px;font-weight:700}.kpi strong{display:block;font-size:30px;margin:8px 0 4px}.kpi small{color:var(--dim)}.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.panel{padding:16px;min-width:0}.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}.panel h2{font-family:'Playfair Display',serif;font-size:27px;margin:0;letter-spacing:-.04em}.panel p{color:var(--muted)}.list{display:grid;gap:10px}.row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px;border-radius:17px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.065)}.row-main b{display:block}.row-main small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;background:rgba(247,211,123,.12);color:var(--gold2);white-space:nowrap}.badge.red{background:rgba(239,68,68,.12);color:var(--red2)}.badge.green{background:rgba(52,211,153,.12);color:var(--green)}.badge.blue{background:rgba(96,165,250,.12);color:#93c5fd}.badge.purple{background:rgba(167,139,250,.12);color:#c4b5fd}.btn{border-radius:14px;padding:11px 13px;font-weight:900}.btn.primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.btn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}.btn.danger{background:rgba(239,68,68,.16);color:var(--red2);border:1px solid rgba(239,68,68,.24)}.tab{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.tab button{white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.table-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.table-card{padding:14px;min-height:158px}.table-card h3{margin:0;font-size:20px}.table-card .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}.table-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:9px 0}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:999px}.dish-lines{display:grid;gap:7px;margin-top:10px}.dish-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}.chart{display:grid;gap:10px}.bar{display:grid;grid-template-columns:160px 1fr 90px;gap:10px;align-items:center}.bar-track{height:11px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold2))}.message-card{padding:14px}.message-card.urgent{border-color:rgba(239,68,68,.35);background:linear-gradient(145deg,rgba(239,68,68,.10),rgba(255,255,255,.025))}.message-top{display:flex;justify-content:space-between;gap:10px}.message-card blockquote{margin:10px 0 0;color:#eadfd4;line-height:1.45;border-left:3px solid var(--gold);padding-left:10px}.timeline{display:grid;gap:12px}.timeline-item{display:grid;grid-template-columns:20px 1fr;gap:12px}.dot{width:12px;height:12px;border-radius:50%;background:var(--gold2);margin-top:5px;box-shadow:0 0 0 5px rgba(247,211,123,.1)}.audit{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cbd5e1;font-size:12px;background:rgba(0,0,0,.22);border-radius:16px;padding:14px;overflow:auto}.receipt-wrap{display:grid;place-items:center}.receipt{width:320px;background:#fff;color:#111;border-radius:10px;padding:18px 18px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 26px 70px rgba(0,0,0,.42)}.receipt h3{font-family:Inter,system-ui,sans-serif;text-align:center;margin:0;font-size:22px;letter-spacing:.12em}.receipt .center{text-align:center}.receipt .muted2{color:#555;font-size:11px}.receipt .dash{border-top:1px dashed #111;margin:12px 0}.receipt-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin:7px 0}.receipt-total{font-size:16px;font-weight:900}.receipt-qr{width:78px;height:78px;margin:12px auto 4px;background:repeating-linear-gradient(45deg,#111 0 6px,#fff 6px 12px);border:6px solid #fff;outline:2px solid #111}.print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.config-card{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.print-preview-note{color:var(--muted);font-size:12px;line-height:1.45}.drawer-lite{position:fixed;right:22px;top:22px;width:min(440px,calc(100vw - 44px));max-height:calc(100dvh - 44px);overflow:auto;z-index:60;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.drawer-lite h2{font-family:'Playfair Display',serif;font-size:30px;margin:0}.tip-box{border-radius:18px;background:rgba(247,211,123,.08);border:1px solid rgba(247,211,123,.18);padding:14px}.tip-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.printer-card{border:1px solid rgba(96,165,250,.24);background:rgba(96,165,250,.08);border-radius:20px;padding:14px;margin-top:12px}.period-switch{display:flex;gap:8px;flex-wrap:wrap}.period-switch button{border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.period-switch button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.sales-split{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.sales-mini{border-radius:18px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.sales-mini span{color:var(--muted);font-size:12px}.sales-mini strong{display:block;font-size:22px;margin-top:6px}.kitchen-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kitchen-col{border-radius:22px;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:14px}.kitchen-ticket{border-radius:18px;background:#18130f;border:1px solid rgba(255,255,255,.06);padding:12px;margin-top:10px}.kitchen-ticket h4{margin:0 0 6px}.kitchen-ticket p{margin:0;color:var(--muted);font-size:12px}.cash-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.cash-card{border-radius:20px;padding:16px;background:rgba(255,255,255,.045);border:1px solid var(--line)}.cash-card span{display:block;color:var(--muted);font-size:12px}.cash-card strong{display:block;font-size:24px;margin-top:8px}.shift-banner{border-radius:22px;padding:16px;background:linear-gradient(135deg,rgba(217,164,65,.14),rgba(255,255,255,.04));border:1px solid rgba(247,211,123,.22);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.shift-actions{display:flex;gap:8px;flex-wrap:wrap}.close-report{width:min(760px,100%);background:#fff;color:#111;border-radius:14px;padding:24px;font-family:Inter,system-ui,sans-serif}.close-report h2{font-family:Inter,system-ui,sans-serif;margin:0 0 6px;color:#111}.close-report .muted2{color:#555}.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.report-box{border:1px solid #ddd;border-radius:10px;padding:12px}.report-box span{font-size:12px;color:#555}.report-box b{display:block;font-size:20px;margin-top:4px}.signature-line{border-top:1px solid #111;margin-top:34px;padding-top:8px;text-align:center}.whatsapp-card{border:1px solid rgba(52,211,153,.24);background:rgba(52,211,153,.08);border-radius:20px;padding:14px;margin-top:12px}.qr-card-admin{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.qr-visual{width:112px;height:112px;border-radius:16px;background:repeating-linear-gradient(45deg,#fff 0 7px,#111 7px 14px);border:10px solid #fff;margin:0 auto 12px}.permission-table{width:100%;border-collapse:collapse}.permission-table th,.permission-table td{border-bottom:1px solid var(--line);padding:12px;text-align:left}.permission-table th{color:var(--gold2);font-size:12px}.permission-ok{color:var(--green);font-weight:900}.permission-no{color:var(--red2);font-weight:900}.inventory-low{border-color:rgba(239,68,68,.32)!important;background:linear-gradient(145deg,rgba(239,68,68,.09),rgba(255,255,255,.025))!important}.integration-log{max-height:260px;overflow:auto;display:grid;gap:8px}.log-row{border-radius:14px;background:rgba(0,0,0,.22);border:1px solid var(--line);padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#dbeafe}.log-row b{color:var(--gold2)}.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.12)}.status-dot.off{background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.12)}.endpoint-grid{display:grid;grid-template-columns:1fr;gap:10px}.endpoint-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center}.demo-banner{border:1px solid rgba(96,165,250,.22);background:rgba(96,165,250,.08);border-radius:20px;padding:14px}.demo-banner b{color:#bfdbfe}@media print{body{background:#fff}.app,.sidebar,.mobile-top,.topbar,.panel:not(.print-target){display:none!important}.print-target{display:block!important;box-shadow:none!important;border:0!important}.receipt{box-shadow:none;border-radius:0;width:80mm}.main{padding:0}.receipt-wrap{display:block}}.mobile-top{display:none}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{display:none}.mobile-top{display:flex;position:sticky;top:0;z-index:20;background:rgba(7,6,4,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:12px;gap:8px;overflow:auto}.mobile-top button{white-space:nowrap}.main{padding:14px}.kpis,.two,.three,.table-grid{grid-template-columns:1fr}.topbar{display:block}.operator{margin-top:12px}.title h1{font-size:34px}.row{grid-template-columns:1fr}.bar{grid-template-columns:1fr}.table-actions{grid-template-columns:1fr 1fr}}@media(max-width:1050px){.kitchen-board,.sales-split{grid-template-columns:repeat(2,1fr)}.cash-grid{grid-template-columns:repeat(3,1fr)}.form-grid,.config-grid{grid-template-columns:1fr}}@media(max-width:640px){.kitchen-board,.cash-grid,.sales-split,.form-grid,.config-grid{grid-template-columns:1fr}}`;
 
 function getStaff(id) {
   return STAFF.find((s) => s.id === id) || { name: "Sin asignar", avatar: "—", role: "", photoUrl: "" };
@@ -465,8 +465,9 @@ function useBackofficeState(authToken = null) {
   return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
-function Layout({ role, staffId, tab, setTab, onLogout, children }) {
-  const currentStaff = getStaff(staffId);
+function Layout({ role, staffId, tab, setTab, onLogout, children, authed }) {
+  const found = getStaff(staffId);
+  const currentStaff = (found && found.name !== "Sin asignar") ? found : (authed || found);
 
   if (role === "cocina") return (
     <div style={{ minHeight: "100dvh", background: "#050403", display: "flex", flexDirection: "column" }}>
@@ -520,8 +521,9 @@ function Layout({ role, staffId, tab, setTab, onLogout, children }) {
   </div>;
 }
 
-function Topbar({ role, staffId }) {
-  const current = getStaff(staffId);
+function Topbar({ role, staffId, authed }) {
+  const found = getStaff(staffId);
+  const current = (found && found.name !== "Sin asignar") ? found : (authed || found);
   return <div className="topbar">
     <div className="title"><h1>{role === "admin" ? "Control total del restaurante" : "Operación de camarero"}</h1><p>{RESTAURANT.location} · Servicio {RESTAURANT.service}</p></div>
     <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{role === "admin" ? "Administrador" : "Camarero"} · {current.shift}</small></div></div>
@@ -1311,15 +1313,146 @@ function QRView({ state }) {
   );
 }
 
-function StaffView() {
-  const [editing, setEditing] = useState(null);
-  return <div className="grid"><div className="panel"><div className="panel-head"><h2>Camareros y empleados</h2><span className="badge green">Fotos + trazabilidad</span></div><div className="three">{STAFF.map((s)=><div className="table-card" key={s.id}><div style={{display:"flex",gap:12,alignItems:"center"}}><StaffAvatar staff={s} className="staff-photo" /><div><h3>{s.name}</h3><p style={{margin:"3px 0",color:"var(--muted)"}}>{s.role === "admin" ? "Administrador" : "Camarero"} · {s.shift}</p></div></div><div className="meta"><span>Estado</span><span className={`badge ${s.status === "Activo" ? "green" : ""}`}>{s.status}</span></div><div className="meta"><span>Mesas</span><b>{s.tables.length ? s.tables.map((t)=>`#${t}`).join(", ") : "—"}</b></div><div className="meta"><span>Contacto</span><b>{s.phone}</b></div><div className="meta"><span>Ventas mesas</span><b>{money(TABLES.filter((t)=>t.waiterId === s.id).reduce((sum,t)=>sum+t.bill,0))}</b></div><button className="btn ghost" style={{width:"100%",marginTop:12}} onClick={()=>setEditing(s)}>Editar foto/datos</button></div>)}</div></div><div className="panel"><h2>Quién atendió cada mesa</h2><div className="list">{TABLES.filter((t)=>t.waiterId).map((t)=><div className="row" key={t.id}><span className="badge">Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.zone} · {t.guests} clientes · {t.status}</small></div><strong>{money(t.bill)}</strong></div>)}</div></div>{editing && <StaffEditor staff={editing} onClose={()=>setEditing(null)} />}</div>;
-}
+function StaffView({ state }) {
+  const authToken = state?.authToken;
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const EMPTY_FORM = { name: "", role: "camarero", shift: "", pin_hash: "", status: "Activo" };
+  const [form, setForm] = useState(EMPTY_FORM);
+  const ROLES = ["camarero", "cocina", "caja"];
+  const ROLE_LABELS = { camarero: "Camarero", cocina: "Cocina", caja: "Caja" };
+  const ROLE_COLORS = { camarero: "linear-gradient(135deg,var(--gold),var(--gold2))", cocina: "linear-gradient(135deg,#ef4444,#fca5a5)", caja: "linear-gradient(135deg,#60a5fa,#93c5fd)" };
 
-function StaffEditor({ staff, onClose }) {
-  const [form, setForm] = useState(staff);
-  const update = (key, value) => setForm((f)=>({ ...f, [key]: value }));
-  return <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>Editar empleado</h2><p style={{margin:"4px 0 0"}}>Demo visual: en producción guarda en users/staff y actualiza permisos RBAC.</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="two" style={{gridTemplateColumns:".7fr 1.3fr"}}><div className="image-upload"><StaffAvatar staff={form} className="dish-thumb big" /><div className="field"><label>Foto empleado</label><input className="input" value={form.photoUrl || ""} onChange={(e)=>update("photoUrl", e.target.value)} placeholder="URL imagen/CDN" /></div><div className="image-actions"><button className="btn ghost" onClick={()=>update("photoUrl", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop")}>Hombre</button><button className="btn ghost" onClick={()=>update("photoUrl", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop")}>Mujer</button></div></div><div className="form-grid"><div className="field"><label>Nombre</label><input className="input" value={form.name} onChange={(e)=>update("name", e.target.value)} /></div><div className="field"><label>Rol</label><select className="input" value={form.role} onChange={(e)=>update("role", e.target.value)}><option value="camarero">Camarero</option><option value="admin">Admin</option></select></div><div className="field"><label>Turno</label><input className="input" value={form.shift} onChange={(e)=>update("shift", e.target.value)} /></div><div className="field"><label>Estado</label><select className="input" value={form.status} onChange={(e)=>update("status", e.target.value)}><option>Activo</option><option>Pausa</option><option>Inactivo</option></select></div><div className="field"><label>Teléfono</label><input className="input" value={form.phone || ""} onChange={(e)=>update("phone", e.target.value)} /></div><div className="field"><label>Email</label><input className="input" value={form.email || ""} onChange={(e)=>update("email", e.target.value)} /></div></div></div><div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:14}}><button className="btn ghost" onClick={onClose}>Cancelar</button><button className="btn primary" onClick={onClose}>Guardar cambios</button></div></div></div>;
+  const fetchStaff = async () => {
+    try {
+      const rows = await supaFetch(`staff?restaurant_id=eq.holu&role=neq.admin&order=name.asc`, {}, authToken);
+      if (Array.isArray(rows)) setStaff(rows);
+    } catch (e) {
+      console.error("[holu staff] fetch:", e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchStaff(); }, []);
+
+  const saveNew = async () => {
+    if (!form.name.trim()) return setErr("Nombre requerido");
+    if (!form.pin_hash.trim() || form.pin_hash.length < 4) return setErr("PIN mínimo 4 dígitos");
+    setSaving(true); setErr("");
+    try {
+      await supaFetch(`staff`, {
+        method: "POST",
+        body: JSON.stringify({ restaurant_id: "holu", name: form.name.trim(), role: form.role, shift: form.shift.trim() || null, pin_hash: form.pin_hash.trim(), status: "Activo" }),
+      }, authToken);
+      setAdding(false); setForm(EMPTY_FORM);
+      await fetchStaff();
+    } catch (e) { setErr(e.message.slice(0, 160)); } finally { setSaving(false); }
+  };
+
+  const saveEdit = async (item) => {
+    setSaving(true);
+    try {
+      await supaFetch(`staff?id=eq.${encodeURIComponent(item.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: item.name, role: item.role, shift: item.shift || null, pin_hash: item.pin_hash, status: item.status }),
+      }, authToken);
+      setEditingId(null); await fetchStaff();
+    } catch (e) { console.error("[holu staff] patch:", e.message); } finally { setSaving(false); }
+  };
+
+  const deleteStaff = async (id, name) => {
+    if (!window.confirm(`¿Eliminar a "${name}"?`)) return;
+    try {
+      await supaFetch(`staff?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", prefer: "return=minimal" }, authToken);
+      setStaff((rows) => rows.filter((r) => r.id !== id));
+    } catch (e) { console.error("[holu staff] delete:", e.message); }
+  };
+
+  const updateField = (id, key, value) => setStaff((rows) => rows.map((r) => r.id === id ? { ...r, [key]: value } : r));
+
+  return (
+    <div className="grid">
+      <div className="kpis">
+        <div className="kpi"><span>Empleados</span><strong>{staff.length}</strong><small>Registrados en sistema</small></div>
+        <div className="kpi"><span>Activos</span><strong>{staff.filter((s) => s.status === "Activo").length}</strong><small>Disponibles ahora</small></div>
+        <div className="kpi"><span>Camareros</span><strong>{staff.filter((s) => s.role === "camarero").length}</strong><small>Asignados a mesas</small></div>
+        <div className="kpi"><span>Acceso</span><strong>PIN</strong><small>4 dígitos por empleado</small></div>
+      </div>
+      <div className="panel">
+        <div className="panel-head">
+          <div><h2>Gestión de empleados</h2><p style={{ margin: "4px 0 0" }}>Crea usuarios para camareros, cocina y caja. Cada uno entra con su PIN, no con el correo de admin.</p></div>
+          <button className="btn primary" onClick={() => { setAdding(true); setErr(""); }}>+ Nuevo empleado</button>
+        </div>
+        {adding && (
+          <div className="config-card" style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: "0 0 12px", fontFamily: "'Playfair Display',serif" }}>Nuevo empleado</h3>
+            <div className="form-grid">
+              <div className="field"><label>Nombre</label><input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ej: María" autoFocus /></div>
+              <div className="field"><label>Rol</label><select className="input" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
+              <div className="field"><label>PIN (4 dígitos)</label><input className="input" type="text" inputMode="numeric" maxLength={6} value={form.pin_hash} onChange={(e) => setForm((f) => ({ ...f, pin_hash: e.target.value.replace(/\D/g, "") }))} placeholder="Ej: 1234" /></div>
+              <div className="field"><label>Turno</label><input className="input" value={form.shift} onChange={(e) => setForm((f) => ({ ...f, shift: e.target.value }))} placeholder="Ej: 18:00–00:00" /></div>
+            </div>
+            {err && <p style={{ color: "var(--red2)", margin: "8px 0 0", fontSize: 13 }}>{err}</p>}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button className="btn primary" onClick={saveNew} disabled={saving}>{saving ? "Guardando..." : "Crear empleado"}</button>
+              <button className="btn ghost" onClick={() => { setAdding(false); setErr(""); setForm(EMPTY_FORM); }}>Cancelar</button>
+            </div>
+          </div>
+        )}
+        {loading && <p style={{ color: "var(--muted)", textAlign: "center", padding: "24px 0" }}>Cargando empleados...</p>}
+        {!loading && staff.length === 0 && !adding && (
+          <div style={{ color: "var(--muted)", textAlign: "center", padding: "32px 0" }}>
+            <p>Aún no hay empleados. Usa "+ Nuevo empleado" para agregar camareros, cocina o caja.</p>
+            <p style={{ fontSize: 12, marginTop: 4 }}>Cada empleado entra con su PIN desde la pantalla de ingreso.</p>
+          </div>
+        )}
+        <div className="list">
+          {staff.map((s) => {
+            if (editingId === s.id) return (
+              <div key={s.id} className="config-card" style={{ marginBottom: 10 }}>
+                <div className="form-grid">
+                  <div className="field"><label>Nombre</label><input className="input" value={s.name} onChange={(e) => updateField(s.id, "name", e.target.value)} /></div>
+                  <div className="field"><label>Rol</label><select className="input" value={s.role} onChange={(e) => updateField(s.id, "role", e.target.value)}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
+                  <div className="field"><label>PIN</label><input className="input" type="text" inputMode="numeric" maxLength={6} value={s.pin_hash || ""} onChange={(e) => updateField(s.id, "pin_hash", e.target.value.replace(/\D/g, ""))} placeholder="Nuevo PIN" /></div>
+                  <div className="field"><label>Turno</label><input className="input" value={s.shift || ""} onChange={(e) => updateField(s.id, "shift", e.target.value)} /></div>
+                  <div className="field"><label>Estado</label><select className="input" value={s.status} onChange={(e) => updateField(s.id, "status", e.target.value)}><option>Activo</option><option>Pausa</option><option>Fuera</option></select></div>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  <button className="btn primary" onClick={() => saveEdit(s)} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
+                  <button className="btn ghost" onClick={() => { setEditingId(null); fetchStaff(); }}>Cancelar</button>
+                </div>
+              </div>
+            );
+            return (
+              <div className="row" key={s.id}>
+                <div className="avatar" style={{ background: ROLE_COLORS[s.role] || "linear-gradient(135deg,var(--gold),var(--gold2))", color: "#171006", flexShrink: 0 }}>{(s.name || "?")[0].toUpperCase()}</div>
+                <div className="row-main">
+                  <b>{s.name}</b>
+                  <small>{ROLE_LABELS[s.role] || s.role}{s.shift ? ` · ${s.shift}` : ""} · PIN: {"●".repeat(s.pin_hash?.length || 4)}</small>
+                  <small style={{ color: s.status === "Activo" ? "var(--green)" : "var(--muted)" }}>{s.status}</small>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <span className={`badge ${s.status === "Activo" ? "green" : ""}`}>{ROLE_LABELS[s.role] || s.role}</span>
+                  <button className="btn ghost" onClick={() => setEditingId(s.id)}>Editar</button>
+                  <button className="btn danger" onClick={() => deleteStaff(s.id, s.name)}>Eliminar</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="panel">
+        <h2>¿Cómo entran los empleados?</h2>
+        <p style={{ color: "var(--muted)", margin: "8px 0 14px", lineHeight: 1.6 }}>En la pantalla de ingreso aparecen dos opciones: <b style={{ color: "var(--text)" }}>Administrador</b> (correo + contraseña) y <b style={{ color: "var(--text)" }}>Soy empleado</b> (solo PIN). Los empleados nunca usan el correo de admin. Si un PIN se pierde, edítalo desde esta sección.</p>
+        <div className="demo-banner"><b>Seguridad</b><p style={{ color: "var(--muted)", margin: "6px 0 0" }}>El correo del restaurante es exclusivo del administrador. Los empleados ingresan solo con su PIN de 4 dígitos.</p></div>
+      </div>
+    </div>
+  );
 }
 
 function MenuView({ state }) {
@@ -1549,7 +1682,7 @@ POST /inventory/update
 POST /qr/regenerate</pre></div></div></div>;
 }
 
-function SessionLogin({ onAuth }) {
+function SessionLogin({ onAuth, onBack }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1573,23 +1706,55 @@ function SessionLogin({ onAuth }) {
         {error && <div style={{ color:"var(--red2)", fontSize:13, textAlign:"center", padding:"6px 0" }}>{error}</div>}
         <button className="btn primary" type="submit" disabled={loading} style={{ marginTop:4 }}>{loading ? "Verificando..." : "Ingresar"}</button>
       </form>
+      {onBack && <button onClick={onBack} style={{ background:"none", border:"none", color:"var(--dim)", cursor:"pointer", fontSize:13, padding:0 }}>← Volver</button>}
       <p style={{ color:"var(--dim)", fontSize:12, textAlign:"center", margin:0 }}>¿Sin cuenta? Regístrate en holu.app</p>
     </div>
   );
 }
 
-function PinGate({ onAuth }) {
+function LoginEntry({ onAdminAuth, onStaffAuth }) {
+  const [mode, setMode] = useState(null);
+  if (mode === "admin") return <SessionLogin onAuth={onAdminAuth} onBack={() => setMode(null)} />;
+  if (mode === "employee") return <PinGate onAuth={onStaffAuth} onBack={() => setMode(null)} />;
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#070604", gap:40, padding:20 }}>
+      <style>{CSS}</style>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:42, letterSpacing:".14em", color:"#f7d37b" }}>HOLU</div>
+        <div style={{ color:"var(--muted)", fontSize:11, letterSpacing:".22em", marginTop:6 }}>BACKOFFICE</div>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:14, width:"min(360px,100%)" }}>
+        <button className="btn primary" style={{ padding:"22px 0", fontSize:17, borderRadius:20, lineHeight:1.4 }} onClick={() => setMode("admin")}>
+          Administrador<br /><span style={{ fontSize:12, fontWeight:400, opacity:.7 }}>Correo y contraseña</span>
+        </button>
+        <button className="btn ghost" style={{ padding:"22px 0", fontSize:17, borderRadius:20, lineHeight:1.4 }} onClick={() => setMode("employee")}>
+          Soy empleado<br /><span style={{ fontSize:12, fontWeight:400, color:"var(--muted)" }}>Ingresa con tu PIN</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PinGate({ onAuth, onBack }) {
   const [digits, setDigits] = useState("");
   const [error, setError] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+
+  useEffect(() => {
+    supaFetch(`staff?restaurant_id=eq.holu&status=eq.Activo&role=neq.admin&select=id,name,role,shift,pin_hash`, {}, null)
+      .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setStaffList(rows); })
+      .catch(() => {});
+  }, []);
 
   const handleDigit = (d) => {
     if (digits.length >= 4) return;
     const next = digits + d;
     setDigits(next);
     if (next.length === 4) {
-      const found = STAFF.find((s) => s.pin === next);
+      const effective = staffList.length > 0 ? staffList : STAFF;
+      const found = effective.find((s) => (s.pin_hash || s.pin) === next);
       if (found) {
-        onAuth(found);
+        onAuth({ id: found.id, name: found.name, role: found.role, shift: found.shift || "", avatar: (found.name || "?")[0].toUpperCase(), photoUrl: found.photoUrl || "" });
       } else {
         setError(true);
         setTimeout(() => { setDigits(""); setError(false); }, 800);
@@ -1602,7 +1767,7 @@ function PinGate({ onAuth }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0f1117", gap: 32 }}>
       <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#fff" }}>HOLU</div>
-      <div style={{ fontSize: 14, color: "#888" }}>Ingresa tu PIN</div>
+      <div style={{ fontSize: 14, color: "#888" }}>Ingresa tu PIN de empleado</div>
       <div style={{ display: "flex", gap: 14 }}>
         {[0,1,2,3].map((i) => (
           <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", background: digits.length > i ? (error ? "#ef4444" : "#6366f1") : "#333", transition: "background .15s" }} />
@@ -1617,6 +1782,7 @@ function PinGate({ onAuth }) {
         ))}
       </div>
       {error && <div style={{ color: "#ef4444", fontSize: 13 }}>PIN incorrecto</div>}
+      {onBack && <button onClick={onBack} style={{ background:"none", border:"none", color:"#666", cursor:"pointer", fontSize:13 }}>← Volver</button>}
     </div>
   );
 }
@@ -1643,7 +1809,7 @@ export default function HoluAdmin() {
   const [authed, setAuthed] = useState(() => {
     try {
       const staff = JSON.parse(sessionStorage.getItem("holu:staff") || "null");
-      return staff && session ? staff : null;
+      return staff || null;
     } catch { return null; }
   });
   const [role, setRole] = useState(authed?.role || "camarero");
@@ -1661,7 +1827,7 @@ export default function HoluAdmin() {
       case "calls": return <CallsView role={role} staffId={staffId} state={state} />;
       case "messages": return <MessagesView role={role} staffId={staffId} state={state} />;
       case "sales": return <><CashClosingView state={state} staffId={staffId} /><SalesView /></>;
-      case "staff": return <StaffView />;
+      case "staff": return <StaffView state={state} />;
       case "inventory": return <InventoryView state={state} />;
       case "qr": return <QRView state={state} />;
       case "menu": return <MenuView state={state} />;
@@ -1683,6 +1849,12 @@ export default function HoluAdmin() {
     setStaffId(staff.id);
   };
 
+  const handleAdminAuth = (sess) => {
+    handleSessionAuth(sess);
+    const adminStaff = { id: "a1", name: "Admin", role: "admin", shift: "Full", avatar: "A", photoUrl: "" };
+    handleStaffAuth(adminStaff);
+  };
+
   const handleLogout = () => {
     try { localStorage.removeItem("holu:session"); sessionStorage.removeItem("holu:staff"); } catch {}
     setSession(null);
@@ -1691,11 +1863,10 @@ export default function HoluAdmin() {
     setStaffId("w1");
   };
 
-  if (!session) return <SessionLogin onAuth={handleSessionAuth} />;
-  if (!authed) return <PinGate onAuth={handleStaffAuth} />;
+  if (!authed) return <LoginEntry onAdminAuth={handleAdminAuth} onStaffAuth={handleStaffAuth} />;
 
-  return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout}>
-    <Topbar role={role} staffId={staffId} />
+  return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout} authed={authed}>
+    <Topbar role={role} staffId={staffId} authed={authed} />
     {content}
   </Layout>;
 }
