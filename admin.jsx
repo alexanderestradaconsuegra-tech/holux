@@ -1562,8 +1562,9 @@ function ReceiptPreview({ receiptConfig, restaurant }) {
   return <div className="receipt-wrap"><div className="receipt"><h3>{restaurant.name}</h3><div className="center muted2">{restaurant.legalName}<br />RUT {restaurant.rut}<br />{restaurant.address}<br />{restaurant.phone} · {restaurant.website}</div><div className="dash" /><div className="center"><b>{receiptConfig.title}</b><br /><span className="muted2">Mesa 7 · {new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" />{RECEIPT_ITEMS.map((i)=><div className="receipt-row" key={i.name}><span>{i.qty}× {i.name}</span><b>{money(i.qty * i.price)}</b></div>)}<div className="dash" /><div className="receipt-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Servicio 10%</span><b>{money(service)}</b></div><div className="receipt-row"><span>{receiptConfig.taxLabel}</span><b>—</b></div><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div>{receiptConfig.showWaiter && <div className="receipt-row"><span>Atendió</span><b>Marco</b></div>}{receiptConfig.showQr && <><div className="receipt-qr" /><div className="center muted2">Escanea para reseña Google</div></>}<div className="dash" /><div className="center muted2">{receiptConfig.footer}</div></div></div>;
 }
 
-function SettingsView() {
-  const [restaurant, setRestaurant] = useState(RESTAURANT);
+function SettingsView({ state }) {
+  const authToken = state?.authToken;
+  const [restaurant, setRestaurant] = useState({ ...RESTAURANT, concept: "", googleReviewUrl: "" });
   const [receiptConfig, setReceiptConfig] = useState(RECEIPT_CONFIG);
   const [showPrinterPanel, setShowPrinterPanel] = useState(true);
   const [demoMode, setDemoMode] = useState(true);
@@ -1571,7 +1572,50 @@ function SettingsView() {
   const [logs, setLogs] = useState([
     { time: "20:45", event: "DEMO_READY", status: "ok", detail: "Sistema local listo para simular n8n, QR e impresión." },
   ]);
+  const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
   const updateRestaurant = (key, value) => setRestaurant((r)=>({ ...r, [key]: value }));
+
+  useEffect(() => {
+    supaFetch(`restaurants?id=eq.holu&select=*&limit=1`, {}, authToken)
+      .then((rows) => {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        const r = rows[0];
+        setRestaurant((prev) => ({
+          ...prev,
+          name: r.name || prev.name,
+          legalName: r.legal_name || prev.legalName,
+          rut: r.rut || prev.rut,
+          address: r.address || prev.address,
+          phone: r.phone || prev.phone,
+          website: r.website || prev.website,
+          concept: r.settings?.concept || prev.concept,
+          googleReviewUrl: r.google_review_url || prev.googleReviewUrl,
+        }));
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveRestaurant = async () => {
+    setSaving(true); setSavedOk(false);
+    try {
+      await supaFetch(`restaurants?id=eq.holu`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: restaurant.name,
+          legal_name: restaurant.legalName,
+          rut: restaurant.rut,
+          address: restaurant.address,
+          phone: restaurant.phone,
+          website: restaurant.website,
+          google_review_url: restaurant.googleReviewUrl || null,
+          settings: { concept: restaurant.concept || "" },
+        }),
+      }, authToken);
+      setSavedOk(true); setTimeout(() => setSavedOk(false), 2500);
+    } catch (e) { console.error("[holu settings] save:", e.message); }
+    finally { setSaving(false); }
+  };
   const updateReceipt = (key, value) => setReceiptConfig((r)=>({ ...r, [key]: value }));
   const printReceipt = () => {
     setLogs((rows)=>[{ time: new Date().toLocaleTimeString("es-CL", { hour:"2-digit", minute:"2-digit" }), event: "PRINT_PREVIEW", status: "ok", detail: "window.print() ejecutado en modo local." }, ...rows]);
@@ -1645,7 +1689,7 @@ function SettingsView() {
       }
     }
   };
-  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><span className="badge green">Boleta</span></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
+  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
 <>
   <button className="btn ghost" style={{marginTop:10}} onClick={()=>setShowPrinterPanel(!showPrinterPanel)}>
     {showPrinterPanel ? "Ocultar" : "Ver"} configuración de impresora
@@ -1832,7 +1876,7 @@ export default function HoluAdmin() {
       case "qr": return <QRView state={state} />;
       case "menu": return <MenuView state={state} />;
       case "reviews": return <ReviewsView role={role} staffId={staffId} />;
-      case "settings": return <SettingsView />;
+      case "settings": return <SettingsView state={state} />;
       default: return <Dashboard role={role} staffId={staffId} state={state} />;
     }
   }, [safeTab, role, staffId, state]);
