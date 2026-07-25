@@ -242,9 +242,9 @@ function Header({ title = RESTAURANT.name, qrContext = FALLBACK_CONTEXT }) {
   return <div className="header"><button className="icon">{icons.menu}</button><div className="header-title">{title}</div><div className="pill">{qrContext.tableLabel}</div></div>;
 }
 
-function Home({ go, session, qrContext = FALLBACK_CONTEXT, restaurant = RESTAURANT }) {
+function Home({ go, session, qrContext = FALLBACK_CONTEXT, restaurant = RESTAURANT, promos = PROMOS }) {
   const active = session.orders.find((o) => o.status !== "served");
-  return <main className="screen fade"><section className="hero"><div className="topbar"><button className="icon">{icons.menu}</button><div className="brand">{restaurant.name}<small>RISTORANTE</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Benvenuto · {qrContext.zone}</span><h1>Disfruta tu experiencia</h1><p>{restaurant.concept || RESTAURANT.concept} · {RESTAURANT.city}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button></div><div className="promo-row">{PROMOS.map((p) => <article className="promo glass" key={p.title}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div></main>;
+  return <main className="screen fade"><section className="hero"><div className="topbar"><button className="icon">{icons.menu}</button><div className="brand">{restaurant.name}<small>RISTORANTE</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Benvenuto · {qrContext.zone}</span><h1>Disfruta tu experiencia</h1><p>{restaurant.concept || RESTAURANT.concept} · {RESTAURANT.city}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button></div>{promos.length > 0 && <div className="promo-row">{promos.map((p, i) => <article className="promo glass" key={p.title || i}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div>}</main>;
 }
 
 function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT, menu = MENU }) {
@@ -360,6 +360,7 @@ export default function HoluMesa() {
   const [cartOpen, setCartOpen] = useState(false);
   const [restaurantData, setRestaurantData] = useState(RESTAURANT);
   const [liveMenu, setLiveMenu] = useState(null);
+  const [promos, setPromos] = useState(null);
   const sessionId = buildSessionId(qrToken, qrContext.tableId);
   const session = useTableSession(qrContext, sessionId);
   const cartCount = useMemo(() => getCartCount(session.cart), [session.cart]);
@@ -387,6 +388,17 @@ export default function HoluMesa() {
 
   useEffect(() => {
     if (!qrContext.restaurantId) return;
+    supaRpc("restaurant_public", { p_id: qrContext.restaurantId })
+      .then((rows) => {
+        const r = Array.isArray(rows) ? rows[0] : rows;
+        if (Array.isArray(r?.settings?.promos)) setPromos(r.settings.promos);
+        else setPromos([]);
+      })
+      .catch(() => setPromos([]));
+  }, [qrContext.restaurantId]);
+
+  useEffect(() => {
+    if (!qrContext.restaurantId) return;
     fetch(`${SUPABASE_URL}/rest/v1/menu_items?restaurant_id=eq.${encodeURIComponent(qrContext.restaurantId)}&available=eq.true&visible_client=eq.true&order=sort_order.asc,name.asc`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
     })
@@ -401,5 +413,5 @@ export default function HoluMesa() {
 
   if (!qrContext.active) return <div className="app"><style>{CSS}</style><main className="screen fade"><section className="hero"><div className="brand">{restaurantData.name}<small>RISTORANTE</small></div><div className="hero-copy"><span className="eyebrow">QR no disponible</span><h1>Solicita ayuda</h1><p>Este código no está activo. Por favor avisa al camarero.</p></div></section></main></div>;
 
-  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} menu={liveMenu || MENU} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
+  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} promos={promos ?? PROMOS} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} menu={liveMenu || MENU} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
 }

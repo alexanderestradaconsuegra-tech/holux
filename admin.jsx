@@ -215,28 +215,25 @@ const TABLES = [
   { id: 9, zone: "VIP", status: "Cocina llama", guests: 5, waiterId: "w2", bill: 156800, tipAccepted: true, tipAmount: 15680, qrToken: "VIP09", lastMessage: "El chef pregunta término de carne." },
 ];
 
+// Empty till. The real shift, if one is open, is loaded from cash_sessions.
 const CASH_SESSION_INITIAL = {
-  id: "SHIFT-2026-05-11-NOCHE",
-  status: "abierta",
-  openedAt: "18:00",
+  id: null,
+  status: "cerrada",
+  openedAt: "—",
   closedAt: null,
-  openedBy: "a1",
-  currentUser: "a1",
+  openedBy: null,
+  currentUser: null,
   activeTurn: "Noche",
-  openingCash: 150000,
-  cash: 428500,
-  card: 691200,
-  transfer: 118000,
-  tips: 29150,
-  expenses: 42000,
-  expected: 1264850,
-  counted: 1264850,
+  openingCash: 0,
+  cash: 0,
+  card: 0,
+  transfer: 0,
+  tips: 0,
+  expenses: 0,
+  expected: 0,
+  counted: 0,
   difference: 0,
-  history: [
-    { time: "18:00", userId: "a1", action: "Abrió caja", detail: "Fondo inicial $150.000" },
-    { time: "19:00", userId: "w1", action: "Inicio turno", detail: "Marco asignado a Salón" },
-    { time: "20:15", userId: "w2", action: "Cambio turno", detail: "Isabella toma VIP" },
-  ],
+  history: [],
 };
 
 const KITCHEN_COLUMNS = {
@@ -371,7 +368,14 @@ const icons = {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
 :root{--bg:#070604;--panel:#14110e;--panel2:#1f1a15;--card:#18130f;--line:rgba(255,255,255,.09);--text:#fff7ed;--muted:#bcae9f;--dim:#7d7064;--gold:#d9a441;--gold2:#f7d37b;--red:#ef4444;--red2:#fca5a5;--green:#34d399;--blue:#60a5fa;--purple:#a78bfa;--shadow:0 24px 80px rgba(0,0,0,.45)}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,rgba(217,164,65,.22),transparent 28%),radial-gradient(circle at 110% 20%,rgba(96,165,250,.12),transparent 34%),#050403;color:var(--text);font-family:Inter,system-ui,sans-serif}.app{min-height:100dvh;display:grid;grid-template-columns:286px 1fr;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.sidebar{position:sticky;top:0;height:100dvh;padding:18px;border-right:1px solid var(--line);background:rgba(10,8,6,.86);backdrop-filter:blur(22px);display:flex;flex-direction:column}.brand{font-family:'Playfair Display',serif;letter-spacing:.14em;color:var(--gold2);font-size:31px;line-height:.9}.brand small{display:block;font-family:Inter;font-size:10px;letter-spacing:.2em;color:var(--muted);margin-top:8px}.role-card{margin:18px 0;padding:14px;border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid var(--line)}.role-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.role-switch button,.nav button,.chip,.btn{border:0;cursor:pointer}.role-switch button{border-radius:14px;padding:11px 8px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:900}.role-switch .on,.tab .on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.nav{display:grid;gap:7px;margin-top:8px}.nav button{display:flex;align-items:center;gap:11px;text-align:left;border-radius:16px;padding:13px 12px;background:transparent;color:var(--muted);font-weight:800}.nav button.on{background:rgba(247,211,123,.12);color:var(--gold2)}.nav button.locked{opacity:.35;cursor:not-allowed}.side-footer{margin-top:auto;color:var(--dim);font-size:12px;line-height:1.5}.main{padding:22px;min-width:0}.topbar{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.title h1{font-family:'Playfair Display',serif;font-size:42px;line-height:.96;margin:0;letter-spacing:-.05em}.title p{margin:8px 0 0;color:var(--muted)}.operator{display:flex;gap:10px;align-items:center;padding:11px 13px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.045)}.avatar{width:42px;height:42px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006;font-weight:900;object-fit:cover}.avatar.img{background:#111;border:1px solid var(--line)}.staff-photo{width:76px;height:76px;border-radius:22px;object-fit:cover;border:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.28)}.select{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:10px;outline:none}.input,.textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:12px;outline:none;font:inherit}.textarea{min-height:82px;resize:vertical}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field label{display:block;color:var(--muted);font-size:12px;font-weight:800;margin-bottom:6px}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);display:grid;place-items:center;z-index:80;padding:18px}.modal{width:min(760px,100%);max-height:90dvh;overflow:auto;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.preview-phone{border-radius:24px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:14px}.client-dish{border-radius:18px;background:rgba(255,255,255,.055);border:1px solid var(--line);padding:12px;margin-bottom:8px}.dish-thumb{width:74px;height:74px;border-radius:16px;object-fit:cover;background:rgba(255,255,255,.08);border:1px solid var(--line);flex-shrink:0}.dish-thumb.big{width:100%;height:180px;border-radius:20px;margin-bottom:12px}.image-upload{border:1px dashed rgba(247,211,123,.35);border-radius:18px;padding:14px;background:rgba(247,211,123,.05);display:grid;gap:10px}.image-actions{display:flex;gap:8px;flex-wrap:wrap}.client-dish h4{margin:0 0 4px}.client-dish p{margin:0;color:var(--muted);font-size:12px}.toggle{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-weight:800}.toggle input{accent-color:#d9a441}.grid{display:grid;gap:14px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kpi,.panel,.table-card,.message-card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border:1px solid var(--line);box-shadow:var(--shadow)}.kpi{padding:16px;min-height:112px}.kpi span{color:var(--muted);font-size:12px;font-weight:700}.kpi strong{display:block;font-size:30px;margin:8px 0 4px}.kpi small{color:var(--dim)}.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.panel{padding:16px;min-width:0}.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}.panel h2{font-family:'Playfair Display',serif;font-size:27px;margin:0;letter-spacing:-.04em}.panel p{color:var(--muted)}.list{display:grid;gap:10px}.row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px;border-radius:17px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.065)}.row-main b{display:block}.row-main small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;background:rgba(247,211,123,.12);color:var(--gold2);white-space:nowrap}.badge.red{background:rgba(239,68,68,.12);color:var(--red2)}.badge.green{background:rgba(52,211,153,.12);color:var(--green)}.badge.blue{background:rgba(96,165,250,.12);color:#93c5fd}.badge.purple{background:rgba(167,139,250,.12);color:#c4b5fd}.btn{border-radius:14px;padding:11px 13px;font-weight:900}.btn.primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.btn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}.btn.danger{background:rgba(239,68,68,.16);color:var(--red2);border:1px solid rgba(239,68,68,.24)}.tab{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.tab button{white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.table-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.table-card{padding:14px;min-height:158px}.table-card h3{margin:0;font-size:20px}.table-card .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}.table-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:9px 0}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:999px}.dish-lines{display:grid;gap:7px;margin-top:10px}.dish-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}.chart{display:grid;gap:10px}.bar{display:grid;grid-template-columns:160px 1fr 90px;gap:10px;align-items:center}.bar-track{height:11px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold2))}.message-card{padding:14px}.message-card.urgent{border-color:rgba(239,68,68,.35);background:linear-gradient(145deg,rgba(239,68,68,.10),rgba(255,255,255,.025))}.message-top{display:flex;justify-content:space-between;gap:10px}.message-card blockquote{margin:10px 0 0;color:#eadfd4;line-height:1.45;border-left:3px solid var(--gold);padding-left:10px}.timeline{display:grid;gap:12px}.timeline-item{display:grid;grid-template-columns:20px 1fr;gap:12px}.dot{width:12px;height:12px;border-radius:50%;background:var(--gold2);margin-top:5px;box-shadow:0 0 0 5px rgba(247,211,123,.1)}.audit{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cbd5e1;font-size:12px;background:rgba(0,0,0,.22);border-radius:16px;padding:14px;overflow:auto}.receipt-wrap{display:grid;place-items:center}.receipt{width:320px;background:#fff;color:#111;border-radius:10px;padding:18px 18px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 26px 70px rgba(0,0,0,.42)}.receipt h3{font-family:Inter,system-ui,sans-serif;text-align:center;margin:0;font-size:22px;letter-spacing:.12em}.receipt .center{text-align:center}.receipt .muted2{color:#555;font-size:11px}.receipt .dash{border-top:1px dashed #111;margin:12px 0}.receipt-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin:7px 0}.receipt-total{font-size:16px;font-weight:900}.receipt-qr{width:78px;height:78px;margin:12px auto 4px;background:repeating-linear-gradient(45deg,#111 0 6px,#fff 6px 12px);border:6px solid #fff;outline:2px solid #111}.print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.config-card{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.print-preview-note{color:var(--muted);font-size:12px;line-height:1.45}.drawer-lite{position:fixed;right:22px;top:22px;width:min(440px,calc(100vw - 44px));max-height:calc(100dvh - 44px);overflow:auto;z-index:60;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.drawer-lite h2{font-family:'Playfair Display',serif;font-size:30px;margin:0}.tip-box{border-radius:18px;background:rgba(247,211,123,.08);border:1px solid rgba(247,211,123,.18);padding:14px}.tip-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.printer-card{border:1px solid rgba(96,165,250,.24);background:rgba(96,165,250,.08);border-radius:20px;padding:14px;margin-top:12px}.period-switch{display:flex;gap:8px;flex-wrap:wrap}.period-switch button{border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.period-switch button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.sales-split{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.sales-mini{border-radius:18px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.sales-mini span{color:var(--muted);font-size:12px}.sales-mini strong{display:block;font-size:22px;margin-top:6px}.kitchen-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kitchen-col{border-radius:22px;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:14px}.kitchen-ticket{border-radius:18px;background:#18130f;border:1px solid rgba(255,255,255,.06);padding:12px;margin-top:10px}.kitchen-ticket h4{margin:0 0 6px}.kitchen-ticket p{margin:0;color:var(--muted);font-size:12px}.cash-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.cash-card{border-radius:20px;padding:16px;background:rgba(255,255,255,.045);border:1px solid var(--line)}.cash-card span{display:block;color:var(--muted);font-size:12px}.cash-card strong{display:block;font-size:24px;margin-top:8px}.shift-banner{border-radius:22px;padding:16px;background:linear-gradient(135deg,rgba(217,164,65,.14),rgba(255,255,255,.04));border:1px solid rgba(247,211,123,.22);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.shift-actions{display:flex;gap:8px;flex-wrap:wrap}.close-report{width:min(760px,100%);background:#fff;color:#111;border-radius:14px;padding:24px;font-family:Inter,system-ui,sans-serif}.close-report h2{font-family:Inter,system-ui,sans-serif;margin:0 0 6px;color:#111}.close-report .muted2{color:#555}.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.report-box{border:1px solid #ddd;border-radius:10px;padding:12px}.report-box span{font-size:12px;color:#555}.report-box b{display:block;font-size:20px;margin-top:4px}.signature-line{border-top:1px solid #111;margin-top:34px;padding-top:8px;text-align:center}.whatsapp-card{border:1px solid rgba(52,211,153,.24);background:rgba(52,211,153,.08);border-radius:20px;padding:14px;margin-top:12px}.qr-card-admin{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.qr-visual{width:112px;height:112px;border-radius:16px;background:repeating-linear-gradient(45deg,#fff 0 7px,#111 7px 14px);border:10px solid #fff;margin:0 auto 12px}.permission-table{width:100%;border-collapse:collapse}.permission-table th,.permission-table td{border-bottom:1px solid var(--line);padding:12px;text-align:left}.permission-table th{color:var(--gold2);font-size:12px}.permission-ok{color:var(--green);font-weight:900}.permission-no{color:var(--red2);font-weight:900}.inventory-low{border-color:rgba(239,68,68,.32)!important;background:linear-gradient(145deg,rgba(239,68,68,.09),rgba(255,255,255,.025))!important}.integration-log{max-height:260px;overflow:auto;display:grid;gap:8px}.log-row{border-radius:14px;background:rgba(0,0,0,.22);border:1px solid var(--line);padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#dbeafe}.log-row b{color:var(--gold2)}.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.12)}.status-dot.off{background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.12)}.endpoint-grid{display:grid;grid-template-columns:1fr;gap:10px}.endpoint-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center}.demo-banner{border:1px solid rgba(96,165,250,.22);background:rgba(96,165,250,.08);border-radius:20px;padding:14px}.demo-banner b{color:#bfdbfe}@media print{body{background:#fff}.app,.sidebar,.mobile-top,.topbar,.panel:not(.print-target){display:none!important}.print-target{display:block!important;box-shadow:none!important;border:0!important}.receipt{box-shadow:none;border-radius:0;width:80mm}.main{padding:0}.receipt-wrap{display:block}}.mobile-top{display:none}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{display:none}.mobile-top{display:flex;position:sticky;top:0;z-index:20;background:rgba(7,6,4,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:12px;gap:8px;overflow:auto}.mobile-top button{white-space:nowrap}.main{padding:14px}.kpis,.two,.three,.table-grid{grid-template-columns:1fr}.topbar{display:block}.operator{margin-top:12px}.title h1{font-size:34px}.row{grid-template-columns:1fr}.bar{grid-template-columns:1fr}.table-actions{grid-template-columns:1fr 1fr}}@media(max-width:1050px){.kitchen-board,.sales-split{grid-template-columns:repeat(2,1fr)}.cash-grid{grid-template-columns:repeat(3,1fr)}.form-grid,.config-grid{grid-template-columns:1fr}}@media(max-width:640px){.kitchen-board,.cash-grid,.sales-split,.form-grid,.config-grid{grid-template-columns:1fr}}`;
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,rgba(217,164,65,.22),transparent 28%),radial-gradient(circle at 110% 20%,rgba(96,165,250,.12),transparent 34%),#050403;color:var(--text);font-family:Inter,system-ui,sans-serif}.app{min-height:100dvh;display:grid;grid-template-columns:286px 1fr;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.sidebar{position:sticky;top:0;height:100dvh;padding:18px;border-right:1px solid var(--line);background:rgba(10,8,6,.86);backdrop-filter:blur(22px);display:flex;flex-direction:column}.brand{font-family:'Playfair Display',serif;letter-spacing:.14em;color:var(--gold2);font-size:31px;line-height:.9}.brand small{display:block;font-family:Inter;font-size:10px;letter-spacing:.2em;color:var(--muted);margin-top:8px}.role-card{margin:18px 0;padding:14px;border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid var(--line)}.role-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.role-switch button,.nav button,.chip,.btn{border:0;cursor:pointer}.role-switch button{border-radius:14px;padding:11px 8px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:900}.role-switch .on,.tab .on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.nav{display:grid;gap:7px;margin-top:8px}.nav button{display:flex;align-items:center;gap:11px;text-align:left;border-radius:16px;padding:13px 12px;background:transparent;color:var(--muted);font-weight:800}.nav button.on{background:rgba(247,211,123,.12);color:var(--gold2)}.nav button.locked{opacity:.35;cursor:not-allowed}.side-footer{margin-top:auto;color:var(--dim);font-size:12px;line-height:1.5}.main{padding:22px;min-width:0}.topbar{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.title h1{font-family:'Playfair Display',serif;font-size:42px;line-height:.96;margin:0;letter-spacing:-.05em}.title p{margin:8px 0 0;color:var(--muted)}.operator{display:flex;gap:10px;align-items:center;padding:11px 13px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.045)}.avatar{width:42px;height:42px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006;font-weight:900;object-fit:cover}.avatar.img{background:#111;border:1px solid var(--line)}.staff-photo{width:76px;height:76px;border-radius:22px;object-fit:cover;border:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.28)}.select{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:10px;outline:none}.input,.textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:12px;outline:none;font:inherit}.textarea{min-height:82px;resize:vertical}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field label{display:block;color:var(--muted);font-size:12px;font-weight:800;margin-bottom:6px}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);display:grid;place-items:center;z-index:80;padding:18px}.modal{width:min(760px,100%);max-height:90dvh;overflow:auto;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.preview-phone{border-radius:24px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:14px}.client-dish{border-radius:18px;background:rgba(255,255,255,.055);border:1px solid var(--line);padding:12px;margin-bottom:8px}.dish-thumb{width:74px;height:74px;border-radius:16px;object-fit:cover;background:rgba(255,255,255,.08);border:1px solid var(--line);flex-shrink:0}.dish-thumb.big{width:100%;height:180px;border-radius:20px;margin-bottom:12px}.image-upload{border:1px dashed rgba(247,211,123,.35);border-radius:18px;padding:14px;background:rgba(247,211,123,.05);display:grid;gap:10px}.image-actions{display:flex;gap:8px;flex-wrap:wrap}.client-dish h4{margin:0 0 4px}.client-dish p{margin:0;color:var(--muted);font-size:12px}.toggle{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-weight:800}.toggle input{accent-color:#d9a441}.grid{display:grid;gap:14px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kpi,.panel,.table-card,.message-card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border:1px solid var(--line);box-shadow:var(--shadow)}.kpi{padding:16px;min-height:112px}.kpi span{color:var(--muted);font-size:12px;font-weight:700}.kpi strong{display:block;font-size:30px;margin:8px 0 4px}.kpi small{color:var(--dim)}.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.panel{padding:16px;min-width:0}.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}.panel h2{font-family:'Playfair Display',serif;font-size:27px;margin:0;letter-spacing:-.04em}.panel p{color:var(--muted)}.list{display:grid;gap:10px}.row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px;border-radius:17px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.065)}.row-main b{display:block}.row-main small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;background:rgba(247,211,123,.12);color:var(--gold2);white-space:nowrap}.badge.red{background:rgba(239,68,68,.12);color:var(--red2)}.badge.green{background:rgba(52,211,153,.12);color:var(--green)}.badge.blue{background:rgba(96,165,250,.12);color:#93c5fd}.badge.purple{background:rgba(167,139,250,.12);color:#c4b5fd}.btn{border-radius:14px;padding:11px 13px;font-weight:900}.btn.primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.btn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}.btn.danger{background:rgba(239,68,68,.16);color:var(--red2);border:1px solid rgba(239,68,68,.24)}.tab{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.tab button{white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.table-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.table-card{padding:14px;min-height:158px}.table-card h3{margin:0;font-size:20px}.table-card .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}.table-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:9px 0}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:999px}.dish-lines{display:grid;gap:7px;margin-top:10px}.dish-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}.chart{display:grid;gap:10px}.bar{display:grid;grid-template-columns:160px 1fr 90px;gap:10px;align-items:center}.bar-track{height:11px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold2))}.message-card{padding:14px}.message-card.urgent{border-color:rgba(239,68,68,.35);background:linear-gradient(145deg,rgba(239,68,68,.10),rgba(255,255,255,.025))}.message-top{display:flex;justify-content:space-between;gap:10px}.message-card blockquote{margin:10px 0 0;color:#eadfd4;line-height:1.45;border-left:3px solid var(--gold);padding-left:10px}.timeline{display:grid;gap:12px}.timeline-item{display:grid;grid-template-columns:20px 1fr;gap:12px}.dot{width:12px;height:12px;border-radius:50%;background:var(--gold2);margin-top:5px;box-shadow:0 0 0 5px rgba(247,211,123,.1)}.audit{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cbd5e1;font-size:12px;background:rgba(0,0,0,.22);border-radius:16px;padding:14px;overflow:auto}.receipt-wrap{display:grid;place-items:center}.receipt{width:320px;background:#fff;color:#111;border-radius:10px;padding:18px 18px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 26px 70px rgba(0,0,0,.42)}.receipt h3{font-family:Inter,system-ui,sans-serif;text-align:center;margin:0;font-size:22px;letter-spacing:.12em}.receipt .center{text-align:center}.receipt .muted2{color:#555;font-size:11px}.receipt .dash{border-top:1px dashed #111;margin:12px 0}.receipt-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin:7px 0}.receipt-total{font-size:16px;font-weight:900}.receipt-qr{width:78px;height:78px;margin:12px auto 4px;background:repeating-linear-gradient(45deg,#111 0 6px,#fff 6px 12px);border:6px solid #fff;outline:2px solid #111}.print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.config-card{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.print-preview-note{color:var(--muted);font-size:12px;line-height:1.45}.drawer-lite{position:fixed;right:22px;top:22px;width:min(440px,calc(100vw - 44px));max-height:calc(100dvh - 44px);overflow:auto;z-index:60;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.drawer-lite h2{font-family:'Playfair Display',serif;font-size:30px;margin:0}.tip-box{border-radius:18px;background:rgba(247,211,123,.08);border:1px solid rgba(247,211,123,.18);padding:14px}.tip-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.printer-card{border:1px solid rgba(96,165,250,.24);background:rgba(96,165,250,.08);border-radius:20px;padding:14px;margin-top:12px}.period-switch{display:flex;gap:8px;flex-wrap:wrap}.period-switch button{border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.period-switch button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.sales-split{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.sales-mini{border-radius:18px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.sales-mini span{color:var(--muted);font-size:12px}.sales-mini strong{display:block;font-size:22px;margin-top:6px}.kitchen-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kitchen-col{border-radius:22px;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:14px}.kitchen-ticket{border-radius:18px;background:#18130f;border:1px solid rgba(255,255,255,.06);padding:12px;margin-top:10px}.kitchen-ticket h4{margin:0 0 6px}.kitchen-ticket p{margin:0;color:var(--muted);font-size:12px}.cash-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.cash-card{border-radius:20px;padding:16px;background:rgba(255,255,255,.045);border:1px solid var(--line)}.cash-card span{display:block;color:var(--muted);font-size:12px}.cash-card strong{display:block;font-size:24px;margin-top:8px}.shift-banner{border-radius:22px;padding:16px;background:linear-gradient(135deg,rgba(217,164,65,.14),rgba(255,255,255,.04));border:1px solid rgba(247,211,123,.22);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.shift-actions{display:flex;gap:8px;flex-wrap:wrap}.close-report{width:min(760px,100%);background:#fff;color:#111;border-radius:14px;padding:24px;font-family:Inter,system-ui,sans-serif}.close-report h2{font-family:Inter,system-ui,sans-serif;margin:0 0 6px;color:#111}.close-report .muted2{color:#555}.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.report-box{border:1px solid #ddd;border-radius:10px;padding:12px}.report-box span{font-size:12px;color:#555}.report-box b{display:block;font-size:20px;margin-top:4px}.signature-line{border-top:1px solid #111;margin-top:34px;padding-top:8px;text-align:center}.whatsapp-card{border:1px solid rgba(52,211,153,.24);background:rgba(52,211,153,.08);border-radius:20px;padding:14px;margin-top:12px}.qr-card-admin{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.qr-visual{width:112px;height:112px;border-radius:16px;background:repeating-linear-gradient(45deg,#fff 0 7px,#111 7px 14px);border:10px solid #fff;margin:0 auto 12px}.permission-table{width:100%;border-collapse:collapse}.permission-table th,.permission-table td{border-bottom:1px solid var(--line);padding:12px;text-align:left}.permission-table th{color:var(--gold2);font-size:12px}.permission-ok{color:var(--green);font-weight:900}.permission-no{color:var(--red2);font-weight:900}.inventory-low{border-color:rgba(239,68,68,.32)!important;background:linear-gradient(145deg,rgba(239,68,68,.09),rgba(255,255,255,.025))!important}.integration-log{max-height:260px;overflow:auto;display:grid;gap:8px}.log-row{border-radius:14px;background:rgba(0,0,0,.22);border:1px solid var(--line);padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#dbeafe}.log-row b{color:var(--gold2)}.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.12)}.status-dot.off{background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.12)}.endpoint-grid{display:grid;grid-template-columns:1fr;gap:10px}.endpoint-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center}.demo-banner{border:1px solid rgba(96,165,250,.22);background:rgba(96,165,250,.08);border-radius:20px;padding:14px}.demo-banner b{color:#bfdbfe}@media print{body{background:#fff}.app,.sidebar,.mobile-top,.topbar,.panel:not(.print-target){display:none!important}.print-target{display:block!important;box-shadow:none!important;border:0!important}.receipt{box-shadow:none;border-radius:0;width:80mm}.main{padding:0}.receipt-wrap{display:block}}.mobile-top{display:none}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{display:none}.mobile-top{display:flex;position:sticky;top:0;z-index:20;background:rgba(7,6,4,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:12px;gap:8px;overflow:auto}.mobile-top button{white-space:nowrap}.main{padding:14px}.kpis,.two,.three,.table-grid{grid-template-columns:1fr}.topbar{display:block}.operator{margin-top:12px}.title h1{font-size:34px}.row{grid-template-columns:1fr}.bar{grid-template-columns:1fr}.table-actions{grid-template-columns:1fr 1fr}}@media(max-width:1050px){.kitchen-board,.sales-split{grid-template-columns:repeat(2,1fr)}.cash-grid{grid-template-columns:repeat(3,1fr)}.form-grid,.config-grid{grid-template-columns:1fr}}@media(max-width:640px){.kitchen-board,.cash-grid,.sales-split,.form-grid,.config-grid{grid-template-columns:1fr}}
+/* Tablet: two usable columns instead of collapsing everything to one. */
+@media(min-width:641px) and (max-width:1050px){.kpis,.three,.table-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}.kitchen-board{grid-template-columns:repeat(2,minmax(0,1fr))}.cash-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.form-grid,.config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.main{padding:18px}}
+/* Touch targets and no horizontal overflow on phones. */
+@media(max-width:640px){.btn{padding:13px 14px;min-height:44px}.input,.select{min-height:44px;font-size:16px}.mobile-top button{min-height:42px}.panel,.kpi,.table-card{border-radius:18px}.title h1{font-size:28px}.panel h2{font-size:22px}.receipt{width:100%}.modal{padding:14px;border-radius:20px}.drawer-lite{right:0;left:0;top:0;width:100%;max-height:100dvh;border-radius:0;padding:16px}}
+.main,.panel,.grid{min-width:0}
+.permission-table{display:block;overflow-x:auto}
+.audit,.integration-log{overflow-x:auto}`;
 
 // Populated from Supabase by useBackofficeState; falls back to the seed list so
 // the UI still renders before the first poll returns.
@@ -408,20 +412,66 @@ function useBackofficeState(authToken = null) {
   const [tables, setTables] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [cashSession, setCashSession] = useState(CASH_SESSION_INITIAL);
-  const [inventory, setInventory] = useState(INVENTORY_ITEMS);
+  const [inventory, setInventory] = useState([]);
   const [qrTokens, setQrTokens] = useState(QR_TOKENS);
-  const [expenses, setExpenses] = useState(EXPENSES);
+  const [expenses, setExpenses] = useState([]);
 
   // Track locally-changed order IDs so the poll doesn't overwrite them right away
   const localOrderUpdates = useRef({});
+  // Id of the cash_sessions row currently open, if any.
+  const cashSessionId = useRef(null);
+
+  // Recover the open shift (if there is one) so a reload does not lose the till.
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await supaGet(`cash_sessions?restaurant_id=eq.${getRestaurantId()}&status=eq.open&order=opened_at.desc&limit=1`, authToken);
+        const open = Array.isArray(rows) ? rows[0] : null;
+        if (!open) {
+          setCashSession((s) => ({ ...s, status: "cerrada", history: [] }));
+          return;
+        }
+        cashSessionId.current = open.id;
+        const [moves, spend] = await Promise.all([
+          supaGet(`cash_movements?session_id=eq.${encodeURIComponent(open.id)}&order=created_at.desc&limit=40`, authToken),
+          supaGet(`expenses?cash_session_id=eq.${encodeURIComponent(open.id)}&order=created_at.desc&limit=40`, authToken),
+        ]);
+        if (Array.isArray(spend)) setExpenses(spend.map((e) => ({
+          id: e.id, type: e.expense_type, detail: e.detail, amount: e.amount, userId: e.staff_id,
+          time: new Date(e.created_at).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
+        })));
+        setCashSession((s) => ({
+          ...s,
+          id: open.id,
+          status: "abierta",
+          openedAt: new Date(open.opened_at).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
+          closedAt: null,
+          openedBy: open.opened_by,
+          currentUser: open.opened_by,
+          activeTurn: open.turn || "Noche",
+          openingCash: open.opening_cash || 0,
+          cash: open.cash_total || 0,
+          card: open.card_total || 0,
+          transfer: open.transfer_total || 0,
+          tips: open.tips_total || 0,
+          expenses: open.expenses_total || 0,
+          expected: (open.opening_cash || 0) + (open.cash_total || 0) + (open.card_total || 0) + (open.transfer_total || 0) - (open.expenses_total || 0),
+          history: Array.isArray(moves) ? moves.map((m) => ({
+            time: new Date(m.created_at).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
+            userId: m.staff_id, action: m.action, detail: m.detail || "",
+          })) : [],
+        }));
+      } catch (e) { console.error("[holu caja] cargar turno:", e.message); }
+    })();
+  }, [authToken]);
 
   useEffect(() => {
     const poll = async () => {
       try {
         const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const [rawOrders, rawCalls, rawTables, rawMenu, rawStaff] = await Promise.all([
-          supaGet(`orders?status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, null),
-          supaGet(`calls?status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, null),
+          supaGet(`orders?restaurant_id=eq.${getRestaurantId()}&status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, null),
+          supaGet(`calls?restaurant_id=eq.${getRestaurantId()}&status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, null),
           supaGet(`tables?restaurant_id=eq.${getRestaurantId()}&active=eq.true&order=table_number.asc`, null),
           supaGet(`menu_items?restaurant_id=eq.${getRestaurantId()}&order=sort_order.asc,name.asc`, null),
           supaGet(`staff?restaurant_id=eq.${getRestaurantId()}&select=id,name,role,shift,status,avatar_url&order=name.asc`, authToken),
@@ -523,31 +573,103 @@ function useBackofficeState(authToken = null) {
     try { await supaPatch(`tables?id=eq.${tableId}`, { tip_accepted: accepted, tip_amount: tipAmt }, null); }
     catch (e) { console.error("[holu admin] setTableTip:", e.message); }
   };
-  const addCashHistory = (userId, action, detail) => {
-    setCashSession((s) => ({ ...s, history: [{ time: new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }), userId, action, detail }, ...s.history] }));
+  // ── Caja ────────────────────────────────────────────────────────────────────
+  // A shift lives in cash_sessions; every movement is appended to cash_movements
+  // so the running totals and the audit trail survive a reload or a device swap.
+  const isStaffUuid = (id) => typeof id === "string" && id.length === 36 && id.includes("-");
+
+  const logMovement = async (userId, action, detail, amount = 0) => {
+    const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+    setCashSession((s) => ({ ...s, history: [{ time, userId, action, detail }, ...(s.history || [])] }));
+    if (!cashSessionId.current) return;
+    try {
+      await supaPost(`cash_movements`, {
+        restaurant_id: getRestaurantId(),
+        session_id: cashSessionId.current,
+        staff_id: isStaffUuid(userId) ? userId : null,
+        action, detail, amount: Number(amount) || 0,
+      }, authToken);
+    } catch (e) { console.error("[holu caja] movimiento:", e.message); }
   };
-  const openCash = (userId) => {
-    setCashSession((s) => ({ ...s, status: "abierta", openedAt: new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }), closedAt: null, openedBy: userId, currentUser: userId }));
-    addCashHistory(userId, "Abrió caja", "Caja habilitada para ventas del turno");
+  const addCashHistory = logMovement;
+
+  const openCash = async (userId, openingCash = 0, turn = "Noche") => {
+    const now = new Date();
+    const openedAt = now.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+    try {
+      const rows = await supaPost(`cash_sessions`, {
+        restaurant_id: getRestaurantId(),
+        opened_by: isStaffUuid(userId) ? userId : null,
+        turn,
+        status: "open",
+        opening_cash: Number(openingCash) || 0,
+      }, authToken);
+      const created = Array.isArray(rows) ? rows[0] : rows;
+      if (created?.id) cashSessionId.current = created.id;
+      setCashSession((s) => ({
+        ...s, id: created?.id || s.id, status: "abierta", openedAt, closedAt: null,
+        openedBy: userId, currentUser: userId, activeTurn: turn,
+        openingCash: Number(openingCash) || 0,
+        cash: 0, card: 0, transfer: 0, tips: 0, expenses: 0,
+        expected: Number(openingCash) || 0, counted: 0, difference: 0, history: [],
+      }));
+      await logMovement(userId, "Abrió caja", `Fondo inicial ${money(openingCash)} · Turno ${turn}`, Number(openingCash) || 0);
+    } catch (e) { console.error("[holu caja] abrir:", e.message); }
   };
-  const closeCash = (userId) => {
-    setCashSession((s) => ({ ...s, status: "cerrada", closedAt: new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }), currentUser: userId }));
-    addCashHistory(userId, "Cerró caja", "Cierre validado y listo para impresión/descarga/envío");
+
+  const closeCash = async (userId, counted = null) => {
+    const closedAt = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+    await logMovement(userId, "Cerró caja", "Cierre validado del turno");
+    setCashSession((s) => {
+      const countedVal = counted == null ? s.expected : Number(counted);
+      return { ...s, status: "cerrada", closedAt, currentUser: userId, counted: countedVal, difference: countedVal - s.expected };
+    });
+    if (!cashSessionId.current) return;
+    try {
+      await supaPatch(`cash_sessions?id=eq.${encodeURIComponent(cashSessionId.current)}`, {
+        status: "closed",
+        closed_at: new Date().toISOString(),
+        closed_by: isStaffUuid(userId) ? userId : null,
+        cash_total: cashSession.cash, card_total: cashSession.card,
+        transfer_total: cashSession.transfer, tips_total: cashSession.tips,
+        expenses_total: cashSession.expenses,
+      }, authToken);
+    } catch (e) { console.error("[holu caja] cerrar:", e.message); }
+    cashSessionId.current = null;
   };
-  const changeTurn = (userId, turn) => {
+
+  const changeTurn = async (userId, turn) => {
     setCashSession((s) => ({ ...s, activeTurn: turn, currentUser: userId }));
-    addCashHistory(userId, "Cambio turno", `Nuevo turno activo: ${turn}`);
+    await logMovement(userId, "Cambio turno", `Nuevo turno activo: ${turn}`);
+    if (!cashSessionId.current) return;
+    try { await supaPatch(`cash_sessions?id=eq.${encodeURIComponent(cashSessionId.current)}`, { turn }, authToken); }
+    catch (e) { console.error("[holu caja] turno:", e.message); }
   };
-  const closeTurn = (userId) => {
-    addCashHistory(userId, "Cerró turno", `Responsable: ${getStaff(userId).name}`);
+
+  const closeTurn = (userId) => logMovement(userId, "Cerró turno", `Responsable: ${getStaff(userId).name}`);
+
+  const addExpense = async (expense) => {
+    const amount = Number(expense.amount) || 0;
+    const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+    setExpenses((rows) => [{ ...expense, id: `E-${Date.now()}`, time }, ...rows]);
+    setCashSession((s) => ({ ...s, expenses: s.expenses + amount, expected: s.expected - amount }));
+    try {
+      await supaPost(`expenses`, {
+        restaurant_id: getRestaurantId(),
+        cash_session_id: cashSessionId.current,
+        staff_id: isStaffUuid(expense.userId) ? expense.userId : null,
+        expense_type: expense.type || "Caja",
+        detail: expense.detail,
+        amount,
+      }, authToken);
+    } catch (e) { console.error("[holu caja] gasto:", e.message); }
+    await logMovement(expense.userId, "Registró gasto", `${expense.detail} · ${money(amount)}`, -amount);
   };
-  const addExpense = (expense) => {
-    const row = { ...expense, id: `E-${Date.now()}`, time: new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) };
-    setExpenses((rows) => [row, ...rows]);
-    setCashSession((s) => ({ ...s, expenses: s.expenses + Number(expense.amount || 0), expected: s.expected - Number(expense.amount || 0), history: [{ time: row.time, userId: expense.userId, action: "Registró gasto", detail: `${expense.detail} · ${money(expense.amount)}` }, ...s.history] }));
-  };
-  const updateInventoryStock = (id, stock) => {
-    setInventory((rows) => rows.map((r) => r.id === id ? { ...r, stock: Number(stock), status: Number(stock) <= r.min ? "Bajo" : "OK" } : r));
+
+  const updateInventoryStock = async (id, stock) => {
+    setInventory((rows) => rows.map((r) => r.id === id ? { ...r, stock: Number(stock), status: Number(stock) <= (r.min_stock ?? r.min ?? 0) ? "Bajo" : "OK" } : r));
+    try { await supaPatch(`inventory?id=eq.${encodeURIComponent(id)}`, { stock: Number(stock) }, authToken); }
+    catch (e) { console.error("[holu inventario] stock:", e.message); }
   };
   const toggleQr = (table) => setQrTokens((rows) => rows.map((q) => q.table === table ? { ...q, active: !q.active } : q));
   const regenerateQr = (table) => setQrTokens((rows) => rows.map((q) => q.table === table ? { ...q, token: `QR${table}${Math.floor(1000 + Math.random() * 8999)}`, scans: 0, lastScan: "—" } : q));
@@ -561,15 +683,36 @@ function useBackofficeState(authToken = null) {
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, status: "Libre", bill: 0, tipAccepted: false, tipAmount: 0, guests: 0, waiterId: null } : t));
     setCalls((rows) => rows.filter((c) => c.table !== tableId));
     const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
-    setCashSession((s) => ({
-      ...s,
-      cash:     method === "Efectivo"      ? s.cash     + total : s.cash,
-      card:     method === "Tarjeta"       ? s.card     + total : s.card,
-      transfer: method === "Transferencia" ? s.transfer + total : s.transfer,
-      tips:     s.tips + tipAmt,
-      expected: s.expected + total,
-      history: [{ time, userId: staffUserId, action: "Cobro registrado", detail: `Mesa ${tableId} · ${money(total)} · ${method}` }, ...s.history],
-    }));
+    let totals = null;
+    setCashSession((s) => {
+      const next = {
+        ...s,
+        cash:     method === "Efectivo"      ? s.cash     + total : s.cash,
+        card:     method === "Tarjeta"       ? s.card     + total : s.card,
+        transfer: method === "Transferencia" ? s.transfer + total : s.transfer,
+        tips:     s.tips + tipAmt,
+        expected: s.expected + total,
+        history: [{ time, userId: staffUserId, action: "Cobro registrado", detail: `Mesa ${tableId} · ${money(total)} · ${method}` }, ...(s.history || [])],
+      };
+      totals = next;
+      return next;
+    });
+    if (cashSessionId.current && totals) {
+      try {
+        await supaPatch(`cash_sessions?id=eq.${encodeURIComponent(cashSessionId.current)}`, {
+          cash_total: totals.cash, card_total: totals.card,
+          transfer_total: totals.transfer, tips_total: totals.tips,
+        }, authToken);
+        await supaPost(`cash_movements`, {
+          restaurant_id: getRestaurantId(),
+          session_id: cashSessionId.current,
+          staff_id: isStaffUuid(staffUserId) ? staffUserId : null,
+          action: "Cobro registrado",
+          detail: `Mesa ${tableId} · ${money(total)} · ${method}`,
+          amount: total,
+        }, authToken);
+      } catch (e) { console.error("[holu caja] cobro:", e.message); }
+    }
     try {
       await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.${getRestaurantId()}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null);
       await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.${getRestaurantId()}`, { status: "served" }, null);
@@ -894,52 +1037,11 @@ function MessageCard({ msg, state, actor, compact = false }) {
   return <article className={`message-card ${msg.status === "urgente" ? "urgent" : ""}`}><div className="message-top"><div><b>Mesa {msg.table}</b><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{msg.type} · {msg.time} · {getStaff(msg.waiterId).name}</small></div><span className={`badge ${msg.status === "urgente" ? "red" : msg.status === "resuelto" ? "green" : ""}`}>{msg.status}</span></div><blockquote>{msg.text}</blockquote>{!compact && <div style={{display:"flex",gap:8,marginTop:12}}><button className="btn primary" onClick={()=>state.resolveMessage(msg.id, actor)}>Responder/Resolver</button><button className="btn ghost">Asignar</button></div>}</article>;
 }
 
-function KitchenView() {
-  const [orders, setOrders] = useState([]);
-  const pendingRef = useRef({});
-
-  const fetchKitchenOrders = async () => {
-    const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/orders?status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`,
-        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
-      );
-      if (!res.ok) return;
-      const rows = await res.json();
-      if (!Array.isArray(rows)) return;
-      const now = Date.now();
-      setOrders((prev) => {
-        const incoming = rows.map(dbOrderToUI);
-        return incoming.map((o) => {
-          const lockedUntil = pendingRef.current[o.id];
-          if (lockedUntil && now < lockedUntil) return prev.find((p) => p.id === o.id) || o;
-          return o;
-        });
-      });
-    } catch (err) {
-      console.error("[holu kitchen] poll:", err.message);
-    }
-  };
-
-  useEffect(() => {
-    fetchKitchenOrders();
-    const t = setInterval(fetchKitchenOrders, 6000);
-    return () => clearInterval(t);
-  }, []);
-
-  const advance = async (id, nextUiStatus) => {
-    const dbStatus = STATUS_DB[nextUiStatus];
-    if (!dbStatus) return;
-    pendingRef.current[id] = Date.now() + 15000;
-    setOrders((rows) => nextUiStatus === "Servido" ? rows.filter((o) => o.id !== id) : rows.map((o) => o.id === id ? { ...o, status: nextUiStatus } : o));
-    try {
-      await supaFetch(`orders?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status: dbStatus }) });
-    } catch (e) {
-      console.error("[holu kitchen] advance:", e.message);
-    }
-    setTimeout(() => { delete pendingRef.current[id]; fetchKitchenOrders(); }, 1500);
-  };
+// Kitchen reads and writes the same shared order state as the table app, the
+// cashier and the waiters, so a status change is visible everywhere at once.
+function KitchenView({ state }) {
+  const orders = state.orders;
+  const advance = (id, nextUiStatus) => state.updateOrderStatus(id, nextUiStatus);
 
   const columns = {
     received: orders.filter((o) => o.status.includes("Recibido")),
@@ -959,7 +1061,7 @@ function KitchenView() {
         </div>
       )}
       <div className="panel">
-        <div className="panel-head"><div><h2>Pantalla cocina</h2><p style={{ margin: "4px 0 0" }}>Flujo en tiempo real · actualiza cada 6s</p></div><span className="badge red">LIVE</span></div>
+        <div className="panel-head"><div><h2>Pantalla cocina</h2><p style={{ margin: "4px 0 0" }}>Mismo flujo que ven mesa, caja y camareros</p></div><span className="badge red">LIVE</span></div>
         <div className="kitchen-board">
           {Object.entries(KITCHEN_COLUMNS).map(([key, label]) => (
             <div className="kitchen-col" key={key}>
@@ -999,6 +1101,8 @@ function CashClosingView({ state, staffId }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [turn, setTurn] = useState(state.cashSession.activeTurn);
+  const [openingCash, setOpeningCash] = useState("");
+  const [countedCash, setCountedCash] = useState("");
   const session = state.cashSession;
   const diffOk = session.difference === 0;
   const responsible = getStaff(session.currentUser);
@@ -1032,7 +1136,9 @@ Diferencia: ${money(session.difference)}`;
     a.click();
     URL.revokeObjectURL(url);
   };
-  return <div className="grid"><div className="shift-banner"><div><h2 style={{margin:0,fontFamily:"Playfair Display",fontSize:30}}>Caja {session.status}</h2><p style={{margin:"6px 0 0",color:"var(--muted)"}}>Turno {session.activeTurn} · Responsable actual: {responsible.name} · Apertura {session.openedAt}</p></div><div className="shift-actions"><button className="btn primary" onClick={()=>state.openCash(staffId)}>Abrir caja</button><button className="btn ghost" onClick={()=>state.closeTurn(staffId)}>Cerrar turno</button><button className="btn danger" onClick={()=>state.closeCash(staffId)}>Cerrar caja</button></div></div><div className="panel"><div className="panel-head"><div><h2>Cambio de turno</h2><p style={{margin:"4px 0 0"}}>Cada acción queda asociada al usuario responsable.</p></div><span className={`badge ${session.status === "abierta" ? "green" : "red"}`}>{session.status}</span></div><div className="form-grid"><div className="field"><label>Turno activo</label><select className="input" value={turn} onChange={(e)=>setTurn(e.target.value)}><option>Mañana</option><option>Tarde</option><option>Noche</option><option>Extra</option></select></div><div className="field"><label>Responsable</label><select className="input" value={staffId} disabled><option>{getStaff(staffId).name}</option></select></div></div><button className="btn primary" style={{marginTop:12}} onClick={()=>state.changeTurn(staffId, turn)}>Cambiar turno</button></div><ExpenseRegister state={state} staffId={staffId} /><div className="panel"><div className="panel-head"><div><h2>Cierre de caja</h2><p style={{margin:"4px 0 0"}}>Control diario de ventas, propinas y diferencias de caja.</p></div><span className={`badge ${diffOk ? "green" : "red"}`}>{diffOk ? "Cuadrado" : "Diferencia"}</span></div><div className="cash-grid"><div className="cash-card"><span>Efectivo</span><strong>{money(session.cash)}</strong></div><div className="cash-card"><span>Tarjeta</span><strong>{money(session.card)}</strong></div><div className="cash-card"><span>Transferencia</span><strong>{money(session.transfer)}</strong></div><div className="cash-card"><span>Propinas</span><strong>{money(session.tips)}</strong></div><div className="cash-card"><span>Gastos</span><strong>{money(session.expenses)}</strong></div></div></div><div className="two"><div className="panel"><div className="panel-head"><h2>Resumen final</h2><span className="badge blue">Caja</span></div><div className="list"><div className="row"><span className="badge">Esperado</span><div className="row-main"><b>Total esperado</b><small>Suma de ventas y métodos de pago</small></div><strong>{money(session.expected)}</strong></div><div className="row"><span className="badge green">Contado</span><div className="row-main"><b>Total contado</b><small>Conteo físico del turno</small></div><strong>{money(session.counted)}</strong></div><div className="row"><span className={`badge ${diffOk ? "green" : "red"}`}>Diferencia</span><div className="row-main"><b>Ajuste</b><small>Debe ser 0 para cierre correcto</small></div><strong>{money(session.difference)}</strong></div></div><div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}><button className="btn primary" onClick={()=>setReportOpen(true)}>Ver cierre</button><button className="btn ghost" onClick={()=>window.print()}>Imprimir</button><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button></div></div><div className="panel"><div className="panel-head"><h2>Propinas registradas</h2><span className="badge">10%</span></div><div className="list">{state.tables.filter((t)=>t.bill > 0).map((t)=><div className="row" key={t.id}><span className={`badge ${t.tipAccepted ? "green" : "red"}`}>Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.tipAccepted ? "Cliente aceptó propina" : "Cliente rechazó propina"}</small></div><strong>{money(t.tipAmount)}</strong></div>)}</div></div></div><div className="panel"><div className="panel-head"><h2>Historial de caja/turno</h2><span className="badge purple">Auditoría</span></div><div className="list">{session.history.map((h,idx)=><div className="row" key={idx}><span className="badge">{h.time}</span><div className="row-main"><b>{h.action}</b><small>{h.detail}</small></div><strong>{getStaff(h.userId).name}</strong></div>)}</div></div>{reportOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Reporte de cierre</h2><button className="btn ghost" onClick={()=>setReportOpen(false)}>Cerrar</button></div><CashCloseReport session={session} userId={staffId} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button><button className="btn primary" onClick={()=>window.print()}>Imprimir</button></div></div></div>}{whatsappOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Enviar cierre por WhatsApp</h2><button className="btn ghost" onClick={()=>setWhatsappOpen(false)}>Cerrar</button></div><div className="whatsapp-card"><b>Mensaje listo para enviar</b><p style={{color:"var(--muted)",lineHeight:1.5}}>Se enviará resumen del cierre, responsable, métodos de pago, propinas y diferencia.</p><a className="btn primary" style={{display:"inline-block",textDecoration:"none"}} href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp</a></div></div></div>}</div>;
+  return <div className="grid"><div className="shift-banner"><div><h2 style={{margin:0,fontFamily:"Playfair Display",fontSize:30}}>Caja {session.status}</h2><p style={{margin:"6px 0 0",color:"var(--muted)"}}>Turno {session.activeTurn} · Responsable actual: {responsible.name} · Apertura {session.openedAt}</p></div><div className="shift-actions">{session.status !== "abierta"
+      ? <><input className="input" style={{width:150}} type="number" min="0" placeholder="Fondo inicial" value={openingCash} onChange={(e)=>setOpeningCash(e.target.value)} /><button className="btn primary" onClick={()=>state.openCash(staffId, Number(openingCash)||0, turn)}>Abrir caja</button></>
+      : <><button className="btn ghost" onClick={()=>state.closeTurn(staffId)}>Cerrar turno</button><input className="input" style={{width:150}} type="number" min="0" placeholder="Efectivo contado" value={countedCash} onChange={(e)=>setCountedCash(e.target.value)} /><button className="btn danger" onClick={()=>{ if(window.confirm("¿Cerrar la caja de este turno?")) state.closeCash(staffId, countedCash === "" ? null : Number(countedCash)); }}>Cerrar caja</button></>}</div></div><div className="panel"><div className="panel-head"><div><h2>Cambio de turno</h2><p style={{margin:"4px 0 0"}}>Cada acción queda asociada al usuario responsable.</p></div><span className={`badge ${session.status === "abierta" ? "green" : "red"}`}>{session.status}</span></div><div className="form-grid"><div className="field"><label>Turno activo</label><select className="input" value={turn} onChange={(e)=>setTurn(e.target.value)}><option>Día</option><option>Noche</option><option>Full</option></select></div><div className="field"><label>Responsable</label><select className="input" value={staffId} disabled><option>{getStaff(staffId).name}</option></select></div></div><button className="btn primary" style={{marginTop:12}} onClick={()=>state.changeTurn(staffId, turn)}>Cambiar turno</button></div><ExpenseRegister state={state} staffId={staffId} /><div className="panel"><div className="panel-head"><div><h2>Cierre de caja</h2><p style={{margin:"4px 0 0"}}>Control diario de ventas, propinas y diferencias de caja.</p></div><span className={`badge ${diffOk ? "green" : "red"}`}>{diffOk ? "Cuadrado" : "Diferencia"}</span></div><div className="cash-grid"><div className="cash-card"><span>Efectivo</span><strong>{money(session.cash)}</strong></div><div className="cash-card"><span>Tarjeta</span><strong>{money(session.card)}</strong></div><div className="cash-card"><span>Transferencia</span><strong>{money(session.transfer)}</strong></div><div className="cash-card"><span>Propinas</span><strong>{money(session.tips)}</strong></div><div className="cash-card"><span>Gastos</span><strong>{money(session.expenses)}</strong></div></div></div><div className="two"><div className="panel"><div className="panel-head"><h2>Resumen final</h2><span className="badge blue">Caja</span></div><div className="list"><div className="row"><span className="badge">Esperado</span><div className="row-main"><b>Total esperado</b><small>Suma de ventas y métodos de pago</small></div><strong>{money(session.expected)}</strong></div><div className="row"><span className="badge green">Contado</span><div className="row-main"><b>Total contado</b><small>Conteo físico del turno</small></div><strong>{money(session.counted)}</strong></div><div className="row"><span className={`badge ${diffOk ? "green" : "red"}`}>Diferencia</span><div className="row-main"><b>Ajuste</b><small>Debe ser 0 para cierre correcto</small></div><strong>{money(session.difference)}</strong></div></div><div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}><button className="btn primary" onClick={()=>setReportOpen(true)}>Ver cierre</button><button className="btn ghost" onClick={()=>window.print()}>Imprimir</button><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button></div></div><div className="panel"><div className="panel-head"><h2>Propinas registradas</h2><span className="badge">10%</span></div><div className="list">{state.tables.filter((t)=>t.bill > 0).map((t)=><div className="row" key={t.id}><span className={`badge ${t.tipAccepted ? "green" : "red"}`}>Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.tipAccepted ? "Cliente aceptó propina" : "Cliente rechazó propina"}</small></div><strong>{money(t.tipAmount)}</strong></div>)}</div></div></div><div className="panel"><div className="panel-head"><h2>Historial de caja/turno</h2><span className="badge purple">Auditoría</span></div><div className="list">{session.history.map((h,idx)=><div className="row" key={idx}><span className="badge">{h.time}</span><div className="row-main"><b>{h.action}</b><small>{h.detail}</small></div><strong>{getStaff(h.userId).name}</strong></div>)}</div></div>{reportOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Reporte de cierre</h2><button className="btn ghost" onClick={()=>setReportOpen(false)}>Cerrar</button></div><CashCloseReport session={session} userId={staffId} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button><button className="btn primary" onClick={()=>window.print()}>Imprimir</button></div></div></div>}{whatsappOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Enviar cierre por WhatsApp</h2><button className="btn ghost" onClick={()=>setWhatsappOpen(false)}>Cerrar</button></div><div className="whatsapp-card"><b>Mensaje listo para enviar</b><p style={{color:"var(--muted)",lineHeight:1.5}}>Se enviará resumen del cierre, responsable, métodos de pago, propinas y diferencia.</p><a className="btn primary" style={{display:"inline-block",textDecoration:"none"}} href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp</a></div></div></div>}</div>;
 }
 
 function ExpenseRegister({ state, staffId }) {
@@ -1743,7 +1849,11 @@ function SettingsView({ state }) {
   ]);
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
+  const [promos, setPromos] = useState([]);
   const updateRestaurant = (key, value) => setRestaurant((r)=>({ ...r, [key]: value }));
+  const updatePromo = (idx, key, value) => setPromos((rows) => rows.map((p, i) => i === idx ? { ...p, [key]: value } : p));
+  const addPromo = () => setPromos((rows) => [...rows, { eyebrow: "", title: "", body: "", price: "" }]);
+  const removePromo = (idx) => setPromos((rows) => rows.filter((_, i) => i !== idx));
 
   useEffect(() => {
     supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=*&limit=1`, {}, authToken)
@@ -1761,6 +1871,7 @@ function SettingsView({ state }) {
           concept: r.settings?.concept || prev.concept,
           googleReviewUrl: r.google_review_url || prev.googleReviewUrl,
         }));
+        if (Array.isArray(r.settings?.promos)) setPromos(r.settings.promos);
       })
       .catch(() => {});
   }, []);
@@ -1778,7 +1889,10 @@ function SettingsView({ state }) {
           phone: restaurant.phone,
           website: restaurant.website,
           google_review_url: restaurant.googleReviewUrl || null,
-          settings: { concept: restaurant.concept || "" },
+          settings: {
+            concept: restaurant.concept || "",
+            promos: promos.filter((p) => p.title?.trim()),
+          },
         }),
       }, authToken);
       setSavedOk(true); setTimeout(() => setSavedOk(false), 2500);
@@ -1858,7 +1972,7 @@ function SettingsView({ state }) {
       }
     }
   };
-  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
+  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Promociones visibles en la app de mesa</label><button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} onClick={addPromo}>+ Promo</button></div>{promos.length===0&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Sin promociones. El cliente no verá esta sección.</p>}{promos.map((p,idx)=><div key={idx} className="config-card" style={{marginBottom:8}}><div className="form-grid"><div className="field"><label>Etiqueta</label><input className="input" value={p.eyebrow||""} onChange={(e)=>updatePromo(idx,"eyebrow",e.target.value)} placeholder="LUN–VIE" /></div><div className="field"><label>Título</label><input className="input" value={p.title||""} onChange={(e)=>updatePromo(idx,"title",e.target.value)} placeholder="Menú del Día" /></div><div className="field"><label>Descripción</label><input className="input" value={p.body||""} onChange={(e)=>updatePromo(idx,"body",e.target.value)} placeholder="Entrada + principal + postre" /></div><div className="field"><label>Precio / destacado</label><input className="input" value={p.price||""} onChange={(e)=>updatePromo(idx,"price",e.target.value)} placeholder="$32.000" /></div></div><button className="btn danger" style={{marginTop:8,fontSize:12,padding:"7px 10px"}} onClick={()=>removePromo(idx)}>Eliminar</button></div>)}</div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
 <>
   <button className="btn ghost" style={{marginTop:10}} onClick={()=>setShowPrinterPanel(!showPrinterPanel)}>
     {showPrinterPanel ? "Ocultar" : "Ver"} configuración de impresora
@@ -2053,7 +2167,7 @@ export default function HoluAdmin() {
     switch (safeTab) {
       case "tables": return <TablesView role={role} staffId={staffId} state={state} />;
       case "orders": return <OrdersView role={role} staffId={staffId} state={state} />;
-      case "kitchen": return <KitchenView />;
+      case "kitchen": return <KitchenView state={state} />;
       case "calls": return <CallsView role={role} staffId={staffId} state={state} />;
       case "messages": return <MessagesView role={role} staffId={staffId} state={state} />;
       case "sales": return <><CashClosingView state={state} staffId={staffId} /><SalesView /></>;
