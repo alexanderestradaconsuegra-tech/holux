@@ -30,6 +30,26 @@ const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.s
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc1NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
 const MESA_URL = getEnv("VITE_MESA_URL", "").replace(/\/+$/, "");
 
+// ── Tenant ────────────────────────────────────────────────────────────────────
+// Each restaurant gets its own admin deployment with VITE_RESTAURANT_ID set.
+// After an admin signs in, the restaurant_id in their JWT overrides this and is
+// the authoritative value (RLS enforces it server-side either way).
+const DEFAULT_RESTAURANT_ID = getEnv("VITE_RESTAURANT_ID", "holu");
+let CURRENT_RESTAURANT_ID = DEFAULT_RESTAURANT_ID;
+try {
+  const stored = sessionStorage.getItem("holu:restaurant");
+  if (stored) CURRENT_RESTAURANT_ID = stored;
+} catch {}
+const getRestaurantId = () => CURRENT_RESTAURANT_ID;
+const setRestaurantId = (id) => {
+  if (!id) return;
+  CURRENT_RESTAURANT_ID = id;
+  try { sessionStorage.setItem("holu:restaurant", id); } catch {}
+};
+
+const supaRpc = (fn, args, token = null) =>
+  supaFetch(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args || {}) }, token);
+
 const supaFetch = (path, opts = {}, authToken = null) => {
   const token = authToken || SUPABASE_ANON_KEY;
   const headers = {
@@ -353,8 +373,16 @@ const CSS = `
 :root{--bg:#070604;--panel:#14110e;--panel2:#1f1a15;--card:#18130f;--line:rgba(255,255,255,.09);--text:#fff7ed;--muted:#bcae9f;--dim:#7d7064;--gold:#d9a441;--gold2:#f7d37b;--red:#ef4444;--red2:#fca5a5;--green:#34d399;--blue:#60a5fa;--purple:#a78bfa;--shadow:0 24px 80px rgba(0,0,0,.45)}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,rgba(217,164,65,.22),transparent 28%),radial-gradient(circle at 110% 20%,rgba(96,165,250,.12),transparent 34%),#050403;color:var(--text);font-family:Inter,system-ui,sans-serif}.app{min-height:100dvh;display:grid;grid-template-columns:286px 1fr;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.sidebar{position:sticky;top:0;height:100dvh;padding:18px;border-right:1px solid var(--line);background:rgba(10,8,6,.86);backdrop-filter:blur(22px);display:flex;flex-direction:column}.brand{font-family:'Playfair Display',serif;letter-spacing:.14em;color:var(--gold2);font-size:31px;line-height:.9}.brand small{display:block;font-family:Inter;font-size:10px;letter-spacing:.2em;color:var(--muted);margin-top:8px}.role-card{margin:18px 0;padding:14px;border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid var(--line)}.role-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.role-switch button,.nav button,.chip,.btn{border:0;cursor:pointer}.role-switch button{border-radius:14px;padding:11px 8px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:900}.role-switch .on,.tab .on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.nav{display:grid;gap:7px;margin-top:8px}.nav button{display:flex;align-items:center;gap:11px;text-align:left;border-radius:16px;padding:13px 12px;background:transparent;color:var(--muted);font-weight:800}.nav button.on{background:rgba(247,211,123,.12);color:var(--gold2)}.nav button.locked{opacity:.35;cursor:not-allowed}.side-footer{margin-top:auto;color:var(--dim);font-size:12px;line-height:1.5}.main{padding:22px;min-width:0}.topbar{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.title h1{font-family:'Playfair Display',serif;font-size:42px;line-height:.96;margin:0;letter-spacing:-.05em}.title p{margin:8px 0 0;color:var(--muted)}.operator{display:flex;gap:10px;align-items:center;padding:11px 13px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.045)}.avatar{width:42px;height:42px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006;font-weight:900;object-fit:cover}.avatar.img{background:#111;border:1px solid var(--line)}.staff-photo{width:76px;height:76px;border-radius:22px;object-fit:cover;border:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.28)}.select{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:10px;outline:none}.input,.textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:12px;outline:none;font:inherit}.textarea{min-height:82px;resize:vertical}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field label{display:block;color:var(--muted);font-size:12px;font-weight:800;margin-bottom:6px}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.62);display:grid;place-items:center;z-index:80;padding:18px}.modal{width:min(760px,100%);max-height:90dvh;overflow:auto;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.preview-phone{border-radius:24px;border:1px solid var(--line);background:rgba(255,255,255,.035);padding:14px}.client-dish{border-radius:18px;background:rgba(255,255,255,.055);border:1px solid var(--line);padding:12px;margin-bottom:8px}.dish-thumb{width:74px;height:74px;border-radius:16px;object-fit:cover;background:rgba(255,255,255,.08);border:1px solid var(--line);flex-shrink:0}.dish-thumb.big{width:100%;height:180px;border-radius:20px;margin-bottom:12px}.image-upload{border:1px dashed rgba(247,211,123,.35);border-radius:18px;padding:14px;background:rgba(247,211,123,.05);display:grid;gap:10px}.image-actions{display:flex;gap:8px;flex-wrap:wrap}.client-dish h4{margin:0 0 4px}.client-dish p{margin:0;color:var(--muted);font-size:12px}.toggle{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-weight:800}.toggle input{accent-color:#d9a441}.grid{display:grid;gap:14px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kpi,.panel,.table-card,.message-card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border:1px solid var(--line);box-shadow:var(--shadow)}.kpi{padding:16px;min-height:112px}.kpi span{color:var(--muted);font-size:12px;font-weight:700}.kpi strong{display:block;font-size:30px;margin:8px 0 4px}.kpi small{color:var(--dim)}.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.panel{padding:16px;min-width:0}.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}.panel h2{font-family:'Playfair Display',serif;font-size:27px;margin:0;letter-spacing:-.04em}.panel p{color:var(--muted)}.list{display:grid;gap:10px}.row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px;border-radius:17px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.065)}.row-main b{display:block}.row-main small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:900;background:rgba(247,211,123,.12);color:var(--gold2);white-space:nowrap}.badge.red{background:rgba(239,68,68,.12);color:var(--red2)}.badge.green{background:rgba(52,211,153,.12);color:var(--green)}.badge.blue{background:rgba(96,165,250,.12);color:#93c5fd}.badge.purple{background:rgba(167,139,250,.12);color:#c4b5fd}.btn{border-radius:14px;padding:11px 13px;font-weight:900}.btn.primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.btn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}.btn.danger{background:rgba(239,68,68,.16);color:var(--red2);border:1px solid rgba(239,68,68,.24)}.tab{display:flex;gap:8px;overflow:auto;margin-bottom:14px}.tab button{white-space:nowrap;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.table-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.table-card{padding:14px;min-height:158px}.table-card h3{margin:0;font-size:20px}.table-card .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}.table-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:9px 0}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:999px}.dish-lines{display:grid;gap:7px;margin-top:10px}.dish-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}.chart{display:grid;gap:10px}.bar{display:grid;grid-template-columns:160px 1fr 90px;gap:10px;align-items:center}.bar-track{height:11px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold2))}.message-card{padding:14px}.message-card.urgent{border-color:rgba(239,68,68,.35);background:linear-gradient(145deg,rgba(239,68,68,.10),rgba(255,255,255,.025))}.message-top{display:flex;justify-content:space-between;gap:10px}.message-card blockquote{margin:10px 0 0;color:#eadfd4;line-height:1.45;border-left:3px solid var(--gold);padding-left:10px}.timeline{display:grid;gap:12px}.timeline-item{display:grid;grid-template-columns:20px 1fr;gap:12px}.dot{width:12px;height:12px;border-radius:50%;background:var(--gold2);margin-top:5px;box-shadow:0 0 0 5px rgba(247,211,123,.1)}.audit{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cbd5e1;font-size:12px;background:rgba(0,0,0,.22);border-radius:16px;padding:14px;overflow:auto}.receipt-wrap{display:grid;place-items:center}.receipt{width:320px;background:#fff;color:#111;border-radius:10px;padding:18px 18px 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 26px 70px rgba(0,0,0,.42)}.receipt h3{font-family:Inter,system-ui,sans-serif;text-align:center;margin:0;font-size:22px;letter-spacing:.12em}.receipt .center{text-align:center}.receipt .muted2{color:#555;font-size:11px}.receipt .dash{border-top:1px dashed #111;margin:12px 0}.receipt-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin:7px 0}.receipt-total{font-size:16px;font-weight:900}.receipt-qr{width:78px;height:78px;margin:12px auto 4px;background:repeating-linear-gradient(45deg,#111 0 6px,#fff 6px 12px);border:6px solid #fff;outline:2px solid #111}.print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.config-card{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.print-preview-note{color:var(--muted);font-size:12px;line-height:1.45}.drawer-lite{position:fixed;right:22px;top:22px;width:min(440px,calc(100vw - 44px));max-height:calc(100dvh - 44px);overflow:auto;z-index:60;border-radius:26px;background:#100d0a;border:1px solid var(--line);box-shadow:var(--shadow);padding:18px}.drawer-lite h2{font-family:'Playfair Display',serif;font-size:30px;margin:0}.tip-box{border-radius:18px;background:rgba(247,211,123,.08);border:1px solid rgba(247,211,123,.18);padding:14px}.tip-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.printer-card{border:1px solid rgba(96,165,250,.24);background:rgba(96,165,250,.08);border-radius:20px;padding:14px;margin-top:12px}.period-switch{display:flex;gap:8px;flex-wrap:wrap}.period-switch button{border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);border-radius:999px;padding:10px 13px;font-weight:900}.period-switch button.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#171006}.sales-split{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.sales-mini{border-radius:18px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.sales-mini span{color:var(--muted);font-size:12px}.sales-mini strong{display:block;font-size:22px;margin-top:6px}.kitchen-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kitchen-col{border-radius:22px;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:14px}.kitchen-ticket{border-radius:18px;background:#18130f;border:1px solid rgba(255,255,255,.06);padding:12px;margin-top:10px}.kitchen-ticket h4{margin:0 0 6px}.kitchen-ticket p{margin:0;color:var(--muted);font-size:12px}.cash-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.cash-card{border-radius:20px;padding:16px;background:rgba(255,255,255,.045);border:1px solid var(--line)}.cash-card span{display:block;color:var(--muted);font-size:12px}.cash-card strong{display:block;font-size:24px;margin-top:8px}.shift-banner{border-radius:22px;padding:16px;background:linear-gradient(135deg,rgba(217,164,65,.14),rgba(255,255,255,.04));border:1px solid rgba(247,211,123,.22);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.shift-actions{display:flex;gap:8px;flex-wrap:wrap}.close-report{width:min(760px,100%);background:#fff;color:#111;border-radius:14px;padding:24px;font-family:Inter,system-ui,sans-serif}.close-report h2{font-family:Inter,system-ui,sans-serif;margin:0 0 6px;color:#111}.close-report .muted2{color:#555}.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.report-box{border:1px solid #ddd;border-radius:10px;padding:12px}.report-box span{font-size:12px;color:#555}.report-box b{display:block;font-size:20px;margin-top:4px}.signature-line{border-top:1px solid #111;margin-top:34px;padding-top:8px;text-align:center}.whatsapp-card{border:1px solid rgba(52,211,153,.24);background:rgba(52,211,153,.08);border-radius:20px;padding:14px;margin-top:12px}.qr-card-admin{border-radius:20px;background:rgba(255,255,255,.045);border:1px solid var(--line);padding:14px}.qr-visual{width:112px;height:112px;border-radius:16px;background:repeating-linear-gradient(45deg,#fff 0 7px,#111 7px 14px);border:10px solid #fff;margin:0 auto 12px}.permission-table{width:100%;border-collapse:collapse}.permission-table th,.permission-table td{border-bottom:1px solid var(--line);padding:12px;text-align:left}.permission-table th{color:var(--gold2);font-size:12px}.permission-ok{color:var(--green);font-weight:900}.permission-no{color:var(--red2);font-weight:900}.inventory-low{border-color:rgba(239,68,68,.32)!important;background:linear-gradient(145deg,rgba(239,68,68,.09),rgba(255,255,255,.025))!important}.integration-log{max-height:260px;overflow:auto;display:grid;gap:8px}.log-row{border-radius:14px;background:rgba(0,0,0,.22);border:1px solid var(--line);padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#dbeafe}.log-row b{color:var(--gold2)}.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.12)}.status-dot.off{background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.12)}.endpoint-grid{display:grid;grid-template-columns:1fr;gap:10px}.endpoint-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center}.demo-banner{border:1px solid rgba(96,165,250,.22);background:rgba(96,165,250,.08);border-radius:20px;padding:14px}.demo-banner b{color:#bfdbfe}@media print{body{background:#fff}.app,.sidebar,.mobile-top,.topbar,.panel:not(.print-target){display:none!important}.print-target{display:block!important;box-shadow:none!important;border:0!important}.receipt{box-shadow:none;border-radius:0;width:80mm}.main{padding:0}.receipt-wrap{display:block}}.mobile-top{display:none}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{display:none}.mobile-top{display:flex;position:sticky;top:0;z-index:20;background:rgba(7,6,4,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:12px;gap:8px;overflow:auto}.mobile-top button{white-space:nowrap}.main{padding:14px}.kpis,.two,.three,.table-grid{grid-template-columns:1fr}.topbar{display:block}.operator{margin-top:12px}.title h1{font-size:34px}.row{grid-template-columns:1fr}.bar{grid-template-columns:1fr}.table-actions{grid-template-columns:1fr 1fr}}@media(max-width:1050px){.kitchen-board,.sales-split{grid-template-columns:repeat(2,1fr)}.cash-grid{grid-template-columns:repeat(3,1fr)}.form-grid,.config-grid{grid-template-columns:1fr}}@media(max-width:640px){.kitchen-board,.cash-grid,.sales-split,.form-grid,.config-grid{grid-template-columns:1fr}}`;
 
+// Populated from Supabase by useBackofficeState; falls back to the seed list so
+// the UI still renders before the first poll returns.
+let LIVE_STAFF = [];
+const setLiveStaff = (rows) => { LIVE_STAFF = Array.isArray(rows) ? rows : []; };
+
 function getStaff(id) {
-  return STAFF.find((s) => s.id === id) || { name: "Sin asignar", avatar: "—", role: "", photoUrl: "" };
+  if (!id) return { name: "Sin asignar", avatar: "—", role: "", photoUrl: "" };
+  return LIVE_STAFF.find((s) => s.id === id)
+    || STAFF.find((s) => s.id === id)
+    || { name: "Sin asignar", avatar: "—", role: "", photoUrl: "" };
 }
 
 function StaffAvatar({ staff, className = "avatar" }) {
@@ -374,8 +402,11 @@ function useBackofficeState(authToken = null) {
   const [orders, setOrders] = useState([]);
   const [calls, setCalls] = useState([]);
   const [messages, setMessages] = useState(CLIENT_MESSAGES);
-  const [menuItems, setMenuItems] = useState(MENU_ITEMS);
-  const [tables, setTables] = useState(TABLES);
+  // Menu and tables are owned by the restaurant: whatever is in Supabase is the
+  // truth, including "nothing yet". No demo rows are injected here.
+  const [menuItems, setMenuItems] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   const [cashSession, setCashSession] = useState(CASH_SESSION_INITIAL);
   const [inventory, setInventory] = useState(INVENTORY_ITEMS);
   const [qrTokens, setQrTokens] = useState(QR_TOKENS);
@@ -388,11 +419,12 @@ function useBackofficeState(authToken = null) {
     const poll = async () => {
       try {
         const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-        const [rawOrders, rawCalls, rawTables, rawMenu] = await Promise.all([
+        const [rawOrders, rawCalls, rawTables, rawMenu, rawStaff] = await Promise.all([
           supaGet(`orders?status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, null),
           supaGet(`calls?status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, null),
-          supaGet(`tables?restaurant_id=eq.holu&active=eq.true&order=table_number.asc`, null),
-          supaGet(`menu_items?restaurant_id=eq.holu&order=sort_order.asc,name.asc`, null),
+          supaGet(`tables?restaurant_id=eq.${getRestaurantId()}&active=eq.true&order=table_number.asc`, null),
+          supaGet(`menu_items?restaurant_id=eq.${getRestaurantId()}&order=sort_order.asc,name.asc`, null),
+          supaGet(`staff?restaurant_id=eq.${getRestaurantId()}&select=id,name,role,shift,status,avatar_url&order=name.asc`, authToken),
         ]);
         if (Array.isArray(rawOrders)) {
           const now = Date.now();
@@ -409,8 +441,16 @@ function useBackofficeState(authToken = null) {
           });
         }
         if (Array.isArray(rawCalls)) setCalls(rawCalls.map(dbCallToUI));
-        if (Array.isArray(rawTables) && rawTables.length > 0) setTables(rawTables.map(dbTableToUI));
+        if (Array.isArray(rawTables)) setTables(rawTables.map(dbTableToUI));
         if (Array.isArray(rawMenu)) setMenuItems(rawMenu.map(dbMenuItemToUI));
+        if (Array.isArray(rawStaff)) {
+          const mapped = rawStaff.map((s) => ({
+            id: s.id, name: s.name, role: s.role, shift: s.shift || "",
+            status: s.status, avatar: (s.name || "?")[0].toUpperCase(), photoUrl: s.avatar_url || "",
+          }));
+          setLiveStaff(mapped);
+          setStaffList(mapped);
+        }
       } catch (err) {
         console.error("[holu admin] Supabase poll:", err.message);
       }
@@ -442,7 +482,7 @@ function useBackofficeState(authToken = null) {
     const newId = item.id || `dish-${Date.now()}`;
     const dbItem = {
       id: newId,
-      restaurant_id: "holu",
+      restaurant_id: getRestaurantId(),
       name: item.dish,
       category: item.category,
       subtitle: item.description || null,
@@ -531,12 +571,12 @@ function useBackofficeState(authToken = null) {
       history: [{ time, userId: staffUserId, action: "Cobro registrado", detail: `Mesa ${tableId} · ${money(total)} · ${method}` }, ...s.history],
     }));
     try {
-      await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.holu`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null);
-      await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.holu`, { status: "served" }, null);
-      await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.holu`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, null);
+      await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.${getRestaurantId()}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null);
+      await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.${getRestaurantId()}`, { status: "served" }, null);
+      await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.${getRestaurantId()}`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, null);
     } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
   };
-  return { orders, calls, messages, menuItems, tables, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
+  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
 function Layout({ role, staffId, tab, setTab, onLogout, children, authed }) {
@@ -700,8 +740,63 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
 function TablesView({ role, staffId, state }) {
   const isAdmin = role === "admin";
   const [selectedTable, setSelectedTable] = useState(null);
-  const visible = state.tables.filter((t) => isAdmin || t.waiterId === staffId);
-  return <div className="grid"><div className="panel"><div className="panel-head"><h2>{isAdmin ? "Mapa de mesas" : "Mesas que atiendo"}</h2><span className="badge">{visible.length} mesas</span></div><div className="table-grid">{visible.map((t)=><div className="table-card" key={t.id}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h3>Mesa {t.id}</h3><span className={`badge ${statusBadge(t.status)}`}>{t.status}</span></div><div className="meta"><span>{t.zone}</span><span>{t.guests} pax</span></div><div className="meta"><span>Camarero</span><b>{getStaff(t.waiterId).name}</b></div>{isAdmin && <div className="meta"><span>Cuenta</span><b>{money(t.bill)}</b></div>}<p style={{color:"var(--muted)",fontSize:12,minHeight:34}}>{t.lastMessage || "Sin mensajes recientes"}</p><div className="tip-box" style={{marginTop:10}}><small style={{color:"var(--muted)"}}>Propina 10%</small><div style={{display:"flex",justifyContent:"space-between",marginTop:4}}><b>{t.tipAccepted ? "Aceptada" : "No agregada"}</b><span>{money(t.tipAmount)}</span></div></div><div className="field" style={{marginTop:10}}><label>Asignar camarero</label><select className="input" value={t.waiterId || ""} onChange={(e)=>state.assignWaiter(t.id, e.target.value)}><option value="">Sin asignar</option>{STAFF.filter((s)=>s.role === "camarero").map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div><div className="table-actions"><button className="btn primary" onClick={()=>setSelectedTable(t)}>Atender</button><button className="btn ghost" onClick={()=>setSelectedTable(t)}>Ver ficha</button></div></div>)}</div></div>{selectedTable && <TableDrawer table={selectedTable} role={role} staffId={staffId} state={state} onClose={()=>setSelectedTable(null)} />}</div>;
+  // A waiter sees the tables they already hold plus any table nobody has claimed,
+  // so they can pick one up from their phone the moment a call comes in.
+  const mine = state.tables.filter((t) => t.waiterId === staffId);
+  const free = state.tables.filter((t) => !t.waiterId);
+  const visible = isAdmin ? state.tables : [...mine, ...free];
+  const waiters = state.staffList.filter((s) => s.role === "camarero");
+
+  if (state.tables.length === 0) return <div className="grid"><div className="panel">
+    <div className="panel-head"><h2>{isAdmin ? "Mapa de mesas" : "Mesas"}</h2></div>
+    <p style={{ color: "var(--muted)", textAlign: "center", padding: "28px 0", lineHeight: 1.6 }}>
+      Aún no hay mesas configuradas.<br />
+      {isAdmin ? 'Ve a "QR de mesas" y agrega las mesas de tu local.' : "Pide al administrador que configure las mesas."}
+    </p>
+  </div></div>;
+
+  return <div className="grid"><div className="panel">
+    <div className="panel-head">
+      <h2>{isAdmin ? "Mapa de mesas" : "Mesas"}</h2>
+      <span className="badge">{isAdmin ? `${visible.length} mesas` : `${mine.length} mías · ${free.length} libres`}</span>
+    </div>
+    <div className="table-grid">{visible.map((t) => {
+      const isMine = t.waiterId === staffId;
+      const unclaimed = !t.waiterId;
+      return <div className="table-card" key={t.id} style={isMine ? { borderColor: "rgba(247,211,123,.4)" } : {}}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+          <h3>{t.label}</h3>
+          <span className={`badge ${statusBadge(t.status)}`}>{t.status}</span>
+        </div>
+        <div className="meta"><span>{t.zone}</span><span>{t.guests} pax</span></div>
+        <div className="meta"><span>Camarero</span><b>{t.waiterId ? getStaff(t.waiterId).name : "Sin asignar"}</b></div>
+        {isAdmin && <div className="meta"><span>Cuenta</span><b>{money(t.bill)}</b></div>}
+        <div className="tip-box" style={{ marginTop: 10 }}>
+          <small style={{ color: "var(--muted)" }}>Propina 10%</small>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+            <b>{t.tipAccepted ? "Aceptada" : "No agregada"}</b><span>{money(t.tipAmount)}</span>
+          </div>
+        </div>
+        {isAdmin && <div className="field" style={{ marginTop: 10 }}>
+          <label>Asignar camarero</label>
+          <select className="input" value={t.waiterId || ""} onChange={(e) => state.assignWaiter(t.id, e.target.value)}>
+            <option value="">Sin asignar</option>
+            {waiters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>}
+        <div className="table-actions">
+          {!isAdmin && unclaimed
+            ? <button className="btn primary" onClick={() => state.assignWaiter(t.id, staffId)}>Tomar mesa</button>
+            : <button className="btn primary" onClick={() => setSelectedTable(t)}>Atender</button>}
+          {!isAdmin && isMine
+            ? <button className="btn ghost" onClick={() => state.assignWaiter(t.id, null)}>Soltar</button>
+            : <button className="btn ghost" onClick={() => setSelectedTable(t)}>Ver ficha</button>}
+        </div>
+      </div>;
+    })}</div>
+  </div>
+  {selectedTable && <TableDrawer table={selectedTable} role={role} staffId={staffId} state={state} onClose={() => setSelectedTable(null)} />}
+  </div>;
 }
 
 function TableReceipt({ table, waiter }) {
@@ -971,7 +1066,7 @@ function InventoryView({ state }) {
 
   const fetchItems = async () => {
     try {
-      const rows = await supaFetch(`inventory?restaurant_id=eq.holu&order=name.asc`, {}, authToken);
+      const rows = await supaFetch(`inventory?restaurant_id=eq.${getRestaurantId()}&order=name.asc`, {}, authToken);
       if (Array.isArray(rows)) setItems(rows);
     } catch (e) {
       console.error("[holu inventory] fetch:", e.message);
@@ -992,7 +1087,7 @@ function InventoryView({ state }) {
       await supaFetch(`inventory`, {
         method: "POST",
         body: JSON.stringify({
-          restaurant_id: "holu",
+          restaurant_id: getRestaurantId(),
           name: form.name.trim(),
           category: form.category,
           stock: Number(form.stock) || 0,
@@ -1255,7 +1350,7 @@ function QRView({ state }) {
   const fetchTables = async () => {
     try {
       const rows = await supaFetch(
-        `tables?restaurant_id=eq.holu&select=id,table_number,qr_token,zone&order=table_number.asc`,
+        `tables?restaurant_id=eq.${getRestaurantId()}&select=id,table_number,qr_token,zone&order=table_number.asc`,
         {}, authToken
       );
       if (Array.isArray(rows)) {
@@ -1290,7 +1385,7 @@ function QRView({ state }) {
     try {
       await supaFetch(`tables`, {
         method: "POST",
-        body: JSON.stringify({ table_number: num, qr_token: genToken(num), zone: newTable.zone, restaurant_id: "holu" }),
+        body: JSON.stringify({ table_number: num, qr_token: genToken(num), zone: newTable.zone, restaurant_id: getRestaurantId() }),
       }, authToken);
       setAdding(false);
       setNewTable({ table_number: "", zone: "Salón" });
@@ -1403,7 +1498,7 @@ function StaffView({ state }) {
 
   const fetchStaff = async () => {
     try {
-      const rows = await supaFetch(`staff?restaurant_id=eq.holu&role=neq.admin&order=name.asc`, {}, authToken);
+      const rows = await supaFetch(`staff?restaurant_id=eq.${getRestaurantId()}&role=neq.admin&order=name.asc`, {}, authToken);
       if (Array.isArray(rows)) setStaff(rows);
     } catch (e) {
       console.error("[holu staff] fetch:", e.message);
@@ -1421,7 +1516,7 @@ function StaffView({ state }) {
     try {
       await supaFetch(`staff`, {
         method: "POST",
-        body: JSON.stringify({ restaurant_id: "holu", name: form.name.trim(), role: form.role, shift: form.shift.trim() || null, pin_hash: form.pin_hash.trim(), status: "Activo" }),
+        body: JSON.stringify({ restaurant_id: getRestaurantId(), name: form.name.trim(), role: form.role, shift: form.shift.trim() || null, pin_hash: form.pin_hash.trim(), status: "Activo" }),
       }, authToken);
       setAdding(false); setForm(EMPTY_FORM);
       await fetchStaff();
@@ -1651,7 +1746,7 @@ function SettingsView({ state }) {
   const updateRestaurant = (key, value) => setRestaurant((r)=>({ ...r, [key]: value }));
 
   useEffect(() => {
-    supaFetch(`restaurants?id=eq.holu&select=*&limit=1`, {}, authToken)
+    supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=*&limit=1`, {}, authToken)
       .then((rows) => {
         if (!Array.isArray(rows) || rows.length === 0) return;
         const r = rows[0];
@@ -1673,7 +1768,7 @@ function SettingsView({ state }) {
   const saveRestaurant = async () => {
     setSaving(true); setSavedOk(false);
     try {
-      await supaFetch(`restaurants?id=eq.holu`, {
+      await supaFetch(`restaurants?id=eq.${getRestaurantId()}`, {
         method: "PATCH",
         body: JSON.stringify({
           name: restaurant.name,
@@ -1699,7 +1794,7 @@ function SettingsView({ state }) {
   const simulateWebhook = async (event) => {
     const DEMO_PAYLOADS = {
       orderCreate: {
-        restaurant_id: "holu",
+        restaurant_id: getRestaurantId(),
         qr_token: "A7K92",
         table_id: 7,
         session_id: null,
@@ -1709,26 +1804,26 @@ function SettingsView({ state }) {
         channel: "admin-test",
       },
       camareroCall: {
-        restaurant_id: "holu",
+        restaurant_id: getRestaurantId(),
         qr_token: "A7K92",
         table_id: 7,
         call_type: "Camarero",
         message: "Test llamado desde admin",
       },
       kitchenCall: {
-        restaurant_id: "holu",
+        restaurant_id: getRestaurantId(),
         qr_token: "A7K92",
         table_id: 7,
         call_type: "Confirmar plato",
         message: "Test cocina desde admin",
       },
       billRequest: {
-        restaurant_id: "holu",
+        restaurant_id: getRestaurantId(),
         qr_token: "A7K92",
         table_id: 7,
       },
       feedback: {
-        restaurant_id: "holu",
+        restaurant_id: getRestaurantId(),
         qr_token: "A7K92",
         table_id: 7,
         rating: 5,
@@ -1736,21 +1831,21 @@ function SettingsView({ state }) {
         source: "table_qr",
       },
       receiptPrint: {
-        restaurant_id: "holu",
+        restaurant_id: getRestaurantId(),
         qr_token: "A7K92",
         table_id: 7,
         items: [{ dish_name: "Tagliatelle al Ragù", unit_price: 21500, qty: 1 }],
         total: 21500,
       },
       cashClose: {
-        restaurant_id: "holu",
+        restaurant_id: getRestaurantId(),
         session_id: "SHIFT-TEST",
         cash: 428500,
         card: 691200,
         total: 1119700,
       },
     };
-    const payload = DEMO_PAYLOADS[event] || { restaurant_id: "holu", event, source: "admin-test" };
+    const payload = DEMO_PAYLOADS[event] || { restaurant_id: getRestaurantId(), event, source: "admin-test" };
     setLogs((rows)=>[{ time: new Date().toLocaleTimeString("es-CL", { hour:"2-digit", minute:"2-digit" }), event, status: demoMode ? "demo" : "pending", detail: demoMode ? `Simulado local: ${JSON.stringify(payload)}` : `POST ${webhooks[event] || "sin endpoint"}` }, ...rows]);
     if (!demoMode && webhooks[event]) {
       try {
@@ -1856,28 +1951,44 @@ function LoginEntry({ onAdminAuth, onStaffAuth }) {
 function PinGate({ onAuth, onBack }) {
   const [digits, setDigits] = useState("");
   const [error, setError] = useState(false);
-  const [staffList, setStaffList] = useState([]);
+  const [checking, setChecking] = useState(false);
 
-  useEffect(() => {
-    supaFetch(`staff?restaurant_id=eq.holu&status=eq.Activo&role=neq.admin&select=id,name,role,shift,pin_hash`, {}, null)
-      .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setStaffList(rows); })
-      .catch(() => {});
-  }, []);
+  const reject = () => {
+    setError(true);
+    setTimeout(() => { setDigits(""); setError(false); }, 800);
+  };
+
+  // The PIN is verified inside Postgres — pin_hash is never sent to the browser.
+  const verifyPin = async (pin) => {
+    setChecking(true);
+    try {
+      const rows = await supaRpc("staff_login", { p_restaurant_id: getRestaurantId(), p_pin: pin }, null);
+      const found = Array.isArray(rows) ? rows[0] : rows;
+      if (found && found.id) {
+        onAuth({
+          id: found.id,
+          name: found.name,
+          role: found.role,
+          shift: found.shift || "",
+          avatar: (found.name || "?")[0].toUpperCase(),
+          photoUrl: found.avatar_url || "",
+        });
+        return;
+      }
+      reject();
+    } catch (e) {
+      console.error("[holu admin] staff_login:", e.message);
+      reject();
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleDigit = (d) => {
-    if (digits.length >= 4) return;
+    if (digits.length >= 4 || checking) return;
     const next = digits + d;
     setDigits(next);
-    if (next.length === 4) {
-      const effective = staffList.length > 0 ? staffList : STAFF;
-      const found = effective.find((s) => (s.pin_hash || s.pin) === next);
-      if (found) {
-        onAuth({ id: found.id, name: found.name, role: found.role, shift: found.shift || "", avatar: (found.name || "?")[0].toUpperCase(), photoUrl: found.photoUrl || "" });
-      } else {
-        setError(true);
-        setTimeout(() => { setDigits(""); setError(false); }, 800);
-      }
-    }
+    if (next.length === 4) verifyPin(next);
   };
 
   const handleDel = () => setDigits((d) => d.slice(0, -1));
@@ -1921,6 +2032,7 @@ export default function HoluAdmin() {
         localStorage.removeItem("holu:session");
         return null;
       }
+      if (s.restaurant_id) setRestaurantId(s.restaurant_id);
       return s;
     } catch { localStorage.removeItem("holu:session"); return null; }
   });
@@ -1956,6 +2068,8 @@ export default function HoluAdmin() {
   }, [safeTab, role, staffId, state]);
 
   const handleSessionAuth = (sess) => {
+    // The restaurant_id in the admin's JWT wins over the build-time default.
+    if (sess?.restaurant_id) setRestaurantId(sess.restaurant_id);
     try { localStorage.setItem("holu:session", JSON.stringify(sess)); } catch {}
     setSession(sess);
   };
@@ -1974,7 +2088,12 @@ export default function HoluAdmin() {
   };
 
   const handleLogout = () => {
-    try { localStorage.removeItem("holu:session"); sessionStorage.removeItem("holu:staff"); } catch {}
+    try {
+      localStorage.removeItem("holu:session");
+      sessionStorage.removeItem("holu:staff");
+      sessionStorage.removeItem("holu:restaurant");
+    } catch {}
+    setRestaurantId(DEFAULT_RESTAURANT_ID);
     setSession(null);
     setAuthed(null);
     setRole("camarero");
