@@ -50,6 +50,37 @@ const setRestaurantId = (id) => {
 const supaRpc = (fn, args, token = null) =>
   supaFetch(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args || {}) }, token);
 
+// Employee PIN login. The staff-login edge function checks the PIN with the
+// service role and hands back a real Supabase session, so employees stop
+// operating on the anon key and the per-restaurant RLS policies apply to them.
+// Until that function is deployed we fall back to the staff_login RPC, which
+// still keeps pin_hash inside the database but leaves the caller anonymous.
+const staffPinLogin = async (restaurantId, pin) => {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/staff-login`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ restaurant_id: restaurantId, pin }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.staff?.id) return { staff: data.staff, session: data.session || null };
+      return null;
+    }
+    if (res.status === 401) return null;
+    if (res.status === 429) throw new Error("too_many_attempts");
+    // 404/5xx: function not deployed yet or failing — fall through to the RPC.
+    console.warn("[holu auth] staff-login unavailable:", res.status);
+  } catch (e) {
+    if (e.message === "too_many_attempts") throw e;
+    console.warn("[holu auth] staff-login error:", e.message);
+  }
+
+  const rows = await supaRpc("staff_login", { p_restaurant_id: restaurantId, p_pin: pin }, null);
+  const found = Array.isArray(rows) ? rows[0] : rows;
+  return found?.id ? { staff: found, session: null } : null;
+};
+
 const supaFetch = (path, opts = {}, authToken = null) => {
   const token = authToken || SUPABASE_ANON_KEY;
   const headers = {
@@ -2066,32 +2097,38 @@ function PinGate({ onAuth, onBack }) {
   const [digits, setDigits] = useState("");
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   const reject = () => {
     setError(true);
     setTimeout(() => { setDigits(""); setError(false); }, 800);
   };
 
-  // The PIN is verified inside Postgres — pin_hash is never sent to the browser.
+  // The PIN never leaves as a comparison the browser can do: it is checked
+  // server-side and comes back as a session, not as a list of staff.
   const verifyPin = async (pin) => {
     setChecking(true);
     try {
-      const rows = await supaRpc("staff_login", { p_restaurant_id: getRestaurantId(), p_pin: pin }, null);
-      const found = Array.isArray(rows) ? rows[0] : rows;
-      if (found && found.id) {
+      const result = await staffPinLogin(getRestaurantId(), pin);
+      if (result?.staff?.id) {
         onAuth({
-          id: found.id,
-          name: found.name,
-          role: found.role,
-          shift: found.shift || "",
-          avatar: (found.name || "?")[0].toUpperCase(),
-          photoUrl: found.avatar_url || "",
-        });
+          id: result.staff.id,
+          name: result.staff.name,
+          role: result.staff.role,
+          shift: result.staff.shift || "",
+          avatar: (result.staff.name || "?")[0].toUpperCase(),
+          photoUrl: result.staff.avatar_url || "",
+        }, result.session);
         return;
       }
       reject();
     } catch (e) {
-      console.error("[holu admin] staff_login:", e.message);
+      if (e.message === "too_many_attempts") {
+        setBlocked(true);
+        setTimeout(() => { setBlocked(false); setDigits(""); }, 5000);
+        return;
+      }
+      console.error("[holu admin] staff login:", e.message);
       reject();
     } finally {
       setChecking(false);
@@ -2110,7 +2147,9 @@ function PinGate({ onAuth, onBack }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0f1117", gap: 32 }}>
       <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 4, color: "#fff" }}>HOLU</div>
-      <div style={{ fontSize: 14, color: "#888" }}>Ingresa tu PIN de empleado</div>
+      <div style={{ fontSize: 14, color: blocked ? "#ef4444" : "#888" }}>
+        {blocked ? "Demasiados intentos. Espera unos minutos." : "Ingresa tu PIN de empleado"}
+      </div>
       <div style={{ display: "flex", gap: 14 }}>
         {[0,1,2,3].map((i) => (
           <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", background: digits.length > i ? (error ? "#ef4444" : "#6366f1") : "#333", transition: "background .15s" }} />
@@ -2135,11 +2174,17 @@ export default function HoluAdmin() {
     try {
       const s = JSON.parse(localStorage.getItem("holu:session") || "null");
       if (!s) return null;
-      // Validate session belongs to current Supabase project by checking JWT ref claim
-      const payload = JSON.parse(atob(s.access_token.split(".")[1]));
-      if (payload.iss !== "supabase" || !s.access_token.includes("nlwrkumlrudfgsdnhfhw")) {
+      // Validate the session belongs to this Supabase project. The ref lives in
+      // the decoded iss claim, not in the raw (base64) token text.
+      const payload = JSON.parse(atob(s.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const projectRef = SUPABASE_URL.replace(/^https?:\/\//, "").split(".")[0];
+      const issuedHere = payload.iss === "supabase" || String(payload.iss || "").includes(projectRef);
+      if (!issuedHere) {
         localStorage.removeItem("holu:session");
         return null;
+      }
+      if (!s.restaurant_id && payload.user_metadata?.restaurant_id) {
+        s.restaurant_id = payload.user_metadata.restaurant_id;
       }
       // Expire check
       if (s.expires_at && s.expires_at < Date.now()) {
@@ -2188,7 +2233,10 @@ export default function HoluAdmin() {
     setSession(sess);
   };
 
-  const handleStaffAuth = (staff) => {
+  const handleStaffAuth = (staff, staffSession = null) => {
+    // A PIN login now carries a real Supabase session, so the employee's own
+    // restaurant_id claim drives every query they make from here on.
+    if (staffSession?.access_token) handleSessionAuth(staffSession);
     try { sessionStorage.setItem("holu:staff", JSON.stringify(staff)); } catch {}
     setAuthed(staff);
     setRole(staff.role);
