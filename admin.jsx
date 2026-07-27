@@ -753,7 +753,7 @@ function useBackofficeState(authToken = null) {
   return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
-function Layout({ role, staffId, tab, setTab, onLogout, children, authed }) {
+function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restaurantName }) {
   const found = getStaff(staffId);
   const currentStaff = (found && found.name !== "Sin asignar") ? found : (authed || found);
 
@@ -761,7 +761,7 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed }) {
     <div style={{ minHeight: "100dvh", background: "#050403", display: "flex", flexDirection: "column" }}>
       <style>{CSS}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 22px", borderBottom: "1px solid rgba(255,255,255,.09)", background: "rgba(10,8,6,.92)", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ fontFamily: "'Playfair Display',serif", color: "#f7d37b", fontSize: 24, letterSpacing: ".1em" }}>HOLU · <span style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: "#bfae9d", letterSpacing: 0 }}>Pantalla Cocina</span></div>
+        <div style={{ fontFamily: "'Playfair Display',serif", color: "#f7d37b", fontSize: 24, letterSpacing: ".1em" }}>{restaurantName || "HOLU"} · <span style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: "#bfae9d", letterSpacing: 0 }}>Pantalla Cocina</span></div>
         <button className="btn ghost" style={{ fontSize: 12 }} onClick={onLogout}>Salir</button>
       </div>
       <div style={{ flex: 1, padding: "18px" }}>{children}</div>
@@ -771,32 +771,24 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed }) {
   const adminTabs = [
     ["dashboard", "Resumen", icons.dashboard],
     ["tables", "Mesas", icons.table],
-    ["orders", "Platos/Pedidos", icons.order],
-    ["kitchen", "Pantalla cocina", icons.kitchen],
-    ["calls", "Llamados", icons.bell],
-    ["messages", "Mensajes cliente", icons.chat],
-    ["sales", "Ventas platos", icons.sales],
+    ["kitchen", "Cocina", icons.kitchen],
+    ["sales", "Caja", icons.sales],
+    ["menu", "Carta", icons.menu],
     ["staff", "Camareros", icons.users],
     ["inventory", "Inventario", icons.kitchen],
-    ["qr", "QR Mesas", icons.table],
-    ["menu", "Carta", icons.menu],
-    ["reviews", "Reseñas", icons.star],
     ["settings", "Configuración", icons.settings],
   ];
   const waiterTabs = [
     ["dashboard", "Mi turno", icons.dashboard],
     ["tables", "Mis mesas", icons.table],
-    ["orders", "Estado platos", icons.order],
     ["kitchen", "Cocina", icons.kitchen],
     ["calls", "Llamados", icons.bell],
-    ["messages", "Mensajes cliente", icons.chat],
-    ["reviews", "Reseñas", icons.star],
   ];
   const tabs = role === "admin" ? adminTabs : waiterTabs;
   return <div className="app">
     <style>{CSS}</style>
     <aside className="sidebar">
-      <div className="brand">{RESTAURANT.name}<small>BACKOFFICE</small></div>
+      <div className="brand">{restaurantName || RESTAURANT.name}<small>BACKOFFICE</small></div>
       <div className="role-card">
         <div style={{display:"flex", gap:10, alignItems:"center"}}><StaffAvatar staff={currentStaff} /><div><b>{currentStaff.name}</b><small style={{display:"block", color:"var(--muted)", marginTop:3}}>{role === "admin" ? "Administrador" : "Camarero"}</small></div></div>
       </div>
@@ -809,35 +801,48 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed }) {
   </div>;
 }
 
-function Topbar({ role, staffId, authed }) {
+function Topbar({ role, staffId, authed, restaurantName }) {
   const found = getStaff(staffId);
   const current = (found && found.name !== "Sin asignar") ? found : (authed || found);
+  const name = restaurantName || RESTAURANT.name;
   return <div className="topbar">
-    <div className="title"><h1>{role === "admin" ? "Control total del restaurante" : "Operación de camarero"}</h1><p>{RESTAURANT.location} · Servicio {RESTAURANT.service}</p></div>
+    <div className="title"><h1>{name}</h1><p>{role === "admin" ? "Administrador · Control total" : "Camarero · Operación de turno"}</p></div>
     <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{role === "admin" ? "Administrador" : "Camarero"} · {current.shift}</small></div></div>
   </div>;
 }
 
-function Dashboard({ role, staffId, state }) {
+function Dashboard({ role, staffId, state, onGoToCaja }) {
   const isAdmin = role === "admin";
   const staffTables = state.tables.filter((t) => isAdmin || t.waiterId === staffId);
   const staffOrders = state.orders.filter((o) => isAdmin || o.waiterId === staffId);
   const staffCalls = state.calls.filter((c) => isAdmin || c.waiterId === staffId);
   const pendingMessages = state.messages.filter((m) => isAdmin || m.waiterId === staffId).filter((m) => String(m.status).includes("pendiente") || String(m.status).includes("urgente"));
-  const salesToday = state.tables.reduce((sum, t) => sum + t.bill, 0);
-  const tipsToday = state.tables.reduce((sum, t) => sum + t.tipAmount, 0);
+  const session = state.cashSession;
+  const cajaAbierta = session.status === "abierta";
   return <div className="grid">
+    {isAdmin && !cajaAbierta && (
+      <div style={{ background: "linear-gradient(135deg,rgba(239,68,68,.14),rgba(255,255,255,.03))", border: "1px solid rgba(239,68,68,.3)", borderRadius: 18, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div><b style={{ color: "#fca5a5" }}>Caja cerrada</b><div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>Abre la caja antes de iniciar el servicio</div></div>
+        <button className="btn primary" onClick={onGoToCaja}>Abrir caja</button>
+      </div>
+    )}
+    {isAdmin && cajaAbierta && (
+      <div style={{ background: "linear-gradient(135deg,rgba(52,211,153,.10),rgba(255,255,255,.03))", border: "1px solid rgba(52,211,153,.25)", borderRadius: 18, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div><b style={{ color: "#34d399" }}>Caja abierta · Turno {session.activeTurn}</b><div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>Desde las {session.openedAt} · Efectivo {money(session.cash)} · Tarjeta {money(session.card)}</div></div>
+        <button className="btn ghost" style={{ fontSize: 12 }} onClick={onGoToCaja}>Ver caja</button>
+      </div>
+    )}
     <div className="kpis">
-      <div className="kpi"><span>{isAdmin ? "Mesas activas" : "Mis mesas"}</span><strong>{staffTables.filter((t)=>t.status !== "Libre").length}</strong><small>{staffTables.length} asignadas/visibles</small></div>
-      <div className="kpi"><span>Pedidos en curso</span><strong>{staffOrders.length}</strong><small>Incluye cocina y QR</small></div>
-      <div className="kpi"><span>Llamados pendientes</span><strong>{staffCalls.filter((c)=>c.status === "Pendiente").length}</strong><small>Mesa + cocina</small></div>
-      <div className="kpi"><span>{isAdmin ? "Ventas hoy" : "Mensajes cliente"}</span><strong>{isAdmin ? money(salesToday) : pendingMessages.length}</strong><small>{isAdmin ? `Propina 10%: ${money(tipsToday)}` : "Por atender"}</small></div>
+      <div className="kpi"><span>{isAdmin ? "Mesas activas" : "Mis mesas"}</span><strong>{staffTables.filter((t)=>t.status !== "Libre").length}</strong><small>de {staffTables.length} en total</small></div>
+      <div className="kpi"><span>Pedidos en curso</span><strong>{staffOrders.length}</strong><small>Cocina + QR</small></div>
+      <div className="kpi"><span>Llamados</span><strong>{staffCalls.filter((c)=>c.status === "Pendiente").length}</strong><small>Por atender</small></div>
+      <div className="kpi"><span>{isAdmin ? "Ventas turno" : "Mensajes"}</span><strong>{isAdmin ? money(session.cash + session.card + session.transfer) : pendingMessages.length}</strong><small>{isAdmin ? `Propinas: ${money(session.tips)}` : "Sin leer"}</small></div>
     </div>
     <div className="two">
-      <div className="panel"><div className="panel-head"><h2>Prioridad operativa</h2><span className="badge red">Live</span></div><div className="list">{staffCalls.slice(0,4).map((c)=><CallRow key={c.id} call={c} state={state} actor={getStaff(staffId).name} staffId={staffId} />)}</div></div>
-      <div className="panel"><div className="panel-head"><h2>Mensajes del cliente</h2><span className="badge">QR</span></div><div className="list">{pendingMessages.slice(0,4).map((m)=><MessageCard key={m.id} msg={m} state={state} actor={getStaff(staffId).name} compact />)}</div></div>
+      <div className="panel"><div className="panel-head"><h2>Llamados urgentes</h2><span className="badge red">Live</span></div><div className="list">{staffCalls.slice(0,4).map((c)=><CallRow key={c.id} call={c} state={state} actor={getStaff(staffId).name} staffId={staffId} />)}{staffCalls.length === 0 && <p style={{ color: "var(--dim)", textAlign: "center", padding: "14px 0" }}>Sin llamados pendientes</p>}</div></div>
+      <div className="panel"><div className="panel-head"><h2>Mensajes del cliente</h2><span className="badge">QR</span></div><div className="list">{pendingMessages.slice(0,4).map((m)=><MessageCard key={m.id} msg={m} state={state} actor={getStaff(staffId).name} compact />)}{pendingMessages.length === 0 && <p style={{ color: "var(--dim)", textAlign: "center", padding: "14px 0" }}>Sin mensajes pendientes</p>}</div></div>
     </div>
-    <div className="panel"><div className="panel-head"><h2>Estado de platos</h2><span className="badge blue">Cocina</span></div><div className="list">{staffOrders.map((o)=><OrderRow key={o.id} order={o} state={state} />)}</div></div>
+    <div className="panel"><div className="panel-head"><h2>Estado de platos</h2><span className="badge blue">Cocina</span></div><div className="list">{staffOrders.map((o)=><OrderRow key={o.id} order={o} state={state} />)}{staffOrders.length === 0 && <p style={{ color: "var(--dim)", textAlign: "center", padding: "14px 0" }}>Sin pedidos activos</p>}</div></div>
   </div>;
 }
 
@@ -911,7 +916,7 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
   );
 }
 
-function TablesView({ role, staffId, state }) {
+function TablesView({ role, staffId, state, onGoToQr }) {
   const isAdmin = role === "admin";
   const [selectedTable, setSelectedTable] = useState(null);
   // A waiter sees the tables they already hold plus any table nobody has claimed,
@@ -922,17 +927,20 @@ function TablesView({ role, staffId, state }) {
   const waiters = state.staffList.filter((s) => s.role === "camarero");
 
   if (state.tables.length === 0) return <div className="grid"><div className="panel">
-    <div className="panel-head"><h2>{isAdmin ? "Mapa de mesas" : "Mesas"}</h2></div>
+    <div className="panel-head"><h2>{isAdmin ? "Mapa de mesas" : "Mesas"}</h2>{isAdmin && onGoToQr && <button className="btn primary" onClick={onGoToQr}>+ Agregar mesas y QR</button>}</div>
     <p style={{ color: "var(--muted)", textAlign: "center", padding: "28px 0", lineHeight: 1.6 }}>
       Aún no hay mesas configuradas.<br />
-      {isAdmin ? 'Ve a "QR de mesas" y agrega las mesas de tu local.' : "Pide al administrador que configure las mesas."}
+      {isAdmin ? 'Usa el botón "Agregar mesas y QR" para crear mesas y descargar sus códigos QR.' : "Pide al administrador que configure las mesas."}
     </p>
   </div></div>;
 
   return <div className="grid"><div className="panel">
     <div className="panel-head">
       <h2>{isAdmin ? "Mapa de mesas" : "Mesas"}</h2>
-      <span className="badge">{isAdmin ? `${visible.length} mesas` : `${mine.length} mías · ${free.length} libres`}</span>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span className="badge">{isAdmin ? `${visible.length} mesas` : `${mine.length} mías · ${free.length} libres`}</span>
+        {isAdmin && onGoToQr && <button className="btn ghost" style={{ fontSize: 12, padding: "7px 12px" }} onClick={onGoToQr}>QR</button>}
+      </div>
     </div>
     <div className="table-grid">{visible.map((t) => {
       const isMine = t.waiterId === staffId;
@@ -1868,7 +1876,7 @@ function ReceiptPreview({ receiptConfig, restaurant }) {
   return <div className="receipt-wrap"><div className="receipt"><h3>{restaurant.name}</h3><div className="center muted2">{restaurant.legalName}<br />RUT {restaurant.rut}<br />{restaurant.address}<br />{restaurant.phone} · {restaurant.website}</div><div className="dash" /><div className="center"><b>{receiptConfig.title}</b><br /><span className="muted2">Mesa 7 · {new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" />{RECEIPT_ITEMS.map((i)=><div className="receipt-row" key={i.name}><span>{i.qty}× {i.name}</span><b>{money(i.qty * i.price)}</b></div>)}<div className="dash" /><div className="receipt-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Servicio 10%</span><b>{money(service)}</b></div><div className="receipt-row"><span>{receiptConfig.taxLabel}</span><b>—</b></div><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div>{receiptConfig.showWaiter && <div className="receipt-row"><span>Atendió</span><b>Marco</b></div>}{receiptConfig.showQr && <><div className="receipt-qr" /><div className="center muted2">Escanea para reseña Google</div></>}<div className="dash" /><div className="center muted2">{receiptConfig.footer}</div></div></div>;
 }
 
-function SettingsView({ state }) {
+function SettingsView({ state, onRestaurantNameChange }) {
   const authToken = state?.authToken;
   const [restaurant, setRestaurant] = useState({ ...RESTAURANT, concept: "", googleReviewUrl: "" });
   const [receiptConfig, setReceiptConfig] = useState(RECEIPT_CONFIG);
@@ -1927,6 +1935,7 @@ function SettingsView({ state }) {
         }),
       }, authToken);
       setSavedOk(true); setTimeout(() => setSavedOk(false), 2500);
+      if (onRestaurantNameChange && restaurant.name) onRestaurantNameChange(restaurant.name);
     } catch (e) { console.error("[holu settings] save:", e.message); }
     finally { setSaving(false); }
   };
@@ -2204,25 +2213,34 @@ export default function HoluAdmin() {
   const [role, setRole] = useState(authed?.role || "camarero");
   const [staffId, setStaffId] = useState(authed?.id || "w1");
   const [tab, setTab] = useState("dashboard");
+  const [restaurantName, setRestaurantName] = useState("");
   const state = useBackofficeState(session?.access_token || null);
+
+  // Load restaurant name as soon as we have an auth token
+  useEffect(() => {
+    if (!session?.access_token && !SUPABASE_ANON_KEY) return;
+    supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name&limit=1`, {}, session?.access_token || null)
+      .then((rows) => { if (Array.isArray(rows) && rows[0]?.name) setRestaurantName(rows[0].name); })
+      .catch(() => {});
+  }, [session?.access_token]);
   const safeTab = role === "cocina" ? "kitchen" : (role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab);
 
   // useMemo MUST be before any conditional return (Rules of Hooks)
   const content = useMemo(() => {
     switch (safeTab) {
-      case "tables": return <TablesView role={role} staffId={staffId} state={state} />;
+      case "tables": return <TablesView role={role} staffId={staffId} state={state} onGoToQr={() => setTab("qr")} />;
       case "orders": return <OrdersView role={role} staffId={staffId} state={state} />;
       case "kitchen": return <KitchenView state={state} />;
       case "calls": return <CallsView role={role} staffId={staffId} state={state} />;
       case "messages": return <MessagesView role={role} staffId={staffId} state={state} />;
-      case "sales": return <><CashClosingView state={state} staffId={staffId} /><SalesView /></>;
+      case "sales": return <CashClosingView state={state} staffId={staffId} />;
       case "staff": return <StaffView state={state} />;
       case "inventory": return <InventoryView state={state} />;
       case "qr": return <QRView state={state} />;
       case "menu": return <MenuView state={state} />;
       case "reviews": return <ReviewsView role={role} staffId={staffId} />;
-      case "settings": return <SettingsView state={state} />;
-      default: return <Dashboard role={role} staffId={staffId} state={state} />;
+      case "settings": return <SettingsView state={state} onRestaurantNameChange={setRestaurantName} />;
+      default: return <Dashboard role={role} staffId={staffId} state={state} onGoToCaja={() => setTab("sales")} />;
     }
   }, [safeTab, role, staffId, state]);
 
@@ -2264,8 +2282,8 @@ export default function HoluAdmin() {
 
   if (!authed) return <LoginEntry onAdminAuth={handleAdminAuth} onStaffAuth={handleStaffAuth} />;
 
-  return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout} authed={authed}>
-    <Topbar role={role} staffId={staffId} authed={authed} />
+  return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout} authed={authed} restaurantName={restaurantName}>
+    <Topbar role={role} staffId={staffId} authed={authed} restaurantName={restaurantName} />
     {content}
   </Layout>;
 }
