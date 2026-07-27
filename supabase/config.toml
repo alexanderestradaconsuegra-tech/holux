@@ -1,0 +1,7 @@
+project_id = "nlwrkumlrudfgsdnhfhw"
+
+[api]
+port = 54321
+
+[db]
+port = 54322
