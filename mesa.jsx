@@ -263,33 +263,48 @@ function CartDrawer({ open, setOpen, session, go }) {
 const STATUS_STEP = { received: "received", preparing: "prep", "listo para servir": "plating", ready: "plating", served: "served" };
 function normalizeDbStatus(s) { return STATUS_STEP[(s || "").toLowerCase()] || s || "received"; }
 
-function OrderStatus({ session, qrContext = FALLBACK_CONTEXT }) {
-  const [liveOrders, setLiveOrders] = useState(null);
-  const hadLive = useRef(false);
+// Polls the orders table directly via REST — same approach as admin.jsx.
+// This bypasses the table_orders RPC so status updates from kitchen
+// are always reflected, even if the RPC has stale behavior.
+function useLiveOrders(qrContext) {
+  const [orders, setOrders] = useState(null);
   useEffect(() => {
-    if (!qrContext.qrToken) return;
+    const { tableId, restaurantId } = qrContext;
+    if (!tableId || !restaurantId) return;
     const poll = async () => {
       try {
-        const rows = await supaRpc("table_orders", { p_qr_token: qrContext.qrToken });
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/orders?table_id=eq.${encodeURIComponent(tableId)}&restaurant_id=eq.${encodeURIComponent(restaurantId)}&order=created_at.desc&select=id,status,eta_minutes,created_at,order_items(dish_name,qty,unit_price)`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        if (!res.ok) return;
+        const rows = await res.json();
         if (!Array.isArray(rows)) return;
-        if (rows.length > 0) hadLive.current = true;
-        setLiveOrders(rows.map((o) => ({
+        setOrders(rows.map((o) => ({
           id: o.id,
           createdAt: new Date(o.created_at).getTime(),
-          eta: o.eta_minutes || 0,
+          eta: o.eta_minutes || 18,
           status: normalizeDbStatus(o.status),
-          items: (o.items || []).map((i) => ({ id: i.dish_name, name: i.dish_name, qty: i.qty, price: i.unit_price })),
+          items: (o.order_items || []).map((i) => ({ id: i.dish_name, name: i.dish_name, qty: i.qty, price: i.unit_price })),
         })));
-      } catch (err) { console.error("[holu mesa] poll error:", err.message); }
+      } catch (e) { console.error("[holu mesa] orders poll:", e.message); }
     };
     poll();
     const t = setInterval(poll, 5000);
     return () => clearInterval(t);
-  }, [qrContext.qrToken]);
-  const orders = (liveOrders !== null && (hadLive.current || liveOrders.length > 0))
-    ? liveOrders
-    : session.orders;
-  return <main className="screen fade"><Header /><div className="section-title"><h2>Estado del pedido</h2><span>Live kitchen</span></div>{orders.length ? orders.map((o) => <article key={o.id} className="status-card glass"><div className="status-head"><div><h3>{o.id}</h3><small>{new Date(o.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</small></div><div className="eta">{o.status === "served" ? "Listo ✓" : `${o.eta} min`}</div></div><div className="steps">{KITCHEN_STEPS.map((s, i) => <span key={s.key} className={`step ${i <= statusIndex(o.status) ? "on" : ""}`} />)}</div><div className="order-lines">{KITCHEN_STEPS.map((s, i) => <div key={s.key} style={{ opacity: i <= statusIndex(o.status) ? 1 : .38 }}>● {s.label} — {s.detail}</div>)}<br />{o.items.map((it) => <div key={it.id || it.name}>{it.qty}× {it.name}</div>)}</div></article>) : <div className="empty glass">No hay pedidos activos.</div>}</main>;
+  }, [qrContext.tableId, qrContext.restaurantId]);
+  return orders;
+}
+
+function OrderStatus({ session, qrContext = FALLBACK_CONTEXT, liveOrders }) {
+  // Show only non-served orders; fall back to local session state while DB loads.
+  const dbActive = liveOrders ? liveOrders.filter((o) => o.status !== "served") : null;
+  const orders = dbActive !== null ? dbActive : session.orders.filter((o) => o.status !== "served");
+  const allServed = liveOrders && liveOrders.length > 0 && liveOrders.every((o) => o.status === "served");
+  return <main className="screen fade"><Header /><div className="section-title"><h2>Estado del pedido</h2><span>Live kitchen</span></div>
+    {allServed && <div className="status-card glass" style={{ textAlign: "center", padding: 32 }}><div style={{ fontSize: 48, marginBottom: 12 }}>✓</div><h3 style={{ margin: 0, color: "var(--green)" }}>Todo en mesa</h3><p style={{ color: "var(--muted)", margin: "8px 0 0" }}>Todos los platos han sido servidos. ¡Que lo disfrutes!</p></div>}
+    {!allServed && (orders.length ? orders.map((o) => <article key={o.id} className="status-card glass"><div className="status-head"><div><h3>{o.id}</h3><small>{new Date(o.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</small></div><div className="eta">{o.status === "served" ? "Listo ✓" : `${o.eta} min`}</div></div><div className="steps">{KITCHEN_STEPS.map((s, i) => <span key={s.key} className={`step ${i <= statusIndex(o.status) ? "on" : ""}`} />)}</div><div className="order-lines">{KITCHEN_STEPS.map((s, i) => <div key={s.key} style={{ opacity: i <= statusIndex(o.status) ? 1 : .38 }}>● {s.label} — {s.detail}</div>)}<br />{o.items.map((it) => <div key={it.id || it.name}>{it.qty}× {it.name}</div>)}</div></article>) : <div className="empty glass">No hay pedidos activos.</div>)}
+  </main>;
 }
 
 function Waiter({ session, qrContext = FALLBACK_CONTEXT }) {
@@ -297,10 +312,14 @@ function Waiter({ session, qrContext = FALLBACK_CONTEXT }) {
   return <main className="screen fade"><Header /><section className="waiter-hero glass"><h2 style={{ margin: 0, fontSize: 28, letterSpacing: "-.06em" }}>Atención en mesa</h2><p style={{ color: "#bfae9d" }}>Notifica al camarero sin levantar la mano.</p><button className={`bell-big ${session.waiterState !== "idle" ? "active" : ""}`} onClick={() => session.callWaiter()}>{icons.bell}</button><strong>{session.waiterState === "idle" ? "Tocar para llamar" : session.waiterState === "calling" ? "Enviando aviso..." : "Camarero notificado"}</strong></section><div className="quick-list">{reasons.map((r) => <button className="quick" key={r} onClick={() => session.callWaiter(r)}><span>{r}</span><span>→</span></button>)}</div></main>;
 }
 
-function Bill({ session, qrContext = FALLBACK_CONTEXT }) {
+function Bill({ session, qrContext = FALLBACK_CONTEXT, liveOrders }) {
   const [paying, setPaying] = useState(false);
-  const items = session.orders.flatMap((o) => o.items);
-  const grouped = items.reduce((acc, it) => ({ ...acc, [it.id]: { ...it, qty: (acc[it.id]?.qty || 0) + it.qty } }), {});
+  const sourceOrders = liveOrders !== null && liveOrders !== undefined ? liveOrders : session.orders;
+  const items = sourceOrders.flatMap((o) => o.items);
+  const grouped = items.reduce((acc, it) => {
+    const key = it.name || it.id;
+    return { ...acc, [key]: { ...it, qty: (acc[key]?.qty || 0) + it.qty } };
+  }, {});
   const subtotal = Object.values(grouped).reduce((s, it) => s + it.qty * it.price, 0);
   const tip = Math.round(subtotal * 0.1); const total = subtotal + tip;
   const requestPayment = async () => {
@@ -363,6 +382,7 @@ export default function HoluMesa() {
   const [promos, setPromos] = useState(null);
   const sessionId = buildSessionId(qrToken, qrContext.tableId);
   const session = useTableSession(qrContext, sessionId);
+  const liveOrders = useLiveOrders(qrContext);
   const cartCount = useMemo(() => getCartCount(session.cart), [session.cart]);
 
   useEffect(() => {
@@ -413,5 +433,5 @@ export default function HoluMesa() {
 
   if (!qrContext.active) return <div className="app"><style>{CSS}</style><main className="screen fade"><section className="hero"><div className="brand">{restaurantData.name}<small>RISTORANTE</small></div><div className="hero-copy"><span className="eyebrow">QR no disponible</span><h1>Solicita ayuda</h1><p>Este código no está activo. Por favor avisa al camarero.</p></div></section></main></div>;
 
-  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} promos={promos ?? PROMOS} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} menu={liveMenu || MENU} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
+  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} promos={promos ?? PROMOS} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} menu={liveMenu || MENU} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} liveOrders={liveOrders} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} liveOrders={liveOrders} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
 }
