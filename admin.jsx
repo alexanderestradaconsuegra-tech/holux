@@ -436,7 +436,7 @@ function statusBadge(status) {
 function useBackofficeState(authToken = null) {
   const [orders, setOrders] = useState([]);
   const [calls, setCalls] = useState([]);
-  const [messages, setMessages] = useState(CLIENT_MESSAGES);
+  const [messages, setMessages] = useState([]);
   // Menu and tables are owned by the restaurant: whatever is in Supabase is the
   // truth, including "nothing yet". No demo rows are injected here.
   const [menuItems, setMenuItems] = useState([]);
@@ -521,7 +521,18 @@ function useBackofficeState(authToken = null) {
             });
           });
         }
-        if (Array.isArray(rawCalls)) setCalls(rawCalls.map(dbCallToUI));
+        if (Array.isArray(rawCalls)) {
+          const uiCalls = rawCalls.map(dbCallToUI);
+          setCalls(uiCalls);
+          setMessages(uiCalls
+            .filter((c) => c.text && c.source === "mesa")
+            .map((c) => ({
+              id: c.id, table: c.table, waiterId: c.waiterId,
+              from: "Cliente", type: c.type, text: c.text,
+              time: c.age, status: c.status === "Pendiente" ? "pendiente" : "resuelto",
+            }))
+          );
+        }
         if (Array.isArray(rawTables)) setTables(rawTables.map(dbTableToUI));
         if (Array.isArray(rawMenu)) setMenuItems(rawMenu.map(dbMenuItemToUI));
         if (Array.isArray(rawStaff)) {
