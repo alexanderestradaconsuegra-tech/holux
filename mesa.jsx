@@ -244,7 +244,10 @@ function Header({ title = RESTAURANT.name, qrContext = FALLBACK_CONTEXT }) {
 
 function Home({ go, session, qrContext = FALLBACK_CONTEXT, restaurant = RESTAURANT, promos = PROMOS }) {
   const active = session.orders.find((o) => o.status !== "served");
-  return <main className="screen fade"><section className="hero"><div className="topbar"><button className="icon">{icons.menu}</button><div className="brand">{restaurant.name}<small>RISTORANTE</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Benvenuto · {qrContext.zone}</span><h1>Disfruta tu experiencia</h1><p>{restaurant.concept || RESTAURANT.concept} · {RESTAURANT.city}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button></div>{promos.length > 0 && <div className="promo-row">{promos.map((p, i) => <article className="promo glass" key={p.title || i}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div>}</main>;
+  const heroStyle = restaurant.coverUrl
+    ? { backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.72)),url('${restaurant.coverUrl}')`, backgroundSize: "cover", backgroundPosition: "center" }
+    : {};
+  return <main className="screen fade"><section className="hero" style={heroStyle}><div className="topbar">{restaurant.logoUrl ? <img src={restaurant.logoUrl} alt={restaurant.name} style={{ width: 40, height: 40, borderRadius: 12, objectFit: "cover", border: "1px solid rgba(255,255,255,.2)" }} /> : <button className="icon">{icons.menu}</button>}<div className="brand">{restaurant.name}<small>{restaurant.concept ? restaurant.concept.toUpperCase().slice(0, 18) : "RISTORANTE"}</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Bienvenido · {qrContext.zone || "Mesa"}</span><h1>Disfruta tu experiencia</h1><p>{restaurant.concept || RESTAURANT.concept}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button></div>{promos.length > 0 && <div className="promo-row">{promos.map((p, i) => <article className="promo glass" key={p.title || i}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div>}</main>;
 }
 
 function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT, menu = MENU }) {
@@ -413,6 +416,13 @@ export default function HoluMesa() {
         const r = Array.isArray(rows) ? rows[0] : rows;
         if (Array.isArray(r?.settings?.promos)) setPromos(r.settings.promos);
         else setPromos([]);
+        if (r?.settings?.logoUrl || r?.settings?.coverUrl) {
+          setRestaurantData((prev) => ({
+            ...prev,
+            logoUrl: r.settings.logoUrl || prev.logoUrl || "",
+            coverUrl: r.settings.coverUrl || prev.coverUrl || "",
+          }));
+        }
       })
       .catch(() => setPromos([]));
   }, [qrContext.restaurantId]);
