@@ -1,0 +1,78 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "camarero-call",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c2220001-0000-0000-0000-000000000001",
+      "name": "Webhook - Camarero Call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "camarero-call"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst restaurant_id = body.restaurant_id || 'holu';\nconst qr_token = body.qr_token || '';\nconst table_id = body.table_id || null;\nconst call_type = body.call_type || 'Camarero';\nconst message = body.message || 'Atención solicitada';\nreturn [{ json: { restaurant_id, qr_token, table_id, call_type, message } }];"
+      },
+      "id": "c2220001-0000-0000-0000-000000000002",
+      "name": "Parse Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/calls",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE" },
+            { "name": "Authorization", "value": "=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU4NzU1OCwiZXhwIjoyMDk0MTYzNTU4fQ.nYVqfJZxIUE4IQ2O-PQq0c9HSK2Bm2NfOZDViO9-krE" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "restaurant_id", "value": "={{ $json.restaurant_id }}" },
+            { "name": "table_id", "value": "={{ $json.table_id }}" },
+            { "name": "qr_token", "value": "={{ $json.qr_token }}" },
+            { "name": "call_type", "value": "={{ $json.call_type }}" },
+            { "name": "status", "value": "Pendiente" },
+            { "name": "message", "value": "={{ $json.message }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c2220001-0000-0000-0000-000000000003",
+      "name": "Insert Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": true}"
+      },
+      "id": "c2220001-0000-0000-0000-000000000004",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [860, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Camarero Call": { "main": [[{ "node": "Parse Body", "type": "main", "index": 0 }]] },
+    "Parse Body": { "main": [[{ "node": "Insert Call", "type": "main", "index": 0 }]] },
+    "Insert Call": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "meta": { "templateCredsSetupCompleted": true }
+}

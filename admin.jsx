@@ -117,6 +117,28 @@ const supaUploadImage = async (file, token) => {
   return `${SUPABASE_URL}/storage/v1/object/public/menu-images/${name}`;
 };
 
+const slugify = (str) => str.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+
+const supaSignUp = async (email, password, restaurantName) => {
+  const restaurant_id = slugify(restaurantName) || `rest-${Date.now()}`;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim().toLowerCase(), password, data: { restaurant_id } }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.message || "Error al registrar");
+  const access_token = data.access_token;
+  if (access_token) {
+    await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${access_token}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ id: restaurant_id, name: restaurantName.trim() }),
+    });
+  }
+  return { restaurant_id, needsConfirmation: !access_token };
+};
+
 const supaSignIn = async (email, password) => {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: "POST",
@@ -2074,31 +2096,73 @@ POST /qr/regenerate</pre></div></div></div>;
 }
 
 function SessionLogin({ onAuth, onBack }) {
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
+  const [restName, setRestName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const submit = async (e) => {
+  const [done, setDone] = useState("");
+
+  const submitLogin = async (e) => {
     e.preventDefault();
     setLoading(true); setError("");
     try { onAuth(await supaSignIn(email, password)); }
     catch (err) { setError(err.message); setLoading(false); }
   };
-  return (
-    <div style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#070604", gap:28, padding:20 }}>
+
+  const submitRegister = async (e) => {
+    e.preventDefault();
+    if (password !== password2) { setError("Las contraseñas no coinciden"); return; }
+    if (password.length < 8) { setError("La contraseña debe tener al menos 8 caracteres"); return; }
+    if (!restName.trim()) { setError("Escribe el nombre del restaurante"); return; }
+    setLoading(true); setError("");
+    try {
+      const result = await supaSignUp(email, password, restName);
+      if (result.needsConfirmation) {
+        setDone("Revisa tu correo para confirmar la cuenta y luego inicia sesión.");
+      } else {
+        setDone("Cuenta creada. Ahora inicia sesión.");
+      }
+      setMode("login");
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const base = { minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#070604", gap:24, padding:20 };
+  const brand = <div style={{ textAlign:"center" }}><div style={{ fontFamily:"'Playfair Display',serif", fontSize:38, letterSpacing:".14em", color:"#f7d37b" }}>HOLU</div><div style={{ color:"var(--muted)", fontSize:11, letterSpacing:".22em", marginTop:6 }}>BACKOFFICE</div></div>;
+
+  if (mode === "register") return (
+    <div style={base}>
       <style>{CSS}</style>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:38, letterSpacing:".14em", color:"#f7d37b" }}>HOLU</div>
-        <div style={{ color:"var(--muted)", fontSize:11, letterSpacing:".22em", marginTop:6 }}>BACKOFFICE</div>
-      </div>
-      <form onSubmit={submit} style={{ width:"min(380px,100%)", display:"flex", flexDirection:"column", gap:12 }}>
+      {brand}
+      <form onSubmit={submitRegister} style={{ width:"min(380px,100%)", display:"flex", flexDirection:"column", gap:12 }}>
+        <div style={{ textAlign:"center", marginBottom:4 }}><strong style={{ fontSize:17 }}>Crear cuenta</strong><br /><span style={{ color:"var(--muted)", fontSize:12 }}>Un restaurante, una cuenta.</span></div>
+        <div className="field"><label>Nombre del restaurante</label><input className="input" value={restName} onChange={e=>setRestName(e.target.value)} placeholder="Ej: La Trattoria" required autoFocus /></div>
+        <div className="field"><label>Correo</label><input className="input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@mirestaurante.cl" required /></div>
+        <div className="field"><label>Contraseña</label><input className="input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required /></div>
+        <div className="field"><label>Confirmar contraseña</label><input className="input" type="password" value={password2} onChange={e=>setPassword2(e.target.value)} placeholder="Repite la contraseña" required /></div>
+        {error && <div style={{ color:"var(--red2)", fontSize:13, textAlign:"center" }}>{error}</div>}
+        <button className="btn primary" type="submit" disabled={loading} style={{ marginTop:4 }}>{loading ? "Creando cuenta..." : "Crear restaurante"}</button>
+        <button type="button" onClick={() => { setMode("login"); setError(""); }} style={{ background:"none", border:"none", color:"var(--dim)", cursor:"pointer", fontSize:13 }}>← Ya tengo cuenta</button>
+      </form>
+    </div>
+  );
+
+  return (
+    <div style={base}>
+      <style>{CSS}</style>
+      {brand}
+      {done && <div style={{ background:"rgba(52,211,153,.12)", border:"1px solid rgba(52,211,153,.3)", borderRadius:12, padding:"12px 16px", color:"#6ee7b7", fontSize:13, textAlign:"center", maxWidth:340 }}>{done}</div>}
+      <form onSubmit={submitLogin} style={{ width:"min(380px,100%)", display:"flex", flexDirection:"column", gap:12 }}>
         <div className="field"><label>Correo del restaurante</label><input className="input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@mirestaurante.cl" required autoFocus /></div>
         <div className="field"><label>Contraseña</label><input className="input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required /></div>
         {error && <div style={{ color:"var(--red2)", fontSize:13, textAlign:"center", padding:"6px 0" }}>{error}</div>}
         <button className="btn primary" type="submit" disabled={loading} style={{ marginTop:4 }}>{loading ? "Verificando..." : "Ingresar"}</button>
       </form>
       {onBack && <button onClick={onBack} style={{ background:"none", border:"none", color:"var(--dim)", cursor:"pointer", fontSize:13, padding:0 }}>← Volver</button>}
-      <p style={{ color:"var(--dim)", fontSize:12, textAlign:"center", margin:0 }}>¿Sin cuenta? Regístrate en holu.app</p>
+      <button onClick={() => { setMode("register"); setError(""); }} style={{ background:"none", border:"none", color:"var(--gold2)", cursor:"pointer", fontSize:13, fontWeight:700, padding:0 }}>¿Sin cuenta? Regístrate gratis →</button>
     </div>
   );
 }
