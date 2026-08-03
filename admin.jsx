@@ -1576,8 +1576,17 @@ function QRView({ state }) {
     }
   };
 
-  const toggleActive = (dbId) => {
-    setTables((rows) => rows.map((t) => t.dbId === dbId ? { ...t, active: !t.active } : t));
+  const toggleActive = async (dbId) => {
+    const table = tables.find((t) => t.dbId === dbId);
+    if (!table) return;
+    const newActive = !table.active;
+    setTables((rows) => rows.map((t) => t.dbId === dbId ? { ...t, active: newActive } : t));
+    try {
+      await supaPatch(`tables?id=eq.${encodeURIComponent(dbId)}`, { active: newActive }, authToken);
+    } catch (e) {
+      console.error("[holu admin] toggleActive:", e.message);
+      setTables((rows) => rows.map((t) => t.dbId === dbId ? { ...t, active: table.active } : t));
+    }
   };
 
   return (
@@ -2119,13 +2128,13 @@ function LoginEntry({ onAdminAuth, onStaffAuth }) {
 
 function PinGate({ onAuth, onBack }) {
   const [digits, setDigits] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
   const [blocked, setBlocked] = useState(false);
 
-  const reject = () => {
-    setError(true);
-    setTimeout(() => { setDigits(""); setError(false); }, 800);
+  const reject = (msg = "PIN incorrecto") => {
+    setError(msg);
+    setTimeout(() => { setDigits(""); setError(""); }, 1200);
   };
 
   // The PIN never leaves as a comparison the browser can do: it is checked
@@ -2153,7 +2162,7 @@ function PinGate({ onAuth, onBack }) {
         return;
       }
       console.error("[holu admin] staff login:", e.message);
-      reject();
+      reject("Error de conexión. Intenta de nuevo.");
     } finally {
       setChecking(false);
     }
@@ -2187,7 +2196,7 @@ function PinGate({ onAuth, onBack }) {
           </button>
         ))}
       </div>
-      {error && <div style={{ color: "#ef4444", fontSize: 13 }}>PIN incorrecto</div>}
+      {error && <div style={{ color: "#ef4444", fontSize: 13 }}>{error}</div>}
       {onBack && <button onClick={onBack} style={{ background:"none", border:"none", color:"#666", cursor:"pointer", fontSize:13 }}>← Volver</button>}
     </div>
   );

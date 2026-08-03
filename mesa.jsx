@@ -208,10 +208,8 @@ function useTableSession(qrContext, sessionId) {
   const submitOrder = async (note = "") => {
     const items = Object.values(cart); if (!items.length) return null;
     let realId = null;
-    try {
-      const resp = await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })), total: items.reduce((s, i) => s + i.price * i.qty, 0) }, qrContext.restaurantId);
-      if (resp && typeof resp.json === "function") { const d = await resp.json(); realId = d?.orderId || null; }
-    } catch {}
+    const resp = await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })), total: items.reduce((s, i) => s + i.price * i.qty, 0) }, qrContext.restaurantId);
+    if (resp && typeof resp.json === "function") { try { const d = await resp.json(); realId = d?.orderId || null; } catch {} }
     const newOrder = { id: realId || `ORD-${Math.floor(1000 + Math.random() * 8999)}`, createdAt: Date.now(), eta: 18, status: "received", items };
     setOrders((o) => [newOrder, ...o]); setCart({});
     return newOrder;
@@ -259,8 +257,23 @@ function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT, menu = MENU }) 
 }
 
 function CartDrawer({ open, setOpen, session, go }) {
-  const [note, setNote] = useState(""); const items = Object.values(session.cart); const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-  return <aside className={`drawer ${open ? "open" : ""}`}><div className="drawer-head"><h2>Tu pedido</h2><button className="icon" onClick={() => setOpen(false)}>{icons.x}</button></div><div className="cart-list">{items.length ? items.map((item) => <div className="cart-item" key={item.id}><div><h4>{item.name}</h4><small>{item.qty} × {money(item.price)}</small></div><div className="qty"><button onClick={() => session.removeItem(item.id)}>{icons.minus}</button><strong>{item.qty}</strong><button onClick={() => session.addItem(MENU.find((d) => d.id === item.id))}>{icons.plus}</button></div></div>) : <div className="empty">Aún no agregaste platos.</div>}</div>{!!items.length && <><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 72, border: "1px solid rgba(255,255,255,.12)" }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notas para cocina: sin cebolla, punto de carne, alergias..." /><div className="total-row"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="total-row"><span>Servicio sugerido 10%</span><strong>{money(subtotal * 0.1)}</strong></div><div className="total-row strong"><span>Total estimado</span><strong>{money(subtotal * 1.1)}</strong></div><button className="btn primary" style={{ width: "100%" }} onClick={async () => { await session.submitOrder(note); setNote(""); setOpen(false); go("order"); }}>Enviar a cocina</button></>}</aside>;
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(false);
+  const items = Object.values(session.cart);
+  const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const handleSend = async () => {
+    setSending(true); setSendError(false);
+    try {
+      await session.submitOrder(note);
+      setNote(""); setOpen(false); go("order");
+    } catch {
+      setSendError(true);
+    } finally {
+      setSending(false);
+    }
+  };
+  return <aside className={`drawer ${open ? "open" : ""}`}><div className="drawer-head"><h2>Tu pedido</h2><button className="icon" onClick={() => setOpen(false)}>{icons.x}</button></div><div className="cart-list">{items.length ? items.map((item) => <div className="cart-item" key={item.id}><div><h4>{item.name}</h4><small>{item.qty} × {money(item.price)}</small></div><div className="qty"><button onClick={() => session.removeItem(item.id)}>{icons.minus}</button><strong>{item.qty}</strong><button onClick={() => session.addItem(MENU.find((d) => d.id === item.id))}>{icons.plus}</button></div></div>) : <div className="empty">Aún no agregaste platos.</div>}</div>{!!items.length && <><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 72, border: "1px solid rgba(255,255,255,.12)" }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notas para cocina: sin cebolla, punto de carne, alergias..." /><div className="total-row"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="total-row"><span>Servicio sugerido 10%</span><strong>{money(subtotal * 0.1)}</strong></div><div className="total-row strong"><span>Total estimado</span><strong>{money(subtotal * 1.1)}</strong></div>{sendError && <div style={{ background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.3)", borderRadius:12, padding:"12px 14px", color:"#fca5a5", fontSize:13, lineHeight:1.5 }}>No se pudo enviar el pedido. Verifica tu conexión e inténtalo de nuevo. Llama al camarero si el problema persiste.</div>}<button className="btn primary" style={{ width: "100%", opacity: sending ? .7 : 1 }} disabled={sending} onClick={handleSend}>{sending ? "Enviando..." : "Enviar a cocina"}</button></>}</aside>;
 }
 
 const STATUS_STEP = { received: "received", preparing: "prep", "listo para servir": "plating", ready: "plating", served: "served" };
