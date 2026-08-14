@@ -28,7 +28,7 @@ const buildWebhookUrl = (path) => {
 
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc1NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
-const MESA_URL = getEnv("VITE_MESA_URL", "").replace(/\/+$/, "");
+const MESA_URL = getEnv("VITE_MESA_URL", "https://mesa.holu.pro").replace(/\/+$/, "");
 
 // ── Tenant ────────────────────────────────────────────────────────────────────
 // Each restaurant gets its own admin deployment with VITE_RESTAURANT_ID set.
