@@ -29,6 +29,7 @@ const buildWebhookUrl = (path) => {
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc1NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
 const MESA_URL = getEnv("VITE_MESA_URL", "https://mesa.holu.pro").replace(/\/+$/, "");
+const WHATSAPP_NUMBER = getEnv("VITE_WHATSAPP_NUMBER", "56912345678");
 
 // ── Tenant ────────────────────────────────────────────────────────────────────
 // Each restaurant gets its own admin deployment with VITE_RESTAURANT_ID set.
@@ -2270,6 +2271,60 @@ function PinGate({ onAuth, onBack }) {
   );
 }
 
+function TrialBlockedScreen({ restaurantName, onActivate }) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setLoading(true); setError("");
+    const ok = await onActivate(code.trim().toUpperCase());
+    if (!ok) setError("Código incorrecto. Escríbenos por WhatsApp para obtenerlo.");
+    setLoading(false);
+  };
+
+  const waText = encodeURIComponent(`Hola! Quiero activar mi cuenta Holu - Restaurante: ${restaurantName}`);
+  const base = { minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#070604", gap:24, padding:20 };
+
+  return (
+    <div style={base}>
+      <style>{CSS}</style>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:38, letterSpacing:".14em", color:"#f7d37b" }}>HOLU</div>
+        <div style={{ color:"var(--muted)", fontSize:11, letterSpacing:".22em", marginTop:6 }}>BACKOFFICE</div>
+      </div>
+      <div style={{ width:"min(400px,100%)", background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.1)", borderRadius:16, padding:28, display:"flex", flexDirection:"column", gap:16, textAlign:"center" }}>
+        <div style={{ fontSize:40 }}>🔒</div>
+        <div>
+          <div style={{ fontSize:18, fontWeight:700, marginBottom:6 }}>Período de prueba terminado</div>
+          <div style={{ color:"var(--muted)", fontSize:13, lineHeight:1.6 }}>
+            Los 30 días gratuitos de <strong>{restaurantName || "tu restaurante"}</strong> han vencido.<br />
+            Escríbenos por WhatsApp y te enviamos el código de activación.
+          </div>
+        </div>
+        <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waText}`} target="_blank" rel="noreferrer"
+           style={{ background:"#25d366", color:"#fff", padding:"12px 20px", borderRadius:10, fontWeight:700, fontSize:14, textDecoration:"none", display:"block" }}>
+          Contactar por WhatsApp →
+        </a>
+        <form onSubmit={handleSubmit} style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <div className="field">
+            <label>Código de activación</label>
+            <input className="input" value={code} onChange={e => setCode(e.target.value)}
+              placeholder="HOLU-XXXX" autoCapitalize="characters"
+              style={{ textAlign:"center", letterSpacing:".1em", fontSize:16 }} />
+          </div>
+          {error && <div style={{ color:"var(--red2)", fontSize:13 }}>{error}</div>}
+          <button className="btn primary" type="submit" disabled={loading || !code.trim()}>
+            {loading ? "Verificando..." : "Activar cuenta"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function HoluAdmin() {
   const [session, setSession] = useState(() => {
     try {
@@ -2306,15 +2361,29 @@ export default function HoluAdmin() {
   const [staffId, setStaffId] = useState(authed?.id || "w1");
   const [tab, setTab] = useState("dashboard");
   const [restaurantName, setRestaurantName] = useState("");
+  const [trialInfo, setTrialInfo] = useState(null);
   const state = useBackofficeState(session?.access_token || null);
 
-  // Load restaurant name as soon as we have an auth token
+  // Load restaurant name + trial status as soon as we have an auth token
   useEffect(() => {
     if (!session?.access_token && !SUPABASE_ANON_KEY) return;
-    supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name&limit=1`, {}, session?.access_token || null)
-      .then((rows) => { if (Array.isArray(rows) && rows[0]?.name) setRestaurantName(rows[0].name); })
+    supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,trial_ends_at,activated_at&limit=1`, {}, session?.access_token || null)
+      .then((rows) => {
+        if (Array.isArray(rows) && rows[0]) {
+          if (rows[0].name) setRestaurantName(rows[0].name);
+          setTrialInfo({ trial_ends_at: rows[0].trial_ends_at, activated_at: rows[0].activated_at });
+        }
+      })
       .catch(() => {});
   }, [session?.access_token]);
+
+  const trialStatus = useMemo(() => {
+    if (!trialInfo || trialInfo.activated_at) return { blocked: false, daysLeft: null };
+    if (!trialInfo.trial_ends_at) return { blocked: false, daysLeft: null };
+    const daysLeft = Math.ceil((new Date(trialInfo.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24));
+    return { blocked: daysLeft <= 0, daysLeft: Math.max(0, daysLeft) };
+  }, [trialInfo]);
+
   const safeTab = role === "cocina" ? "kitchen" : (role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab);
 
   // useMemo MUST be before any conditional return (Rules of Hooks)
@@ -2372,10 +2441,31 @@ export default function HoluAdmin() {
     setStaffId("w1");
   };
 
+  const handleActivate = async (code) => {
+    try {
+      const result = await supaRpc("activate_restaurant", { p_code: code }, session?.access_token);
+      const ok = result === true || result?.[0] === true;
+      if (ok) setTrialInfo((prev) => ({ ...prev, activated_at: new Date().toISOString() }));
+      return ok;
+    } catch { return false; }
+  };
+
   if (!authed) return <LoginEntry onAdminAuth={handleAdminAuth} onStaffAuth={handleStaffAuth} />;
+
+  if (session && trialStatus.blocked) {
+    return <TrialBlockedScreen restaurantName={restaurantName} onActivate={handleActivate} />;
+  }
+
+  const trialBanner = session && trialStatus.daysLeft !== null && !trialStatus.blocked && trialStatus.daysLeft <= 7
+    ? <div style={{ background: trialStatus.daysLeft <= 3 ? "rgba(239,68,68,.15)" : "rgba(251,191,36,.12)", border:`1px solid ${trialStatus.daysLeft<=3?"rgba(239,68,68,.3)":"rgba(251,191,36,.3)"}`, borderRadius:10, padding:"10px 16px", fontSize:13, display:"flex", alignItems:"center", gap:12, margin:"0 0 12px" }}>
+        <span>⚠️</span>
+        <span>Tu prueba gratuita vence en <strong>{trialStatus.daysLeft} {trialStatus.daysLeft === 1 ? "día" : "días"}</strong>. <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer" style={{ color:"var(--gold2)" }}>Activa tu cuenta →</a></span>
+      </div>
+    : null;
 
   return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout} authed={authed} restaurantName={restaurantName}>
     <Topbar role={role} staffId={staffId} authed={authed} restaurantName={restaurantName} />
+    {trialBanner}
     {content}
   </Layout>;
 }
