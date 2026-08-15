@@ -130,11 +130,15 @@ const supaSignUp = async (email, password, restaurantName) => {
   if (!res.ok) throw new Error(data.error_description || data.message || "Error al registrar");
   const access_token = data.access_token;
   if (access_token) {
-    await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
+    const rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
       method: "POST",
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${access_token}`, "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify({ id: restaurant_id, name: restaurantName.trim() }),
     });
+    if (!rr.ok) {
+      const msg = await rr.text().catch(() => "");
+      throw new Error(msg.includes("duplicate") ? "Ya existe un restaurante con ese nombre. Elige otro." : "Error al crear el restaurante. Intenta de nuevo.");
+    }
   }
   return { restaurant_id, needsConfirmation: !access_token };
 };
