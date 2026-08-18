@@ -525,7 +525,11 @@ export default function Landing({ n8nBase, adminUrl }: { n8nBase?: string; admin
         <div className="container register-wrap">
           <div>
             <div className="eyebrow">30 días gratis · sin tarjeta</div>
-            <h2 style={{ fontSize: "clamp(36px,5vw,58px)", fontWeight: 700, lineHeight: .92, letterSpacing: "-.05em", margin: "14px 0 18px" }}>Prueba HOLU completo durante 30 días. Sin pagar nada.</h2>
+            <h2 style={{ fontSize: "clamp(36px,5vw,58px)", fontWeight: 700, lineHeight: .92, letterSpacing: "-.05em", margin: "14px 0 18px" }}>
+              Prueba HOLU completo durante{" "}
+              <span style={{ color: "var(--gold2)" }}>30 días</span>.{" "}
+              Sin pagar <span style={{ color: "var(--green)" }}>nada</span>.
+            </h2>
             <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 16, marginBottom: 24 }}>Sin tarjeta, sin compromiso. Crea tu cuenta y explora mesas QR, cocina, camareros, caja y administración durante 30 días completos.</p>
             <div className="register-benefits">
               {[
