@@ -13,24 +13,36 @@ const socialProof = [
 
 const showcase = [
   {
+    icon: "📱",
+    eyebrow: "Mesa · Cliente",
     title: "Mesas QR",
-    image: "https://assets.zyrosite.com/rvH9B7W9kUvvSHwW/chatgpt-image-26-may-2026-08_25_05-NoZTg8ZqjPaIF1rd.png",
     desc: "Clientes viendo la carta digital desde su teléfono, haciendo pedidos y llamando al camarero directamente desde la mesa.",
+    features: ["Carta visual con fotos y categorías", "Pedidos y llamado al camarero sin esperar", "Solicitud de cobro y reseña desde la mesa"],
+    color: "#f0d48d",
   },
   {
+    icon: "🧑‍💼",
+    eyebrow: "Equipo · Salón",
     title: "Camareros conectados",
-    image: "https://assets.zyrosite.com/rvH9B7W9kUvvSHwW/chatgpt-image-26-may-2026-08_29_05-T0Rd8rgWNQNXOgvt.png",
     desc: "El camarero toma pedidos desde una tablet y todo se envía automáticamente a cocina y caja en segundos.",
+    features: ["Llamados de mesa en tiempo real", "Pedidos activos y estado de cada plato", "Coordinación con administración en vivo"],
+    color: "#60a5fa",
   },
   {
+    icon: "👨‍🍳",
+    eyebrow: "Cocina · Pantalla",
     title: "Cocina organizada",
-    image: "https://assets.zyrosite.com/rvH9B7W9kUvvSHwW/chatgpt-image-26-may-2026-08_25_20-WyIyg3aQ5mcsj3zs.png",
     desc: "Los cocineros reciben pedidos en pantalla y notifican cuando cada plato está listo para entregar.",
+    features: ["Pedidos organizados por prioridad", "Estado del plato actualizable al instante", "Sin papel, sin confusiones"],
+    color: "#34d399",
   },
   {
+    icon: "🖥️",
+    eyebrow: "Barra · Tótem",
     title: "Autoservicio inteligente",
-    image: "https://assets.zyrosite.com/rvH9B7W9kUvvSHwW/chatgpt-image-26-may-2026-08_50_45-UDo4hEUTgFuKTcHa.png",
     desc: "Clientes hacen pedidos rápidos desde una pantalla en barra o autoservicio sin hacer filas ni esperar atención.",
+    features: ["Pedidos autónomos sin camarero", "Conectado a cocina y caja en tiempo real", "Incluido de regalo con tu plan"],
+    color: "#a78bfa",
   },
 ];
 
@@ -219,12 +231,15 @@ a{color:inherit;text-decoration:none}
 .card p{color:var(--muted);line-height:1.6;font-size:14px;margin:0}
 
 .showcase-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
-.showcase-card{position:relative;overflow:hidden;border-radius:28px;min-height:460px;border:1px solid var(--line);box-shadow:var(--shadow);background:#0d0d0d}
-.showcase-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.68);transform:scale(1.03);transition:.5s ease}
-.showcase-card:hover img{transform:scale(1.07);filter:brightness(.76)}
-.showcase-overlay{position:absolute;inset:0;background:linear-gradient(180deg,transparent 25%,rgba(0,0,0,.9));padding:28px;display:flex;flex-direction:column;justify-content:flex-end}
-.showcase-overlay h3{font-size:clamp(26px,3.2vw,40px);font-weight:700;line-height:.95;margin:0 0 10px;letter-spacing:-.04em}
-.showcase-overlay p{color:#cdc2b0;line-height:1.65;max-width:400px;font-size:14px;margin:0}
+.info-card{border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);padding:28px;transition:.2s ease}
+.info-card:hover{transform:translateY(-3px)}
+.info-card-header{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.info-icon{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;flex:0 0 auto}
+.info-title{font-size:clamp(20px,2.2vw,26px);font-weight:700;line-height:.95;margin:0 0 12px;letter-spacing:-.04em}
+.info-desc{color:var(--muted);line-height:1.7;font-size:15px;margin:0 0 20px}
+.info-features{display:grid;gap:10px}
+.info-feature{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:#c8bba8;line-height:1.5}
+.info-feature-check{font-weight:700;flex:0 0 auto;margin-top:1px}
 
 .split{display:grid;grid-template-columns:.95fr 1.05fr;gap:16px;align-items:start}
 .benefits{display:grid;gap:8px}
@@ -238,16 +253,6 @@ a{color:inherit;text-decoration:none}
 .flow-number{width:50px;height:50px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);display:grid;place-items:center;font-size:17px;font-weight:700;color:var(--gold2);position:relative;top:2px}
 .flow-content b{display:block;font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:5px}
 .flow-content span{display:block;color:var(--muted);font-size:14px;line-height:1.6}
-.demo-card-pro{position:relative;border-radius:28px;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);padding:28px;box-shadow:var(--shadow)}
-.demo-card-pro::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 10%,rgba(52,211,153,.1),transparent 30%);pointer-events:none}
-.demo-options{display:grid;gap:10px;margin-top:20px;position:relative;z-index:1}
-.demo-option{display:flex;align-items:flex-start;gap:14px;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);padding:16px;color:var(--text);transition:.2s ease}
-.demo-option:hover{transform:translateY(-2px);border-color:rgba(240,212,141,.22);background:rgba(255,255,255,.07)}
-.demo-option.primary-demo{background:linear-gradient(135deg,rgba(200,169,107,.14),rgba(255,255,255,.04));border-color:rgba(240,212,141,.24)}
-.demo-badge{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);display:grid;place-items:center;font-size:18px;flex:0 0 auto}
-.demo-option strong{display:block;font-size:15px;font-weight:600;letter-spacing:-.02em}
-.demo-option small{display:block;color:var(--muted);line-height:1.5;margin-top:4px;font-size:13px}
-.demo-safe{margin-top:14px;border-radius:14px;background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.12);padding:12px 14px;color:#b8f5d8;font-size:13px;line-height:1.6;position:relative;z-index:1}
 
 /* PLANS */
 .plan.highlight{border-color:rgba(240,212,141,.32);background:linear-gradient(145deg,rgba(200,169,107,.1),rgba(255,255,255,.03))}
@@ -269,7 +274,6 @@ a{color:inherit;text-decoration:none}
 .form-success .success-icon{font-size:48px;margin-bottom:12px}
 .form-success h4{font-size:22px;font-weight:700;margin:0 0 8px}
 .form-success p{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 20px}
-.demo-creds{background:rgba(200,169,107,.08);border:1px solid rgba(200,169,107,.2);border-radius:14px;padding:14px 16px;font-size:13px;color:var(--gold2);text-align:left;line-height:1.8}
 .register-benefits{display:grid;gap:10px;margin-top:24px}
 .reg-benefit{display:flex;gap:10px;align-items:flex-start;color:#c8bba8;font-size:15px;line-height:1.5}
 .reg-check{color:var(--green);font-size:16px;flex:0 0 auto;margin-top:1px}
@@ -311,7 +315,6 @@ a{color:inherit;text-decoration:none}
   .metrics,.modules,.showcase-grid,.flow-track{grid-template-columns:1fr}
   .section{padding:52px 0}
   .section-head{display:block}
-  .showcase-card{min-height:320px}
   .tablet-outer{display:flex;justify-content:center;margin-top:24px;perspective:none}
   .tablet-frame{width:100%;max-width:400px;transform:none;border-radius:28px;padding:12px 10px 16px}
   .tab-tables{grid-template-columns:repeat(4,1fr)}
@@ -467,13 +470,20 @@ export default function Landing({ n8nBase, adminUrl }: { n8nBase?: string; admin
           </div>
           <div className="showcase-grid">
             {showcase.map(item => (
-              <article className="showcase-card" key={item.title}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.image} alt={item.title} />
-                <div className="showcase-overlay">
-                  <div className="eyebrow">Experiencia HOLU</div>
-                  <h3>{item.title}</h3>
-                  <p>{item.desc}</p>
+              <article className="info-card" key={item.title} style={{ borderColor: `${item.color}28` }}>
+                <div className="info-card-header">
+                  <span className="info-icon" style={{ background: `${item.color}14`, color: item.color }}>{item.icon}</span>
+                  <span className="eyebrow" style={{ color: item.color }}>{item.eyebrow}</span>
+                </div>
+                <h3 className="info-title">{item.title}</h3>
+                <p className="info-desc">{item.desc}</p>
+                <div className="info-features">
+                  {item.features.map(f => (
+                    <div className="info-feature" key={f}>
+                      <span className="info-feature-check" style={{ color: item.color }}>✓</span>
+                      <span>{f}</span>
+                    </div>
+                  ))}
                 </div>
               </article>
             ))}
@@ -511,7 +521,6 @@ export default function Landing({ n8nBase, adminUrl }: { n8nBase?: string; admin
         </div>
       </section>
 
-      {/* ── REGISTRO GRATUITO ─────────────────────────────────── */}
       <section id="registro" className="register-section">
         <div className="container register-wrap">
           <div>
@@ -549,46 +558,20 @@ export default function Landing({ n8nBase, adminUrl }: { n8nBase?: string; admin
                 <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", lineHeight: 1.6 }}>Sin tarjeta. Sin compromiso. Activa tu restaurante cuando quieras.</p>
                 <div className="form-field">
                   <label>Nombre</label>
-                  <input
-                    type="text"
-                    placeholder="Tu nombre"
-                    required
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  />
+                  <input type="text" placeholder="Tu nombre" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div className="form-field">
                   <label>Correo electrónico</label>
-                  <input
-                    type="email"
-                    placeholder="tu@email.com"
-                    required
-                    value={form.email}
-                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  />
+                  <input type="email" placeholder="tu@email.com" required value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div className="form-field">
                   <label>WhatsApp <span style={{ color: "var(--dim)", fontWeight: 400 }}>(opcional)</span></label>
-                  <input
-                    type="tel"
-                    placeholder="+56 9 1234 5678"
-                    value={form.phone}
-                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                  />
+                  <input type="tel" placeholder="+56 9 1234 5678" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
                 </div>
-                <button
-                  type="submit"
-                  className="btn primary"
-                  style={{ width: "100%", marginTop: 4, fontSize: 15, padding: "14px 20px", justifyContent: "center" }}
-                  disabled={formState === "loading"}
-                >
-                  {formState === "loading"
-                    ? <><span className="spinner" />Enviando...</>
-                    : "Empezar 30 días gratis →"}
+                <button type="submit" className="btn primary" style={{ width: "100%", marginTop: 4, fontSize: 15, padding: "14px 20px", justifyContent: "center" }} disabled={formState === "loading"}>
+                  {formState === "loading" ? <><span className="spinner" />Enviando...</> : "Empezar 30 días gratis →"}
                 </button>
-                <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", marginTop: 12 }}>
-                  Sin tarjeta · 30 días gratis · Sin compromiso
-                </p>
+                <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", marginTop: 12 }}>Sin tarjeta · 30 días gratis · Sin compromiso</p>
               </form>
             )}
           </div>
@@ -601,65 +584,25 @@ export default function Landing({ n8nBase, adminUrl }: { n8nBase?: string; admin
             <h2>Un solo plan. Todo incluido.</h2>
             <p>Sin tiers, sin sorpresas. Todo lo que necesita tu restaurante desde el primer día.</p>
           </div>
-
-          {/* Billing toggle */}
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
-              <button
-                type="button"
-                onClick={() => setBilling("monthly")}
-                style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease",
-                  background: billing === "monthly" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent",
-                  color: billing === "monthly" ? "#160f02" : "var(--muted)" }}
-              >
-                Mensual
-              </button>
-              <button
-                type="button"
-                onClick={() => setBilling("annual")}
-                style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease",
-                  background: billing === "annual" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent",
-                  color: billing === "annual" ? "#160f02" : "var(--muted)" }}
-              >
-                Anual&nbsp;<span style={{ fontSize: 12, fontWeight: 700, color: billing === "annual" ? "#064" : "var(--green)" }}>−30%</span>
-              </button>
+              <button type="button" onClick={() => setBilling("monthly")} style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease", background: billing === "monthly" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent", color: billing === "monthly" ? "#160f02" : "var(--muted)" }}>Mensual</button>
+              <button type="button" onClick={() => setBilling("annual")} style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease", background: billing === "annual" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent", color: billing === "annual" ? "#160f02" : "var(--muted)" }}>Anual&nbsp;<span style={{ fontSize: 12, fontWeight: 700, color: billing === "annual" ? "#064" : "var(--green)" }}>−30%</span></button>
             </div>
           </div>
-
-          {/* Single plan card */}
           <div style={{ display: "flex", justifyContent: "center" }}>
             <article className="card plan highlight" style={{ position: "relative", maxWidth: 480, width: "100%" }}>
               <span className="tag">Todo incluido</span>
               <h3 style={{ fontSize: 26, marginTop: 8 }}>HOLU — Plan completo</h3>
               <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 4px", fontWeight: 600 }}>✓ Primeros 30 días gratis al registrarte</p>
               <div className="price" style={{ fontSize: 44, lineHeight: 1 }}>
-                {billing === "monthly" ? (
-                  <>USD&nbsp;<span style={{ fontSize: 56 }}>$15</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / mes</small></>
-                ) : (
-                  <>USD&nbsp;<span style={{ fontSize: 56 }}>$126</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / año</small></>
-                )}
+                {billing === "monthly" ? <>USD&nbsp;<span style={{ fontSize: 56 }}>$15</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / mes</small></> : <>USD&nbsp;<span style={{ fontSize: 56 }}>$126</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / año</small></>}
               </div>
-              {billing === "annual" && (
-                <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 8px", fontWeight: 600 }}>
-                  Equivale a USD $10.50/mes — ahorras $54 al año
-                </p>
-              )}
+              {billing === "annual" && <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 8px", fontWeight: 600 }}>Equivale a USD $10.50/mes — ahorras $54 al año</p>}
               <div className="features" style={{ marginTop: 16 }}>
-                {planFeatures.map(f => (
-                  <div key={f} style={{ color: f.startsWith("🎁") ? "var(--gold2)" : "var(--muted)", fontWeight: f.startsWith("🎁") ? 600 : 400 }}>
-                    {f.startsWith("🎁") ? f : `✓ ${f}`}
-                  </div>
-                ))}
+                {planFeatures.map(f => <div key={f} style={{ color: f.startsWith("🎁") ? "var(--gold2)" : "var(--muted)", fontWeight: f.startsWith("🎁") ? 600 : 400 }}>{f.startsWith("🎁") ? f : `✓ ${f}`}</div>)}
               </div>
-              <a
-                className="btn wa"
-                href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (plan ${billing === "annual" ? "anual $126" : "mensual $15"})`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ width: "100%", marginTop: 20, fontSize: 15, padding: "14px 20px" }}
-              >
-                💬 Activar por WhatsApp
-              </a>
+              <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (plan ${billing === "annual" ? "anual $126" : "mensual $15"})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", marginTop: 20, fontSize: 15, padding: "14px 20px" }}>💬 Activar por WhatsApp</a>
             </article>
           </div>
         </div>
