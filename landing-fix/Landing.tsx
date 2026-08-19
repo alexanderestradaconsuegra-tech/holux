@@ -322,7 +322,7 @@ a{color:inherit;text-decoration:none}
 }
 `;
 
-export default function Landing({ n8nBase, adminUrl }: { n8nBase?: string; adminUrl?: string }) {
+export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: string }) {
   const [openFaq, setOpenFaq] = useState(0);
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [formState, setFormState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -335,14 +335,11 @@ export default function Landing({ n8nBase, adminUrl }: { n8nBase?: string; admin
     e.preventDefault();
     setFormState("loading");
     try {
-      const base = n8nBase ?? "";
-      if (base) {
-        await fetch(`${base}/webhook/demo-register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        });
-      }
+      await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
       setFormState("done");
     } catch {
       setFormState("done");
