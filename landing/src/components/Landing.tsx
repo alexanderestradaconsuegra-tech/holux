@@ -2,6 +2,17 @@
 
 import { useState } from "react";
 
+const Icons = {
+  phone: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>,
+  users: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  chef: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>,
+  monitor: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+  check: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2,7 5.5,10.5 12,3"/></svg>,
+  gift: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>,
+  message: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  success: <svg width="52" height="52" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" stroke="currentColor" strokeOpacity="0.2" strokeWidth="2"/><path d="M15 26l8 8 14-14" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+};
+
 const socialProof = [
   "Restaurantes modernos",
   "Cafés y brunch",
@@ -13,7 +24,7 @@ const socialProof = [
 
 const showcase = [
   {
-    icon: "📱",
+    icon: "phone",
     eyebrow: "Mesa · Cliente",
     title: "Mesas QR",
     desc: "Clientes viendo la carta digital desde su teléfono, haciendo pedidos y llamando al camarero directamente desde la mesa.",
@@ -21,7 +32,7 @@ const showcase = [
     color: "#f0d48d",
   },
   {
-    icon: "🧑‍💼",
+    icon: "users",
     eyebrow: "Equipo · Salón",
     title: "Camareros conectados",
     desc: "El camarero toma pedidos desde una tablet y todo se envía automáticamente a cocina y caja en segundos.",
@@ -29,7 +40,7 @@ const showcase = [
     color: "#60a5fa",
   },
   {
-    icon: "👨‍🍳",
+    icon: "chef",
     eyebrow: "Cocina · Pantalla",
     title: "Cocina organizada",
     desc: "Los cocineros reciben pedidos en pantalla y notifican cuando cada plato está listo para entregar.",
@@ -37,7 +48,7 @@ const showcase = [
     color: "#34d399",
   },
   {
-    icon: "🖥️",
+    icon: "monitor",
     eyebrow: "Barra · Tótem",
     title: "Autoservicio inteligente",
     desc: "Clientes hacen pedidos rápidos desde una pantalla en barra o autoservicio sin hacer filas ni esperar atención.",
@@ -79,7 +90,7 @@ const planFeatures = [
   "Caja, turnos y boletas",
   "Propinas y reseñas de clientes",
   "Analítica de ventas y rendimiento",
-  "🎁 Tótem de autoservicio para barra — de regalo",
+  "Tótem de autoservicio para barra — de regalo",
 ];
 
 const stats = [
@@ -271,7 +282,7 @@ a{color:inherit;text-decoration:none}
 .form-field input:focus{border-color:rgba(240,212,141,.4);background:rgba(255,255,255,.08)}
 .form-field input::placeholder{color:var(--dim)}
 .form-success{text-align:center;padding:24px 0}
-.form-success .success-icon{font-size:48px;margin-bottom:12px}
+.form-success .success-icon{display:flex;justify-content:center;margin-bottom:16px}
 .form-success h4{font-size:22px;font-weight:700;margin:0 0 8px}
 .form-success p{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 20px}
 .register-benefits{display:grid;gap:10px;margin-top:24px}
@@ -299,6 +310,10 @@ a{color:inherit;text-decoration:none}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.82;transform:scale(1.03)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:18px;height:18px;border:2px solid rgba(0,0,0,.2);border-top-color:#160f02;border-radius:50%;animation:spin .7s linear infinite}
+
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--gold2);outline-offset:3px;border-radius:6px}
+.nav-links a:not(.btn){min-height:44px;display:inline-flex;align-items:center;padding:0 6px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 @media(max-width:960px){
   .nav-links a:not(.btn){display:none}
@@ -469,7 +484,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             {showcase.map(item => (
               <article className="info-card" key={item.title} style={{ borderColor: `${item.color}28` }}>
                 <div className="info-card-header">
-                  <span className="info-icon" style={{ background: `${item.color}14`, color: item.color }}>{item.icon}</span>
+                  <span className="info-icon" style={{ background: `${item.color}14`, color: item.color }}>{Icons[item.icon as keyof typeof Icons]}</span>
                   <span className="eyebrow" style={{ color: item.color }}>{item.eyebrow}</span>
                 </div>
                 <h3 className="info-title">{item.title}</h3>
@@ -477,7 +492,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                 <div className="info-features">
                   {item.features.map(f => (
                     <div className="info-feature" key={f}>
-                      <span className="info-feature-check" style={{ color: item.color }}>✓</span>
+                      <span className="info-feature-check" style={{ color: item.color }}>{Icons.check}</span>
                       <span>{f}</span>
                     </div>
                   ))}
@@ -496,7 +511,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 15 }}>HOLU fue creado para que cualquier persona pueda operar el restaurante desde el primer día sin capacitación técnica.</p>
           </div>
           <div className="benefits">
-            {benefits.map(b => <div className="benefit" key={b}><span className="check">✓</span><span>{b}</span></div>)}
+            {benefits.map(b => <div className="benefit" key={b}><span className="check">{Icons.check}</span><span>{b}</span></div>)}
           </div>
         </div>
       </section>
@@ -536,7 +551,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                 "Después del período gratis, activa con USD $15/mes",
               ].map(b => (
                 <div className="reg-benefit" key={b}>
-                  <span className="reg-check">✓</span>
+                  <span className="reg-check">{Icons.check}</span>
                   <span>{b}</span>
                 </div>
               ))}
@@ -546,7 +561,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           <div className="register-form-box">
             {formState === "done" ? (
               <div className="form-success">
-                <div className="success-icon">🎉</div>
+                <div className="success-icon" style={{ color: "var(--gold2)" }}>{Icons.success}</div>
                 <h4>¡Listo! Revisa tu correo.</h4>
                 <p>Te enviamos un correo con toda la información. Crea tu cuenta en <span style={{ color: "var(--gold2)" }}>app.holu.pro</span> y empieza tus 30 días gratis ahora mismo.</p>
                 <div style={{ marginTop: 20 }}>
@@ -595,15 +610,23 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <article className="card plan highlight" style={{ position: "relative", maxWidth: 480, width: "100%" }}>
               <span className="tag">Todo incluido</span>
               <h3 style={{ fontSize: 26, marginTop: 8 }}>HOLU — Plan completo</h3>
-              <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 4px", fontWeight: 600 }}>✓ Primeros 30 días gratis al registrarte</p>
+              <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 4px", fontWeight: 600, display:"flex", gap:6, alignItems:"center" }}>{Icons.check} Primeros 30 días gratis al registrarte</p>
               <div className="price" style={{ fontSize: 44, lineHeight: 1 }}>
                 {billing === "monthly" ? <>USD&nbsp;<span style={{ fontSize: 56 }}>$15</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / mes</small></> : <>USD&nbsp;<span style={{ fontSize: 56 }}>$126</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / año</small></>}
               </div>
               {billing === "annual" && <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 8px", fontWeight: 600 }}>Equivale a USD $10.50/mes — ahorras $54 al año</p>}
               <div className="features" style={{ marginTop: 16 }}>
-                {planFeatures.map(f => <div key={f} style={{ color: f.startsWith("🎁") ? "var(--gold2)" : "var(--muted)", fontWeight: f.startsWith("🎁") ? 600 : 400 }}>{f.startsWith("🎁") ? f : `✓ ${f}`}</div>)}
+                {planFeatures.map(f => {
+                  const isGift = f.includes("de regalo");
+                  return (
+                    <div key={f} style={{ display:"flex", gap:8, alignItems:"flex-start", color: isGift ? "var(--gold2)" : "var(--muted)", fontWeight: isGift ? 600 : 400 }}>
+                      <span style={{ color: isGift ? "var(--gold2)" : "var(--green)", flex:"0 0 auto", marginTop:2 }}>{isGift ? Icons.gift : Icons.check}</span>
+                      <span>{f}</span>
+                    </div>
+                  );
+                })}
               </div>
-              <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (plan ${billing === "annual" ? "anual $126" : "mensual $15"})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", marginTop: 20, fontSize: 15, padding: "14px 20px" }}>💬 Activar por WhatsApp</a>
+              <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (plan ${billing === "annual" ? "anual $126" : "mensual $15"})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", marginTop: 20, fontSize: 15, padding: "14px 20px" }}>{Icons.message} Activar por WhatsApp</a>
             </article>
           </div>
         </div>
@@ -637,7 +660,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <p>Clientes pidiendo desde la mesa, camareros conectados, cocina sincronizada, caja organizada y autoservicio funcionando en tiempo real.</p>
             <div className="final-btns">
               <a className="btn primary" href="#registro">Registrarme gratis</a>
-              <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">💬 Hablar por WhatsApp</a>
+              <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">{Icons.message} Hablar por WhatsApp</a>
             </div>
           </div>
         </div>
