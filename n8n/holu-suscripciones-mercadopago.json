@@ -1,0 +1,369 @@
+{
+  "name": "HOLU - Suscripciones MercadoPago",
+  "nodes": [
+    {
+      "id": "sub-hook",
+      "name": "Webhook - Subscription Create",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "subscription-create",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "subscription-create",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "sub-validate",
+      "name": "Validate Subscription",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// ── Validate & Prepare ───────────────────────────────────────\nconst b = $input.first().json.body ?? $input.first().json;\n\nfor (const f of ['restaurant_id', 'payer_email']) {\n  if (!b[f] || String(b[f]).trim() === '') throw new Error(`Missing required field: ${f}`);\n}\nif (!/^[^@]+@[^@]+\\.[^@]+$/.test(b.payer_email)) throw new Error('Invalid email address');\n\n// The price is decided here, never by the browser: a client that could send\n// its own transaction_amount could subscribe itself for one peso.\nconst PLANS = {\n  basico: 29990,\n  pro:    49990,\n  ia:     79990,\n};\nconst plan   = PLANS[b.plan] ? b.plan : 'pro';\nconst amount = PLANS[plan];\n\nreturn [{ json: {\n  restaurant_id: String(b.restaurant_id).trim(),\n  payer_email:   String(b.payer_email).trim().toLowerCase(),\n  plan,\n  amount,\n  back_url: b.back_url || 'https://holu.pro/suscripcion-lista',\n}}];"
+      }
+    },
+    {
+      "id": "sub-mp",
+      "name": "MP Create Preapproval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mercadopago.com/preapproval",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MP_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"reason\": \"HOLU - Plan {{ $json.plan }}\",\n  \"external_reference\": \"{{ $json.restaurant_id }}\",\n  \"payer_email\": \"{{ $json.payer_email }}\",\n  \"back_url\": \"{{ $json.back_url }}\",\n  \"status\": \"pending\",\n  \"auto_recurring\": {\n    \"frequency\": 1,\n    \"frequency_type\": \"months\",\n    \"transaction_amount\": {{ $json.amount }},\n    \"currency_id\": \"CLP\"\n  }\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "sub-save",
+      "name": "Save Subscription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/subscriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"restaurant_id\":     \"{{ $('Validate Subscription').item.json.restaurant_id }}\",\n  \"mp_preapproval_id\": \"{{ $json.id }}\",\n  \"status\":            \"{{ $json.status }}\",\n  \"plan\":              \"{{ $('Validate Subscription').item.json.plan }}\",\n  \"amount\":            {{ $('Validate Subscription').item.json.amount }},\n  \"currency\":          \"CLP\",\n  \"payer_email\":       \"{{ $('Validate Subscription').item.json.payer_email }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "sub-respond",
+      "name": "Respond Checkout Link",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, init_point: $('MP Create Preapproval').item.json.init_point, preapproval_id: $('MP Create Preapproval').item.json.id }) }}"
+      }
+    },
+    {
+      "id": "mp-hook",
+      "name": "Webhook - MP Notification",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        320
+      ],
+      "webhookId": "mp-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mp-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "mp-route",
+      "name": "Read Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        320
+      ],
+      "parameters": {
+        "jsCode": "// MercadoPago posts { type, action, data: { id } }. Only subscription topics\n// carry a preapproval id; anything else is acknowledged and ignored so MP\n// does not keep retrying it.\nconst j = $input.first().json;\nconst b = j.body ?? j;\nconst q = j.query ?? {};\n\nconst type = b.type || b.topic || q.type || q.topic || '';\nconst id   = (b.data && b.data.id) || b.id || q['data.id'] || q.id || null;\n\nconst isSubscription = type === 'subscription_preapproval'\n                    || type === 'preapproval'\n                    || type === 'subscription_authorized_payment';\n\nreturn [{ json: { handled: Boolean(isSubscription && id), type, preapproval_id: id } }];"
+      }
+    },
+    {
+      "id": "mp-if",
+      "name": "Is Subscription Event",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.handled }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "mp-fetch",
+      "name": "MP Get Preapproval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.mercadopago.com/preapproval/{{ $json.preapproval_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MP_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "mp-update",
+      "name": "Update Subscription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        240
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/subscriptions?mp_preapproval_id=eq.{{ $json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"{{ $json.status }}\",\n  \"next_payment_date\": {{ $json.next_payment_date ? '\"' + $json.next_payment_date + '\"' : 'null' }},\n  \"last_payment_at\": {{ $json.status === 'authorized' ? '\"' + new Date().toISOString() + '\"' : 'null' }},\n  \"cancelled_at\": {{ $json.status === 'cancelled' ? '\"' + new Date().toISOString() + '\"' : 'null' }}\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "mp-ok",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        320
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Subscription Create": {
+      "main": [
+        [
+          {
+            "node": "Validate Subscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Subscription": {
+      "main": [
+        [
+          {
+            "node": "MP Create Preapproval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MP Create Preapproval": {
+      "main": [
+        [
+          {
+            "node": "Save Subscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Subscription": {
+      "main": [
+        [
+          {
+            "node": "Respond Checkout Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - MP Notification": {
+      "main": [
+        [
+          {
+            "node": "Read Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Notification": {
+      "main": [
+        [
+          {
+            "node": "Is Subscription Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Subscription Event": {
+      "main": [
+        [
+          {
+            "node": "MP Get Preapproval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MP Get Preapproval": {
+      "main": [
+        [
+          {
+            "node": "Update Subscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Subscription": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

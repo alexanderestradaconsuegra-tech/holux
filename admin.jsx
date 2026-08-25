@@ -2470,10 +2470,22 @@ function PinGate({ onAuth, onBack }) {
   );
 }
 
-function TrialBlockedScreen({ restaurantName, onActivate }) {
+// Prices live here only to be shown. The amount actually charged is decided by
+// the n8n workflow from the plan key, so a tampered page cannot subscribe a
+// restaurant for one peso.
+const PLANS = [
+  { key: "basico", name: "Básico", price: 29990, blurb: "Carta QR, pedidos y cocina" },
+  { key: "pro",    name: "Pro",    price: 49990, blurb: "Todo lo anterior + caja, inventario y reseñas" },
+  { key: "ia",     name: "Con IA", price: 79990, blurb: "Todo + agente de WhatsApp" },
+];
+
+function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscriptionStatus }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [plan, setPlan] = useState("pro");
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -2482,6 +2494,25 @@ function TrialBlockedScreen({ restaurantName, onActivate }) {
     const ok = await onActivate(code.trim().toUpperCase());
     if (!ok) setError("Código incorrecto. Escríbenos por WhatsApp para obtenerlo.");
     setLoading(false);
+  };
+
+  // Hands off to MercadoPago's checkout. Access only opens once MercadoPago
+  // calls back to say the subscription is authorized, never on returning here.
+  const startSubscription = async () => {
+    setPaying(true); setPayError("");
+    try {
+      const res = await fetch(buildWebhookUrl("subscription-create"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurant_id: getRestaurantId(), payer_email: ownerEmail, plan }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.init_point) throw new Error("sin enlace de pago");
+      window.location.href = data.init_point;
+    } catch (e) {
+      setPayError("No se pudo abrir el pago. Intenta de nuevo o escríbenos por WhatsApp.");
+      setPaying(false);
+    }
   };
 
   const waText = encodeURIComponent(`Hola! Quiero activar mi cuenta Holu - Restaurante: ${restaurantName}`);
@@ -2500,9 +2531,40 @@ function TrialBlockedScreen({ restaurantName, onActivate }) {
           <div style={{ fontSize:18, fontWeight:700, marginBottom:6 }}>Período de prueba terminado</div>
           <div style={{ color:"var(--muted)", fontSize:13, lineHeight:1.6 }}>
             Los 30 días gratuitos de <strong>{restaurantName || "tu restaurante"}</strong> han vencido.<br />
-            Escríbenos por WhatsApp y te enviamos el código de activación.
+            Elige un plan y sigue usando HOLU hoy mismo.
           </div>
         </div>
+
+        {subscriptionStatus === "pending" && (
+          <div style={{ background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.3)", borderRadius:10, padding:"10px 14px", fontSize:12.5, lineHeight:1.5, color:"var(--muted)" }}>
+            Ya tienes una suscripción esperando confirmación de MercadoPago. En cuanto se apruebe el cobro, tu cuenta se abre sola.
+          </div>
+        )}
+
+        <div style={{ display:"grid", gap:8, textAlign:"left" }}>
+          {PLANS.map((p) => (
+            <button key={p.key} onClick={() => setPlan(p.key)} type="button"
+              style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12, cursor:"pointer",
+                       background: plan === p.key ? "rgba(247,211,123,.12)" : "rgba(255,255,255,.04)",
+                       border: `1px solid ${plan === p.key ? "rgba(247,211,123,.5)" : "rgba(255,255,255,.1)"}`, color:"var(--text)" }}>
+              <span>
+                <strong style={{ display:"block", fontSize:14 }}>{p.name}</strong>
+                <small style={{ color:"var(--muted)", fontSize:11.5, lineHeight:1.4 }}>{p.blurb}</small>
+              </span>
+              <span style={{ whiteSpace:"nowrap", fontWeight:900, color:"var(--gold2)" }}>{money(p.price)}<small style={{ color:"var(--muted)", fontWeight:600 }}>/mes</small></span>
+            </button>
+          ))}
+        </div>
+
+        {payError && <div style={{ color:"var(--red2)", fontSize:13 }}>{payError}</div>}
+        <button className="btn primary" onClick={startSubscription} disabled={paying} style={{ padding:"14px 20px", fontSize:15 }}>
+          {paying ? "Abriendo MercadoPago..." : "Suscribirme con MercadoPago"}
+        </button>
+        <div style={{ color:"var(--dim)", fontSize:11.5, lineHeight:1.5 }}>
+          Cobro mensual automático. Puedes cancelarlo cuando quieras desde MercadoPago.
+        </div>
+
+        <div style={{ borderTop:"1px solid rgba(255,255,255,.1)", paddingTop:16, display:"flex", flexDirection:"column", gap:12 }}>
         <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waText}`} target="_blank" rel="noreferrer"
            style={{ background:"#25d366", color:"#fff", padding:"12px 20px", borderRadius:10, fontWeight:700, fontSize:14, textDecoration:"none", display:"block" }}>
           Contactar por WhatsApp →
@@ -2519,6 +2581,7 @@ function TrialBlockedScreen({ restaurantName, onActivate }) {
             {loading ? "Verificando..." : "Activar cuenta"}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );
@@ -2584,7 +2647,16 @@ export default function HoluAdmin() {
             website: r.website || "",
             googleReviewUrl: r.google_review_url || "",
           });
-          setTrialInfo({ trial_ends_at: r.trial_ends_at, activated_at: r.activated_at });
+        })
+        .catch(() => {});
+      // Whether the restaurant may work today is decided in the database, which
+      // weighs the trial, a live MercadoPago subscription and manual activation
+      // together. Computing it here from trial_ends_at alone would keep letting
+      // in a restaurant whose subscription was cancelled.
+      supaRpc("access_state", {}, session.access_token)
+        .then((rows) => {
+          const a = Array.isArray(rows) ? rows[0] : rows;
+          if (a) setTrialInfo(a);
         })
         .catch(() => {});
       return;
@@ -2598,10 +2670,15 @@ export default function HoluAdmin() {
   }, [session?.access_token]);
 
   const trialStatus = useMemo(() => {
-    if (!trialInfo || trialInfo.activated_at) return { blocked: false, daysLeft: null };
-    if (!trialInfo.trial_ends_at) return { blocked: false, daysLeft: null };
-    const daysLeft = Math.ceil((new Date(trialInfo.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24));
-    return { blocked: daysLeft <= 0, daysLeft: Math.max(0, daysLeft) };
+    if (!trialInfo) return { blocked: false, daysLeft: null, state: null };
+    const state = trialInfo.state;
+    return {
+      state,
+      blocked: state === "expired",
+      // Only a running trial has a countdown worth showing.
+      daysLeft: state === "trial" ? Number(trialInfo.days_left ?? 0) : null,
+      subscriptionStatus: trialInfo.subscription_status || null,
+    };
   }, [trialInfo]);
 
   const safeTab = role === "cocina" ? "kitchen" : (role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab);
@@ -2674,7 +2751,7 @@ export default function HoluAdmin() {
   if (!authed) return <LoginEntry onAdminAuth={handleAdminAuth} onStaffAuth={handleStaffAuth} />;
 
   if (session && trialStatus.blocked) {
-    return <TrialBlockedScreen restaurantName={restaurantName} onActivate={handleActivate} />;
+    return <TrialBlockedScreen restaurantName={restaurantName} onActivate={handleActivate} ownerEmail={session?.email || ""} subscriptionStatus={trialStatus.subscriptionStatus} />;
   }
 
   const trialBanner = session && trialStatus.daysLeft !== null && !trialStatus.blocked && trialStatus.daysLeft <= 7
