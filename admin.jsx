@@ -503,8 +503,9 @@ function useBackofficeState(authToken = null) {
   const cashSessionId = useRef(null);
 
   // Recover the open shift (if there is one) so a reload does not lose the till.
-  useEffect(() => {
-    (async () => {
+  // Named so a payment can pull the till back in sync after the database moves
+  // the totals, instead of the screen holding a stale figure.
+  const refreshCashSession = async () => {
       try {
         const rows = await supaGet(`cash_sessions?restaurant_id=eq.${getRestaurantId()}&status=eq.open&order=opened_at.desc&limit=1`, authToken);
         const open = Array.isArray(rows) ? rows[0] : null;
@@ -543,8 +544,9 @@ function useBackofficeState(authToken = null) {
           })) : [],
         }));
       } catch (e) { console.error("[holu caja] cargar turno:", e.message); }
-    })();
-  }, [authToken]);
+  };
+
+  useEffect(() => { refreshCashSession(); }, [authToken]);
 
   useEffect(() => {
     const poll = async () => {
@@ -862,6 +864,29 @@ function useBackofficeState(authToken = null) {
     try { await supaPatch(`tables?id=eq.${tableId}`, { waiter_id: waiterId || null }, authToken); }
     catch (e) { console.error("[holu admin] assignWaiter:", e.message); }
   };
+  // One payment against a table, which may be a share of it. The database
+  // decides when the table is settled — taking the money, closing the orders
+  // and freeing the table have to happen together, or a half-paid table could
+  // be released to the next diners.
+  const payTablePart = async (tableId, amount, tipAmt, method, staffUserId) => {
+    const rows = await supaRpc("pay_table_part", {
+      p_table_id: tableId,
+      p_amount: Math.round(amount),
+      p_tip: Math.round(tipAmt || 0),
+      p_method: method,
+      p_staff_id: isStaffUuid(staffUserId) ? staffUserId : null,
+    }, authToken);
+    const r = Array.isArray(rows) ? rows[0] : rows;
+    if (r?.settled) {
+      setTables((rows2) => rows2.map((t) => t.id === tableId
+        ? { ...t, status: "Libre", bill: 0, tipAccepted: false, tipAmount: 0, guests: 0, waiterId: null } : t));
+      setCalls((rows2) => rows2.filter((c) => c.table !== tableId));
+    }
+    // Cash totals moved inside the database; pull the session back in sync.
+    refreshCashSession();
+    return r || { paid: 0, remaining: 0, settled: false };
+  };
+
   const cobrarMesa = async (tableId, callId, method, tipAccepted, total, tipAmt, staffUserId) => {
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, status: "Libre", bill: 0, tipAccepted: false, tipAmount: 0, guests: 0, waiterId: null } : t));
     setCalls((rows) => rows.filter((c) => c.table !== tableId));
@@ -902,7 +927,7 @@ function useBackofficeState(authToken = null) {
       await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.${getRestaurantId()}`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, authToken);
     } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
   };
-  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
+  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, payTablePart, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
 function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restaurantName }) {
@@ -1012,15 +1037,52 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
   const [method, setMethod] = useState("Efectivo");
   const [tip, setTip] = useState(false);
   const [done, setDone] = useState(false);
+  const [split, setSplit] = useState(false);
+  const [parts, setParts] = useState(2);
+  const [custom, setCustom] = useState("");
+  const [paid, setPaid] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const subtotal = table.bill || 0;
   const tipAmt = tip ? Math.round(subtotal * 0.1) : 0;
   const total = subtotal + tipAmt;
   const tableOrders = state.orders.filter((o) => o.table === table.id);
 
+  // What is still owed after whatever has already been taken in this sitting.
+  const remaining = Math.max(0, total - paid);
+  // The last share absorbs the rounding, so splitting 68.400 in three collects
+  // exactly 68.400 and not 68.399.
+  const perPart = parts > 0 ? Math.floor(remaining / parts) : remaining;
+  const suggested = parts <= 1 ? remaining : perPart;
+
   const handleCobrar = async () => {
-    await state.cobrarMesa(table.id, callId, method, tip, total, tipAmt, staffId);
-    setDone(true);
-    setTimeout(onClose, 1800);
+    setBusy(true); setErr("");
+    try {
+      await state.cobrarMesa(table.id, callId, method, tip, total, tipAmt, staffId);
+      setDone(true);
+      setTimeout(onClose, 1800);
+    } catch (e) { setErr(e.message.slice(0, 140)); setBusy(false); }
+  };
+
+  // Each share is its own payment, so different people can pay different ways.
+  // The tip rides on the first one only — charging it per share would multiply
+  // it by the number of people splitting.
+  const handlePart = async () => {
+    const amount = custom !== "" ? Math.round(Number(custom)) : suggested;
+    if (!amount || amount <= 0) return setErr("Monto inválido");
+    if (amount > remaining) return setErr(`No puede superar lo que falta (${money(remaining)})`);
+    setBusy(true); setErr("");
+    try {
+      const r = await state.payTablePart(table.id, amount, paid === 0 ? tipAmt : 0, method, staffId);
+      setCustom("");
+      if (r.settled) {
+        setDone(true);
+        setTimeout(onClose, 1800);
+      } else {
+        setPaid((p) => p + amount);
+      }
+    } catch (e) { setErr(e.message.slice(0, 140)); }
+    finally { setBusy(false); }
   };
 
   if (done) return (
@@ -1070,9 +1132,47 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
         <div className="receipt-row receipt-total" style={{ fontSize: 20, margin: "14px 0" }}>
           <span>Total</span><b>{money(total)}</b>
         </div>
-        <button className="btn primary" style={{ width: "100%", padding: "15px 0", fontSize: 16, marginTop: 4 }} onClick={handleCobrar}>
-          Cobrar {money(total)} · {method}
+
+        {paid > 0 && (
+          <div style={{ background: "rgba(52,211,153,.10)", border: "1px solid rgba(52,211,153,.28)", borderRadius: 14, padding: "12px 14px", margin: "0 0 12px" }}>
+            <div className="receipt-row" style={{ color: "var(--text)", margin: 0 }}><span>Pagado</span><b style={{ color: "var(--green)" }}>{money(paid)}</b></div>
+            <div className="receipt-row receipt-total" style={{ color: "var(--text)", margin: "6px 0 0" }}><span>Falta</span><b>{money(remaining)}</b></div>
+          </div>
+        )}
+
+        <button className="btn ghost" style={{ width: "100%", marginBottom: 10 }} onClick={() => { setSplit(!split); setErr(""); }}>
+          {split ? "Cobrar todo junto" : "Dividir la cuenta"}
         </button>
+
+        {split && (
+          <div className="config-card" style={{ marginBottom: 12 }}>
+            <b style={{ fontSize: 13, color: "var(--muted)" }}>DIVIDIR EN</b>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              {[2, 3, 4, 5].map((n) => (
+                <button key={n} className={`btn ${parts === n ? "primary" : "ghost"}`} onClick={() => { setParts(n); setCustom(""); }}>{n}</button>
+              ))}
+            </div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>Monto de este pago {custom === "" && <span style={{ color: "var(--dim)", fontWeight: 400 }}>(sugerido {money(suggested)})</span>}</label>
+              <input className="input" type="number" min="1" max={remaining} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={String(suggested)} />
+            </div>
+            <p style={{ color: "var(--dim)", fontSize: 12, lineHeight: 1.5, margin: "10px 0 0" }}>
+              Cada pago se registra por separado con su método. La mesa se libera sola cuando esté todo pagado.
+            </p>
+          </div>
+        )}
+
+        {err && <p style={{ color: "var(--red2)", fontSize: 13, margin: "0 0 10px" }}>{err}</p>}
+
+        {split ? (
+          <button className="btn primary" style={{ width: "100%", padding: "15px 0", fontSize: 16 }} onClick={handlePart} disabled={busy}>
+            {busy ? "Cobrando..." : `Cobrar ${money(custom !== "" ? Math.round(Number(custom)) || 0 : suggested)} · ${method}`}
+          </button>
+        ) : (
+          <button className="btn primary" style={{ width: "100%", padding: "15px 0", fontSize: 16, marginTop: 4 }} onClick={handleCobrar} disabled={busy}>
+            {busy ? "Cobrando..." : `Cobrar ${money(total)} · ${method}`}
+          </button>
+        )}
       </div>
     </div>
   );
