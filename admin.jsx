@@ -2098,11 +2098,6 @@ function SettingsView({ state, onRestaurantNameChange }) {
   const [restaurant, setRestaurant] = useState({ ...RESTAURANT, concept: "", googleReviewUrl: "", logoUrl: "", coverUrl: "" });
   const [receiptConfig, setReceiptConfig] = useState(RECEIPT_CONFIG);
   const [showPrinterPanel, setShowPrinterPanel] = useState(true);
-  const [demoMode, setDemoMode] = useState(true);
-  const [webhooks, setWebhooks] = useState(LOCAL_WEBHOOKS);
-  const [logs, setLogs] = useState([
-    { time: "20:45", event: "DEMO_READY", status: "ok", detail: "Sistema local listo para simular n8n, QR e impresión." },
-  ]);
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
   const [saveErr, setSaveErr] = useState("");
@@ -2172,78 +2167,7 @@ function SettingsView({ state, onRestaurantNameChange }) {
     finally { setSaving(false); }
   };
   const updateReceipt = (key, value) => setReceiptConfig((r)=>({ ...r, [key]: value }));
-  const printReceipt = () => {
-    setLogs((rows)=>[{ time: new Date().toLocaleTimeString("es-CL", { hour:"2-digit", minute:"2-digit" }), event: "PRINT_PREVIEW", status: "ok", detail: "window.print() ejecutado en modo local." }, ...rows]);
-    window.print();
-  };
-  const updateWebhook = (key, value) => setWebhooks((w)=>({ ...w, [key]: value }));
-  const simulateWebhook = async (event) => {
-    const DEMO_PAYLOADS = {
-      orderCreate: {
-        restaurant_id: getRestaurantId(),
-        qr_token: "A7K92",
-        table_id: 7,
-        session_id: null,
-        notes: "Test desde admin",
-        items: [{ menu_item_id: "tagliatelle", dish_name: "Tagliatelle al Ragù", unit_price: 21500, qty: 1 }],
-        total: 21500,
-        channel: "admin-test",
-      },
-      camareroCall: {
-        restaurant_id: getRestaurantId(),
-        qr_token: "A7K92",
-        table_id: 7,
-        call_type: "Camarero",
-        message: "Test llamado desde admin",
-      },
-      kitchenCall: {
-        restaurant_id: getRestaurantId(),
-        qr_token: "A7K92",
-        table_id: 7,
-        call_type: "Confirmar plato",
-        message: "Test cocina desde admin",
-      },
-      billRequest: {
-        restaurant_id: getRestaurantId(),
-        qr_token: "A7K92",
-        table_id: 7,
-      },
-      feedback: {
-        restaurant_id: getRestaurantId(),
-        qr_token: "A7K92",
-        table_id: 7,
-        rating: 5,
-        comment: "Test feedback desde admin",
-        source: "table_qr",
-      },
-      receiptPrint: {
-        restaurant_id: getRestaurantId(),
-        qr_token: "A7K92",
-        table_id: 7,
-        items: [{ dish_name: "Tagliatelle al Ragù", unit_price: 21500, qty: 1 }],
-        total: 21500,
-      },
-      cashClose: {
-        restaurant_id: getRestaurantId(),
-        session_id: "SHIFT-TEST",
-        cash: 428500,
-        card: 691200,
-        total: 1119700,
-      },
-    };
-    const payload = DEMO_PAYLOADS[event] || { restaurant_id: getRestaurantId(), event, source: "admin-test" };
-    setLogs((rows)=>[{ time: new Date().toLocaleTimeString("es-CL", { hour:"2-digit", minute:"2-digit" }), event, status: demoMode ? "demo" : "pending", detail: demoMode ? `Simulado local: ${JSON.stringify(payload)}` : `POST ${webhooks[event] || "sin endpoint"}` }, ...rows]);
-    if (!demoMode && webhooks[event]) {
-      try {
-        const res = await fetch(webhooks[event], { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-        const body = await res.text();
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${body.slice(0, 240)}`);
-        setLogs((rows)=>[{ time: new Date().toLocaleTimeString("es-CL", { hour:"2-digit", minute:"2-digit" }), event, status: "ok", detail: `Enviado a ${webhooks[event]}` }, ...rows]);
-      } catch (err) {
-        setLogs((rows)=>[{ time: new Date().toLocaleTimeString("es-CL", { hour:"2-digit", minute:"2-digit" }), event, status: "error", detail: String(err?.message || err) }, ...rows]);
-      }
-    }
-  };
+  const printReceipt = () => window.print();
   return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}{saveErr&&<span className="badge red">{saveErr}</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><label style={{fontWeight:700,fontSize:13,marginBottom:8,display:"block"}}>Identidad visual en app de mesa</label><div className="config-grid" style={{gap:10}}><div className="field"><label>Logo URL <small style={{color:"var(--dim)",fontWeight:400}}>(aparece en la cabecera de mesa)</small></label><input className="input" value={restaurant.logoUrl||""} onChange={(e)=>updateRestaurant("logoUrl",e.target.value)} placeholder="https://..." />{restaurant.logoUrl&&<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10}}><img src={restaurant.logoUrl} alt="logo" style={{width:48,height:48,borderRadius:12,objectFit:"cover",border:"1px solid var(--line)"}} onError={(e)=>e.target.style.display="none"} /><small style={{color:"var(--dim)"}}>Vista previa del logo</small></div>}</div><div className="field"><label>Foto portada URL <small style={{color:"var(--dim)",fontWeight:400}}>(fondo hero de mesa)</small></label><input className="input" value={restaurant.coverUrl||""} onChange={(e)=>updateRestaurant("coverUrl",e.target.value)} placeholder="https://..." />{restaurant.coverUrl&&<div style={{marginTop:8,height:60,borderRadius:12,backgroundImage:`url(${restaurant.coverUrl})`,backgroundSize:"cover",backgroundPosition:"center",border:"1px solid var(--line)"}} />}</div></div></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Promociones visibles en la app de mesa</label><button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} onClick={addPromo}>+ Promo</button></div>{promos.length===0&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Sin promociones. El cliente no verá esta sección.</p>}{promos.map((p,idx)=><div key={idx} className="config-card" style={{marginBottom:8}}><div className="form-grid"><div className="field"><label>Etiqueta</label><input className="input" value={p.eyebrow||""} onChange={(e)=>updatePromo(idx,"eyebrow",e.target.value)} placeholder="LUN–VIE" /></div><div className="field"><label>Título</label><input className="input" value={p.title||""} onChange={(e)=>updatePromo(idx,"title",e.target.value)} placeholder="Menú del Día" /></div><div className="field"><label>Descripción</label><input className="input" value={p.body||""} onChange={(e)=>updatePromo(idx,"body",e.target.value)} placeholder="Entrada + principal + postre" /></div><div className="field"><label>Precio / destacado</label><input className="input" value={p.price||""} onChange={(e)=>updatePromo(idx,"price",e.target.value)} placeholder="$32.000" /></div></div><button className="btn danger" style={{marginTop:8,fontSize:12,padding:"7px 10px"}} onClick={()=>removePromo(idx)}>Eliminar</button></div>)}</div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
 <>
   <button className="btn ghost" style={{marginTop:10}} onClick={()=>setShowPrinterPanel(!showPrinterPanel)}>
@@ -2263,22 +2187,11 @@ function SettingsView({ state, onRestaurantNameChange }) {
 
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <button className="btn primary" onClick={printReceipt}>Imprimir prueba</button>
-        <button className="btn ghost" onClick={()=>alert("Conexión demo OK")}>Test conexión</button>
       </div>
     </div>
   )}
 </>
-</div></div><div className="two"><div className="panel print-target"><div className="panel-head"><h2>Preview ticket moderno</h2><span className="badge">80mm</span></div><ReceiptPreview receiptConfig={receiptConfig} restaurant={restaurant} /></div><div className="panel"><h2>Conexiones</h2><div className="demo-banner" style={{marginBottom:12}}><b><span className={`status-dot ${demoMode ? "" : "off"}`} />{demoMode ? "Demo local activo" : "Modo n8n real"}</b><p style={{margin:"6px 0 0",color:"var(--muted)"}}>En demo local los botones funcionan sin n8n. Cuando el cliente esté listo, desactiva demo y usa las URLs reales de n8n.</p><button className="btn ghost" style={{marginTop:10}} onClick={()=>setDemoMode(!demoMode)}>{demoMode ? "Cambiar a n8n real" : "Volver a demo local"}</button></div><div className="endpoint-grid">{Object.entries(webhooks).map(([key,value])=><div className="endpoint-row" key={key}><b>{key}</b><input className="input" value={value} onChange={(e)=>updateWebhook(key,e.target.value)} /><button className="btn primary" onClick={()=>simulateWebhook(key)}>Test</button></div>)}</div><div className="list" style={{marginTop:14}}><div className="row"><span className="badge green">n8n</span><div className="row-main"><b>Webhooks configurables</b><small>Pedidos, llamados, cocina, cobro, reseñas, generación de boleta y caja.</small></div><button className="btn ghost" onClick={()=>simulateWebhook("orderCreate")}>Simular pedido</button></div><div className="row"><span className="badge blue">QR</span><div className="row-main"><b>Tokens de mesa</b><small>Mapeo token → mesa → zona → sesión.</small></div><button className="btn ghost" onClick={()=>simulateWebhook("qrScan")}>Simular scan</button></div><div className="row"><span className="badge">Print</span><div className="row-main"><b>{receiptConfig.printer}</b><small>Salida térmica nítida. En demo usa window.print().</small></div><button className="btn ghost" onClick={()=>simulateWebhook("receiptPrint")}>Test print</button></div></div><h2 style={{marginTop:16}}>Logs demo/local</h2><div className="integration-log">{logs.map((l,idx)=><div className="log-row" key={idx}><b>{l.time} · {l.event} · {l.status}</b><br />{l.detail}</div>)}</div><h2 style={{marginTop:16}}>Auditoría</h2><table className="permission-table"><thead><tr><th>Módulo</th><th>Admin</th><th>Camarero</th><th>Cocina</th><th>Caja</th></tr></thead><tbody>{PERMISSIONS.map((p)=><tr key={p.module}><td>{p.module}</td><td className={p.admin?"permission-ok":"permission-no"}>{p.admin?"Sí":"No"}</td><td className={p.camarero?"permission-ok":"permission-no"}>{p.camarero?"Sí":"No"}</td><td className={p.cocina?"permission-ok":"permission-no"}>{p.cocina?"Sí":"No"}</td><td className={p.caja?"permission-ok":"permission-no"}>{p.caja?"Sí":"No"}</td></tr>)}</tbody></table><h2 style={{marginTop:16}}>Auditoría</h2><pre className="audit">POST /order-create
-POST /camarero-call
-POST /kitchen-call
-POST /bill-request
-POST /receipt-print
-POST /feedback
-POST /cash/open
-POST /cash/close
-POST /shift/change
-POST /inventory/update
-POST /qr/regenerate</pre></div></div></div>;
+</div></div><div className="two"><div className="panel print-target"><div className="panel-head"><h2>Preview ticket moderno</h2><span className="badge">80mm</span></div><ReceiptPreview receiptConfig={receiptConfig} restaurant={restaurant} /></div><div className="panel"><div className="panel-head"><h2>Permisos por rol</h2><span className="badge">Referencia</span></div><p style={{margin:"0 0 14px",color:"var(--muted)"}}>Qué puede ver y hacer cada rol dentro del sistema.</p><table className="permission-table"><thead><tr><th>Módulo</th><th>Admin</th><th>Camarero</th><th>Cocina</th><th>Caja</th></tr></thead><tbody>{PERMISSIONS.map((p)=><tr key={p.module}><td>{p.module}</td><td className={p.admin?"permission-ok":"permission-no"}>{p.admin?"Sí":"No"}</td><td className={p.camarero?"permission-ok":"permission-no"}>{p.camarero?"Sí":"No"}</td><td className={p.cocina?"permission-ok":"permission-no"}>{p.cocina?"Sí":"No"}</td><td className={p.caja?"permission-ok":"permission-no"}>{p.caja?"Sí":"No"}</td></tr>)}</tbody></table></div></div></div>;
 }
 
 function SessionLogin({ onAuth, onBack }) {
@@ -2456,7 +2369,7 @@ function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscripti
   const startSubscription = async () => {
     setPaying(true); setPayError("");
     try {
-      const res = await fetch(buildWebhookUrl("subscription-create"), {
+      const res = await fetch(buildWebhookUrl("subscription-resubscribe"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ restaurant_id: getRestaurantId(), payer_email: ownerEmail, plan }),

@@ -425,6 +425,116 @@
         "jsonBody": "={\n  \"p_preapproval_id\":    \"{{ $('Decide Provisioning').item.json.preapproval_id }}\",\n  \"p_status\":            \"{{ $('Decide Provisioning').item.json.mp_status }}\",\n  \"p_next_payment_date\": {{ $('Decide Provisioning').item.json.next_payment_date ? '\"' + $('Decide Provisioning').item.json.next_payment_date + '\"' : 'null' }}\n}",
         "options": {}
       }
+    },
+    {
+      "id": "r1",
+      "name": "Webhook - Subscription Resubscribe",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        700
+      ],
+      "webhookId": "subscription-resubscribe",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "subscription-resubscribe",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "r2",
+      "name": "Prepare Resubscription",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        700
+      ],
+      "parameters": {
+        "jsCode": "// An existing restaurant reactivating a lapsed subscription. It already has a\n// restaurant_id, so this skips signups/restaurant-onboard entirely — that path\n// is only for handing a brand-new account over once.\nconst b = $input.first().json.body ?? $input.first().json;\n\nfor (const f of ['restaurant_id', 'payer_email']) {\n  if (!b[f] || String(b[f]).trim() === '') throw new Error(`Missing required field: ${f}`);\n}\nif (!/^[^@]+@[^@]+\\.[^@]+$/.test(b.payer_email)) throw new Error('Invalid email address');\n\nconst PLANS = { basico: 29990, pro: 49990, ia: 79990 };\nconst plan   = PLANS[b.plan] ? b.plan : 'pro';\nconst amount = PLANS[plan];\n\nreturn [{ json: {\n  restaurant_id: String(b.restaurant_id).trim(),\n  payer_email:   String(b.payer_email).trim().toLowerCase(),\n  plan, amount,\n  back_url: b.back_url || 'https://app.holu.pro/?pago=listo',\n}}];"
+      }
+    },
+    {
+      "id": "r3",
+      "name": "MP Create Preapproval (Resub)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        700
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mercadopago.com/preapproval",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MP_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"reason\": \"HOLU - Plan {{ $json.plan }}\",\n  \"external_reference\": \"{{ $json.restaurant_id }}\",\n  \"payer_email\": \"{{ $json.payer_email }}\",\n  \"back_url\": \"{{ $json.back_url }}\",\n  \"status\": \"pending\",\n  \"auto_recurring\": {\n    \"frequency\": 1,\n    \"frequency_type\": \"months\",\n    \"transaction_amount\": {{ $json.amount }},\n    \"currency_id\": \"CLP\"\n  }\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "r4",
+      "name": "Save Resubscription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        700
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/rpc/start_resubscription",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_restaurant_id\":  \"{{ $('Prepare Resubscription').item.json.restaurant_id }}\",\n  \"p_preapproval_id\": \"{{ $json.id }}\",\n  \"p_payer_email\":    \"{{ $('Prepare Resubscription').item.json.payer_email }}\",\n  \"p_plan\":           \"{{ $('Prepare Resubscription').item.json.plan }}\",\n  \"p_amount\":         {{ $('Prepare Resubscription').item.json.amount }}\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "r5",
+      "name": "Respond Resub Checkout Link",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        880,
+        700
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, init_point: $('MP Create Preapproval (Resub)').item.json.init_point }) }}"
+      }
     }
   ],
   "connections": {
@@ -612,6 +722,50 @@
         [
           {
             "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Subscription Resubscribe": {
+      "main": [
+        [
+          {
+            "node": "Prepare Resubscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Resubscription": {
+      "main": [
+        [
+          {
+            "node": "MP Create Preapproval (Resub)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MP Create Preapproval (Resub)": {
+      "main": [
+        [
+          {
+            "node": "Save Resubscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Resubscription": {
+      "main": [
+        [
+          {
+            "node": "Respond Resub Checkout Link",
             "type": "main",
             "index": 0
           }

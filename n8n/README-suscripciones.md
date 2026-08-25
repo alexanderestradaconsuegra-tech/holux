@@ -59,6 +59,14 @@ Después marca el registro como provisionado y enlaza la suscripción.
 notificación con `cancelled` o `paused` y el acceso se cierra en la siguiente
 carga del panel.
 
+**Reactivación.** Un restaurante que ya tiene cuenta y dejó vencer su
+suscripción usa `POST /webhook/subscription-resubscribe` en vez de
+`subscription-start` — ya tiene `restaurant_id`, así que no pasa por `signups`
+ni vuelve a llamar a `restaurant-onboard`. Escribe directo una fila `pending`
+en `subscriptions` con `start_resubscription()`, que borra cualquier intento
+anterior sin confirmar antes de crear el nuevo, para que un doble clic no
+choque con la restricción de una sola suscripción viva por restaurante.
+
 ### Un detalle a corregir en `restaurant-onboard`
 
 Ese workflow todavía responde *"Trial de 30 días activo"* y deja que la columna
