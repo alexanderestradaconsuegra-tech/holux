@@ -1,26 +1,26 @@
 {
-  "name": "HOLU - Suscripciones MercadoPago",
+  "name": "HOLU - Cobro y alta de cuentas (MercadoPago)",
   "nodes": [
     {
-      "id": "sub-hook",
-      "name": "Webhook - Subscription Create",
+      "id": "s1",
+      "name": "Webhook - Subscription Start",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
         0
       ],
-      "webhookId": "subscription-create",
+      "webhookId": "subscription-start",
       "parameters": {
         "httpMethod": "POST",
-        "path": "subscription-create",
+        "path": "subscription-start",
         "responseMode": "responseNode",
         "options": {}
       }
     },
     {
-      "id": "sub-validate",
-      "name": "Validate Subscription",
+      "id": "s2",
+      "name": "Prepare Signup",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -28,16 +28,55 @@
         0
       ],
       "parameters": {
-        "jsCode": "// ── Validate & Prepare ───────────────────────────────────────\nconst b = $input.first().json.body ?? $input.first().json;\n\nfor (const f of ['restaurant_id', 'payer_email']) {\n  if (!b[f] || String(b[f]).trim() === '') throw new Error(`Missing required field: ${f}`);\n}\nif (!/^[^@]+@[^@]+\\.[^@]+$/.test(b.payer_email)) throw new Error('Invalid email address');\n\n// The price is decided here, never by the browser: a client that could send\n// its own transaction_amount could subscribe itself for one peso.\nconst PLANS = {\n  basico: 29990,\n  pro:    49990,\n  ia:     79990,\n};\nconst plan   = PLANS[b.plan] ? b.plan : 'pro';\nconst amount = PLANS[plan];\n\nreturn [{ json: {\n  restaurant_id: String(b.restaurant_id).trim(),\n  payer_email:   String(b.payer_email).trim().toLowerCase(),\n  plan,\n  amount,\n  back_url: b.back_url || 'https://holu.pro/suscripcion-lista',\n}}];"
+        "jsCode": "// ── Validate & Prepare ───────────────────────────────────────\nconst b = $input.first().json.body ?? $input.first().json;\n\nfor (const f of ['restaurant_name', 'owner_name', 'owner_email']) {\n  if (!b[f] || String(b[f]).trim() === '') throw new Error(`Missing required field: ${f}`);\n}\nif (!/^[^@]+@[^@]+\\.[^@]+$/.test(b.owner_email)) throw new Error('Invalid email address');\n\n// The price is decided here, never by the browser.\nconst PLANS = { basico: 29990, pro: 49990, ia: 79990 };\nconst plan   = PLANS[b.plan] ? b.plan : 'pro';\nconst amount = PLANS[plan];\n\nconst slug = String(b.restaurant_name)\n  .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);\nconst signupId = `${slug}-${Math.random().toString(36).slice(2, 6)}`;\n\nreturn [{ json: {\n  signup_id:       signupId,\n  restaurant_name: String(b.restaurant_name).trim(),\n  owner_name:      String(b.owner_name).trim(),\n  owner_email:     String(b.owner_email).trim().toLowerCase(),\n  phone:           b.phone ? String(b.phone).trim() : null,\n  plan, amount,\n  back_url: b.back_url || 'https://holu.pro/?pago=listo',\n}}];"
       }
     },
     {
-      "id": "sub-mp",
-      "name": "MP Create Preapproval",
+      "id": "s3",
+      "name": "Save Signup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/signups",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\":              \"{{ $json.signup_id }}\",\n  \"restaurant_name\": \"{{ $json.restaurant_name }}\",\n  \"owner_name\":      \"{{ $json.owner_name }}\",\n  \"owner_email\":     \"{{ $json.owner_email }}\",\n  \"phone\":           {{ $json.phone ? '\"' + $json.phone + '\"' : 'null' }},\n  \"plan\":            \"{{ $json.plan }}\",\n  \"amount\":          {{ $json.amount }},\n  \"status\":          \"pending\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "s4",
+      "name": "MP Create Preapproval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
         0
       ],
       "parameters": {
@@ -58,22 +97,22 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"reason\": \"HOLU - Plan {{ $json.plan }}\",\n  \"external_reference\": \"{{ $json.restaurant_id }}\",\n  \"payer_email\": \"{{ $json.payer_email }}\",\n  \"back_url\": \"{{ $json.back_url }}\",\n  \"status\": \"pending\",\n  \"auto_recurring\": {\n    \"frequency\": 1,\n    \"frequency_type\": \"months\",\n    \"transaction_amount\": {{ $json.amount }},\n    \"currency_id\": \"CLP\"\n  }\n}",
+        "jsonBody": "={\n  \"reason\": \"HOLU - Plan {{ $('Prepare Signup').item.json.plan }}\",\n  \"external_reference\": \"{{ $('Prepare Signup').item.json.signup_id }}\",\n  \"payer_email\": \"{{ $('Prepare Signup').item.json.owner_email }}\",\n  \"back_url\": \"{{ $('Prepare Signup').item.json.back_url }}\",\n  \"status\": \"pending\",\n  \"auto_recurring\": {\n    \"frequency\": 1,\n    \"frequency_type\": \"months\",\n    \"transaction_amount\": {{ $('Prepare Signup').item.json.amount }},\n    \"currency_id\": \"CLP\"\n  }\n}",
         "options": {}
       }
     },
     {
-      "id": "sub-save",
-      "name": "Save Subscription",
+      "id": "s5",
+      "name": "Link Preapproval",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        660,
+        880,
         0
       ],
       "parameters": {
-        "method": "POST",
-        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/subscriptions",
+        "method": "PATCH",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/signups?id=eq.{{ $('Prepare Signup').item.json.signup_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -91,38 +130,38 @@
             },
             {
               "name": "Prefer",
-              "value": "return=representation"
+              "value": "return=minimal"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"restaurant_id\":     \"{{ $('Validate Subscription').item.json.restaurant_id }}\",\n  \"mp_preapproval_id\": \"{{ $json.id }}\",\n  \"status\":            \"{{ $json.status }}\",\n  \"plan\":              \"{{ $('Validate Subscription').item.json.plan }}\",\n  \"amount\":            {{ $('Validate Subscription').item.json.amount }},\n  \"currency\":          \"CLP\",\n  \"payer_email\":       \"{{ $('Validate Subscription').item.json.payer_email }}\"\n}",
+        "jsonBody": "={\n  \"mp_preapproval_id\": \"{{ $json.id }}\"\n}",
         "options": {}
       }
     },
     {
-      "id": "sub-respond",
+      "id": "s6",
       "name": "Respond Checkout Link",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        880,
+        1100,
         0
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ok: true, init_point: $('MP Create Preapproval').item.json.init_point, preapproval_id: $('MP Create Preapproval').item.json.id }) }}"
+        "responseBody": "={{ JSON.stringify({ ok: true, init_point: $('MP Create Preapproval').item.json.init_point }) }}"
       }
     },
     {
-      "id": "mp-hook",
+      "id": "m1",
       "name": "Webhook - MP Notification",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
-        320
+        380
       ],
       "webhookId": "mp-webhook",
       "parameters": {
@@ -133,26 +172,26 @@
       }
     },
     {
-      "id": "mp-route",
+      "id": "m2",
       "name": "Read Notification",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         220,
-        320
+        380
       ],
       "parameters": {
-        "jsCode": "// MercadoPago posts { type, action, data: { id } }. Only subscription topics\n// carry a preapproval id; anything else is acknowledged and ignored so MP\n// does not keep retrying it.\nconst j = $input.first().json;\nconst b = j.body ?? j;\nconst q = j.query ?? {};\n\nconst type = b.type || b.topic || q.type || q.topic || '';\nconst id   = (b.data && b.data.id) || b.id || q['data.id'] || q.id || null;\n\nconst isSubscription = type === 'subscription_preapproval'\n                    || type === 'preapproval'\n                    || type === 'subscription_authorized_payment';\n\nreturn [{ json: { handled: Boolean(isSubscription && id), type, preapproval_id: id } }];"
+        "jsCode": "// MercadoPago posts { type, action, data: { id } }, sometimes as query params.\n// Only subscription topics carry a preapproval id; anything else is answered\n// 200 and ignored so MercadoPago stops retrying it.\nconst j = $input.first().json;\nconst b = j.body ?? j;\nconst q = j.query ?? {};\nconst type = b.type || b.topic || q.type || q.topic || '';\nconst id   = (b.data && b.data.id) || b.id || q['data.id'] || q.id || null;\nconst isSub = ['subscription_preapproval','preapproval','subscription_authorized_payment'].includes(type);\nreturn [{ json: { handled: Boolean(isSub && id), preapproval_id: id } }];"
       }
     },
     {
-      "id": "mp-if",
+      "id": "m3",
       "name": "Is Subscription Event",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
         440,
-        320
+        380
       ],
       "parameters": {
         "conditions": {
@@ -178,13 +217,13 @@
       }
     },
     {
-      "id": "mp-fetch",
+      "id": "m4",
       "name": "MP Get Preapproval",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         660,
-        240
+        280
       ],
       "parameters": {
         "method": "GET",
@@ -195,6 +234,10 @@
             {
               "name": "Authorization",
               "value": "=Bearer {{ $env.MP_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
@@ -202,17 +245,17 @@
       }
     },
     {
-      "id": "mp-update",
-      "name": "Update Subscription",
+      "id": "m5",
+      "name": "Claim Signup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         880,
-        240
+        280
       ],
       "parameters": {
-        "method": "PATCH",
-        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/subscriptions?mp_preapproval_id=eq.{{ $json.id }}",
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/rpc/claim_signup",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -227,47 +270,189 @@
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"status\": \"{{ $json.status }}\",\n  \"next_payment_date\": {{ $json.next_payment_date ? '\"' + $json.next_payment_date + '\"' : 'null' }},\n  \"last_payment_at\": {{ $json.status === 'authorized' ? '\"' + new Date().toISOString() + '\"' : 'null' }},\n  \"cancelled_at\": {{ $json.status === 'cancelled' ? '\"' + new Date().toISOString() + '\"' : 'null' }}\n}",
+        "jsonBody": "={\n  \"p_preapproval_id\": \"{{ $('MP Get Preapproval').item.json.id }}\"\n}",
         "options": {}
       }
     },
     {
-      "id": "mp-ok",
+      "id": "m6",
+      "name": "Decide Provisioning",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        280
+      ],
+      "parameters": {
+        "jsCode": "// claim_signup() hands the work over exactly once, so a retried notification\n// arrives here with already_done = true and provisions nothing.\nconst mp     = $('MP Get Preapproval').first().json;\nconst rows   = $input.first().json;\nconst signup = Array.isArray(rows) ? rows[0] : rows;\n\nconst authorized = mp.status === 'authorized';\nconst provision  = Boolean(authorized && signup && signup.already_done === false);\n\n// Never reaches the browser: it is emailed to the owner by restaurant-onboard.\nconst chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';\nlet password = '';\nfor (let i = 0; i < 12; i++) password += chars[Math.floor(Math.random() * chars.length)];\n\nreturn [{ json: {\n  provision,\n  preapproval_id: mp.id,\n  mp_status: mp.status,\n  next_payment_date: mp.next_payment_date || null,\n  signup_id:  signup ? signup.id : null,\n  restaurant_name: signup ? signup.restaurant_name : null,\n  owner_name:  signup ? signup.owner_name : null,\n  owner_email: signup ? signup.owner_email : null,\n  phone: signup ? signup.phone : null,\n  plan:  signup ? signup.plan : null,\n  amount: signup ? signup.amount : null,\n  password,\n}}];"
+      }
+    },
+    {
+      "id": "m7",
+      "name": "Needs Provisioning",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        280
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.provision }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "m8",
+      "name": "Create Restaurant Account",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_PUBLIC_URL }}/webhook/restaurant-onboard",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"restaurantName\": \"{{ $json.restaurant_name }}\",\n  \"ownerName\":      \"{{ $json.owner_name }}\",\n  \"ownerEmail\":     \"{{ $json.owner_email }}\",\n  \"ownerPassword\":  \"{{ $json.password }}\",\n  \"phone\":          {{ $json.phone ? '\"' + $json.phone + '\"' : 'null' }},\n  \"plan\":           \"{{ $json.plan }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "m9",
+      "name": "Mark Provisioned",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/rpc/mark_signup_provisioned",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_signup_id\":     \"{{ $('Decide Provisioning').item.json.signup_id }}\",\n  \"p_restaurant_id\": \"{{ $json.restaurantId || $json.restaurant_id }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "m11",
       "name": "Respond 200",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        1100,
-        320
+        2200,
+        380
       ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ ok: true }) }}"
       }
+    },
+    {
+      "id": "m10",
+      "name": "Apply Subscription State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        380
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/rpc/apply_subscription_state",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_preapproval_id\":    \"{{ $('Decide Provisioning').item.json.preapproval_id }}\",\n  \"p_status\":            \"{{ $('Decide Provisioning').item.json.mp_status }}\",\n  \"p_next_payment_date\": {{ $('Decide Provisioning').item.json.next_payment_date ? '\"' + $('Decide Provisioning').item.json.next_payment_date + '\"' : 'null' }}\n}",
+        "options": {}
+      }
     }
   ],
   "connections": {
-    "Webhook - Subscription Create": {
+    "Webhook - Subscription Start": {
       "main": [
         [
           {
-            "node": "Validate Subscription",
+            "node": "Prepare Signup",
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
-    "Validate Subscription": {
+    "Prepare Signup": {
+      "main": [
+        [
+          {
+            "node": "Save Signup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Save Signup": {
       "main": [
         [
           {
@@ -275,21 +460,23 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "MP Create Preapproval": {
       "main": [
         [
           {
-            "node": "Save Subscription",
+            "node": "Link Preapproval",
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
-    "Save Subscription": {
+    "Link Preapproval": {
       "main": [
         [
           {
@@ -297,7 +484,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Webhook - MP Notification": {
@@ -308,7 +496,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Read Notification": {
@@ -319,7 +508,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Is Subscription Event": {
@@ -344,14 +534,80 @@
       "main": [
         [
           {
-            "node": "Update Subscription",
+            "node": "Claim Signup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Claim Signup": {
+      "main": [
+        [
+          {
+            "node": "Decide Provisioning",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Decide Provisioning": {
+      "main": [
+        [
+          {
+            "node": "Needs Provisioning",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Needs Provisioning": {
+      "main": [
+        [
+          {
+            "node": "Create Restaurant Account",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Apply Subscription State",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update Subscription": {
+    "Create Restaurant Account": {
+      "main": [
+        [
+          {
+            "node": "Mark Provisioned",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Mark Provisioned": {
+      "main": [
+        [
+          {
+            "node": "Apply Subscription State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Subscription State": {
       "main": [
         [
           {

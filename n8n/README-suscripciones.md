@@ -11,6 +11,7 @@ de los nodos, así no viajan en el JSON ni quedan en el historial de git:
 |---|---|
 | `MP_ACCESS_TOKEN` | MercadoPago → Tus integraciones → tu aplicación → Credenciales de producción → Access Token |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` |
+| `N8N_PUBLIC_URL` | La URL de tu n8n, sin barra final: `https://n8n-n8n.fa2cjf.easypanel.host` |
 
 En EasyPanel se agregan en el servicio de n8n, pestaña **Environment**. n8n
 necesita además `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` para que las expresiones
@@ -32,27 +33,44 @@ MercadoPago → Tus integraciones → tu aplicación → **Webhooks**.
 
 ## 3. Cómo funciona
 
-**Alta.** El panel llama a `POST /webhook/subscription-create` con
-`{ restaurant_id, payer_email, plan }`. El workflow calcula el precio a partir
-del plan (el navegador nunca manda el monto), crea el *preapproval* en
-MercadoPago, guarda la fila en `subscriptions` con estado `pending` y devuelve
-el `init_point`. El panel redirige ahí para que el dueño ponga su tarjeta.
+**El registro ya no crea la cuenta.** Antes, llenar el formulario de la landing
+creaba el restaurante, el usuario y las mesas al instante: cualquiera obtenía un
+sistema funcionando sin pagar. Ahora el orden es al revés.
+
+**Alta.** La landing llama a `POST /webhook/subscription-start` con
+`{ restaurant_name, owner_name, owner_email, phone, plan }`. El workflow calcula
+el precio a partir del plan — el navegador nunca manda el monto — guarda el
+registro en `signups` con estado `pending`, crea el *preapproval* en MercadoPago
+y devuelve el `init_point`. La landing redirige ahí. **Todavía no existe ninguna
+cuenta.**
 
 **Confirmación.** MercadoPago avisa a `POST /webhook/mp-webhook`. El workflow
-consulta `GET /preapproval/{id}` para leer el estado real desde la fuente —
-nunca confía en lo que venga en el cuerpo de la notificación — y actualiza la
-fila. Cuando el estado pasa a `authorized`, `access_state()` devuelve `active` y
-la cuenta se abre sola, sin que nadie tenga que intervenir.
+consulta `GET /preapproval/{id}` para leer el estado desde la fuente — nunca
+confía en el cuerpo de la notificación — y llama a `claim_signup()`. Esa función
+entrega el trabajo **una sola vez**: la primera notificación recibe los datos y
+`already_done = false`; los reintentos reciben `true` y no vuelven a crear nada.
+
+Si corresponde crear la cuenta, el workflow genera una contraseña y llama al
+webhook `restaurant-onboard` que ya tenías, que crea el restaurante, el usuario,
+el staff admin, las mesas y manda el correo de bienvenida con las credenciales.
+Después marca el registro como provisionado y enlaza la suscripción.
 
 **Baja.** Si el dueño cancela o la tarjeta falla, MercadoPago manda otra
 notificación con `cancelled` o `paused` y el acceso se cierra en la siguiente
 carga del panel.
 
+### Un detalle a corregir en `restaurant-onboard`
+
+Ese workflow todavía responde *"Trial de 30 días activo"* y deja que la columna
+`trial_ends_at` tome su valor por defecto de 30 días. Ya no hay trial: conviene
+cambiar ese texto y mandar `"trial_ends_at": null` al crear el restaurante, para
+que el acceso dependa solo de la suscripción.
+
 ## 4. Planes
 
-Los precios viven en el nodo `Validate Subscription` y en la constante `PLANS`
-de `admin.jsx`. Si cambias uno, cambia el otro: el de n8n es el que cobra, el
-del panel es solo el que se muestra.
+Los precios viven en el nodo `Prepare Signup` y en las constantes `PLANS` de
+`admin.jsx` y `landing/src/components/Landing.tsx`. Si cambias uno, cambia los
+tres: el de n8n es el que cobra, los otros dos solo se muestran.
 
 | Plan | CLP/mes |
 |---|---|

@@ -30,6 +30,13 @@ const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.s
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc1NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
 const MESA_URL = getEnv("VITE_MESA_URL", "https://mesa.holu.pro").replace(/\/+$/, "");
 const WHATSAPP_NUMBER = getEnv("VITE_WHATSAPP_NUMBER", "56912345678");
+const LANDING_URL = getEnv("VITE_LANDING_URL", "https://holu.pro");
+
+// The showroom account. These credentials are meant to be public: the demo is
+// its own tenant, RLS keeps it away from every real restaurant, and reset_demo()
+// puts it back if a visitor rearranges it.
+const DEMO_EMAIL    = getEnv("VITE_DEMO_EMAIL", "demo@holu.pro");
+const DEMO_PASSWORD = getEnv("VITE_DEMO_PASSWORD", "HoluDemo2026");
 
 // ── Tenant ────────────────────────────────────────────────────────────────────
 // Each restaurant gets its own admin deployment with VITE_RESTAURANT_ID set.
@@ -118,31 +125,6 @@ const supaUploadImage = async (file, token) => {
   return `${SUPABASE_URL}/storage/v1/object/public/menu-images/${name}`;
 };
 
-const slugify = (str) => str.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
-
-const supaSignUp = async (email, password, restaurantName) => {
-  const restaurant_id = slugify(restaurantName) || `rest-${Date.now()}`;
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), password, data: { restaurant_id } }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description || data.message || "Error al registrar");
-  const access_token = data.access_token;
-  if (access_token) {
-    const rr = await fetch(`${SUPABASE_URL}/rest/v1/restaurants`, {
-      method: "POST",
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${access_token}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ id: restaurant_id, name: restaurantName.trim() }),
-    });
-    if (!rr.ok) {
-      const msg = await rr.text().catch(() => "");
-      throw new Error(msg.includes("duplicate") ? "Ya existe un restaurante con ese nombre. Elige otro." : "Error al crear el restaurante. Intenta de nuevo.");
-    }
-  }
-  return { restaurant_id, needsConfirmation: !access_token };
-};
 
 const supaSignIn = async (email, password) => {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -2300,11 +2282,8 @@ POST /qr/regenerate</pre></div></div></div>;
 }
 
 function SessionLogin({ onAuth, onBack }) {
-  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [password2, setPassword2] = useState("");
-  const [restName, setRestName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -2316,43 +2295,18 @@ function SessionLogin({ onAuth, onBack }) {
     catch (err) { setError(err.message); setLoading(false); }
   };
 
-  const submitRegister = async (e) => {
-    e.preventDefault();
-    if (password !== password2) { setError("Las contraseñas no coinciden"); return; }
-    if (password.length < 8) { setError("La contraseña debe tener al menos 8 caracteres"); return; }
-    if (!restName.trim()) { setError("Escribe el nombre del restaurante"); return; }
+  // Signing up used to happen here too, which handed out working accounts for
+  // free and left two doors to the same room, each sending a different email.
+  // An account is now created only once MercadoPago confirms the payment, so
+  // this screen only signs people in.
+  const enterDemo = async () => {
     setLoading(true); setError("");
-    try {
-      const result = await supaSignUp(email, password, restName);
-      if (result.needsConfirmation) {
-        setDone("Revisa tu correo para confirmar la cuenta y luego inicia sesión.");
-      } else {
-        setDone("Cuenta creada. Ahora inicia sesión.");
-      }
-      setMode("login");
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+    try { onAuth(await supaSignIn(DEMO_EMAIL, DEMO_PASSWORD)); }
+    catch { setError("La demo no está disponible en este momento."); setLoading(false); }
   };
 
   const base = { minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#070604", gap:24, padding:20 };
   const brand = <div style={{ textAlign:"center" }}><div style={{ fontFamily:"'Playfair Display',serif", fontSize:38, letterSpacing:".14em", color:"#f7d37b" }}>HOLU</div><div style={{ color:"var(--muted)", fontSize:11, letterSpacing:".22em", marginTop:6 }}>BACKOFFICE</div></div>;
-
-  if (mode === "register") return (
-    <div style={base}>
-      <style>{CSS}</style>
-      {brand}
-      <form onSubmit={submitRegister} style={{ width:"min(380px,100%)", display:"flex", flexDirection:"column", gap:12 }}>
-        <div style={{ textAlign:"center", marginBottom:4 }}><strong style={{ fontSize:17 }}>Crear cuenta</strong><br /><span style={{ color:"var(--muted)", fontSize:12 }}>Un restaurante, una cuenta.</span></div>
-        <div className="field"><label>Nombre del restaurante</label><input className="input" value={restName} onChange={e=>setRestName(e.target.value)} placeholder="Ej: La Trattoria" required autoFocus /></div>
-        <div className="field"><label>Correo</label><input className="input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="admin@mirestaurante.cl" required /></div>
-        <div className="field"><label>Contraseña</label><input className="input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required /></div>
-        <div className="field"><label>Confirmar contraseña</label><input className="input" type="password" value={password2} onChange={e=>setPassword2(e.target.value)} placeholder="Repite la contraseña" required /></div>
-        {error && <div style={{ color:"var(--red2)", fontSize:13, textAlign:"center" }}>{error}</div>}
-        <button className="btn primary" type="submit" disabled={loading} style={{ marginTop:4 }}>{loading ? "Creando cuenta..." : "Crear restaurante"}</button>
-        <button type="button" onClick={() => { setMode("login"); setError(""); }} style={{ background:"none", border:"none", color:"var(--dim)", cursor:"pointer", fontSize:13 }}>← Ya tengo cuenta</button>
-      </form>
-    </div>
-  );
 
   return (
     <div style={base}>
@@ -2366,7 +2320,8 @@ function SessionLogin({ onAuth, onBack }) {
         <button className="btn primary" type="submit" disabled={loading} style={{ marginTop:4 }}>{loading ? "Verificando..." : "Ingresar"}</button>
       </form>
       {onBack && <button onClick={onBack} style={{ background:"none", border:"none", color:"var(--dim)", cursor:"pointer", fontSize:13, padding:0 }}>← Volver</button>}
-      <button onClick={() => { setMode("register"); setError(""); }} style={{ background:"none", border:"none", color:"var(--gold2)", cursor:"pointer", fontSize:13, fontWeight:700, padding:0 }}>¿Sin cuenta? Regístrate gratis →</button>
+      <button onClick={enterDemo} disabled={loading} style={{ background:"none", border:"none", color:"var(--gold2)", cursor:"pointer", fontSize:13, fontWeight:700, padding:0 }}>Ver la demo, sin registrarse →</button>
+      <a href={LANDING_URL} style={{ color:"var(--dim)", fontSize:13, textDecoration:"none" }}>¿Quieres tu propia cuenta? →</a>
     </div>
   );
 }

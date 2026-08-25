@@ -337,27 +337,45 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 }
 `;
 
+const DEMO_URL = "https://app.holu.pro/?demo=1";
+
+// Shown only. The amount actually charged is decided server-side from the plan
+// key, so editing this page cannot change the price.
+const PLANS = [
+  { key: "basico", name: "Básico", price: "$29.990", blurb: "Carta QR, pedidos y cocina" },
+  { key: "pro",    name: "Pro",    price: "$49.990", blurb: "Todo + caja, inventario y reseñas" },
+  { key: "ia",     name: "Con IA", price: "$79.990", blurb: "Todo + agente de WhatsApp" },
+];
+
 export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: string }) {
   const [openFaq, setOpenFaq] = useState(0);
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState({ name: "", restaurant: "", email: "", phone: "", plan: "pro" });
   const [formState, setFormState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [formError, setFormError] = useState("");
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _ = adminUrl;
 
+  // Registering no longer creates the account. It records the intent and hands
+  // the visitor to MercadoPago; the restaurant, its login and its tables are
+  // built when MercadoPago confirms the first payment.
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setFormState("loading");
+    setFormError("");
     try {
-      await fetch("/api/register", {
+      const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      setFormState("done");
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.init_point) throw new Error("sin enlace de pago");
+      window.location.href = data.init_point;
     } catch {
-      setFormState("done");
+      setFormError("No pudimos abrir el pago. Revisa los datos e inténtalo de nuevo.");
+      setFormState("idle");
     }
   }
 
@@ -376,7 +394,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <a href="#beneficios">Beneficios</a>
             <a href="#precios">Planes</a>
             <a href="#faq">Preguntas</a>
-            <a className="btn primary" href="#registro">Probar gratis</a>
+            <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
           </div>
         </div>
       </nav>
@@ -388,11 +406,11 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
             <p>HOLU es la forma fácil de organizar tu restaurante: mesas, pedidos, camareros, cocina, caja, propinas y clientes conectados en una sola app.</p>
             <div className="cta-row">
-              <a className="btn primary" href="#registro">Probar gratis</a>
+              <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
               <a className="btn ghost" href="#modulos">Ver cómo funciona</a>
             </div>
             <div className="trust">
-              <span><i className="dot" />30 días gratis · sin tarjeta</span>
+              <span><i className="dot" />Demo abierta · sin registro</span>
               <span><i className="dot" />Fácil de usar</span>
               <span><i className="dot" />Hecho para el día a día</span>
             </div>
@@ -536,19 +554,24 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section id="registro" className="register-section">
         <div className="container register-wrap">
           <div>
-            <div className="eyebrow">30 días gratis · sin tarjeta</div>
+            <div className="eyebrow">Pruébalo gratis, sin registrarte</div>
             <h2 style={{ fontSize: "clamp(36px,5vw,58px)", fontWeight: 700, lineHeight: .92, letterSpacing: "-.05em", margin: "14px 0 18px" }}>
-              Prueba HOLU completo durante{" "}
-              <span style={{ color: "var(--gold2)" }}>30 días</span>.{" "}
-              Sin pagar <span style={{ color: "var(--green)" }}>nada</span>.
+              Míralo funcionando{" "}
+              <span style={{ color: "var(--green)" }}>ahora</span>.{" "}
+              Decide <span style={{ color: "var(--gold2)" }}>después</span>.
             </h2>
-            <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 16, marginBottom: 24 }}>Sin tarjeta, sin compromiso. Crea tu cuenta y explora mesas QR, cocina, camareros, caja y administración durante 30 días completos.</p>
+            <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 16, marginBottom: 24 }}>
+              Abre la demo y recorre HOLU con un restaurante en pleno servicio: mesas ocupadas, pedidos en cocina, llamados de clientes y la caja del turno. No pedimos correo ni tarjeta para eso.
+            </p>
+            <div style={{ marginBottom: 26 }}>
+              <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Abrir la demo →</a>
+            </div>
             <div className="register-benefits">
               {[
-                "30 días gratis con acceso completo a todo HOLU",
-                "Mesas QR, cocina, caja y administración incluidos",
+                "La demo es HOLU completo, con datos de ejemplo",
+                "Tu cuenta se crea sola apenas confirmamos el pago",
                 "Sin instalación — funciona desde el navegador",
-                "Después del período gratis, activa con USD $15/mes",
+                "Cancelas cuando quieras desde MercadoPago",
               ].map(b => (
                 <div className="reg-benefit" key={b}>
                   <span className="reg-check">{Icons.check}</span>
@@ -562,18 +585,39 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             {formState === "done" ? (
               <div className="form-success">
                 <div className="success-icon" style={{ color: "var(--gold2)" }}>{Icons.success}</div>
-                <h4>¡Listo! Revisa tu correo.</h4>
-                <p>Te enviamos un correo con toda la información. Crea tu cuenta en <span style={{ color: "var(--gold2)" }}>app.holu.pro</span> y empieza tus 30 días gratis ahora mismo.</p>
+                <h4>Pago confirmado</h4>
+                <p>Te enviamos tu correo y contraseña a la dirección que registraste. Con eso entras a <span style={{ color: "var(--gold2)" }}>app.holu.pro</span> y tu restaurante ya está creado.</p>
                 <div style={{ marginTop: 20 }}>
-                  <a className="btn primary" href="https://app.holu.pro" target="_blank" rel="noopener noreferrer" style={{ width: "100%", justifyContent: "center" }}>Crear mi cuenta gratis →</a>
+                  <a className="btn primary" href="https://app.holu.pro" target="_blank" rel="noopener noreferrer" style={{ width: "100%", justifyContent: "center" }}>Entrar a mi cuenta →</a>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleRegister}>
-                <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", margin: "0 0 6px" }}>Empezar 30 días gratis</h3>
-                <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", lineHeight: 1.6 }}>Sin tarjeta. Sin compromiso. Activa tu restaurante cuando quieras.</p>
+                <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", margin: "0 0 6px" }}>Quiero mi cuenta</h3>
+                <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", lineHeight: 1.6 }}>Elige tu plan y paga con MercadoPago. Al confirmarse el cobro te llegan tus claves por correo y ya puedes entrar.</p>
                 <div className="form-field">
-                  <label>Nombre</label>
+                  <label>Plan</label>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {PLANS.map(p => (
+                      <button type="button" key={p.key} onClick={() => setForm(f => ({ ...f, plan: p.key }))}
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                                 background: form.plan === p.key ? "rgba(247,211,123,.12)" : "rgba(255,255,255,.04)",
+                                 border: `1px solid ${form.plan === p.key ? "rgba(247,211,123,.5)" : "rgba(255,255,255,.1)"}`, color: "inherit" }}>
+                        <span>
+                          <strong style={{ display: "block", fontSize: 14 }}>{p.name}</strong>
+                          <small style={{ color: "var(--muted)", fontSize: 11.5, lineHeight: 1.4 }}>{p.blurb}</small>
+                        </span>
+                        <span style={{ whiteSpace: "nowrap", fontWeight: 800, color: "var(--gold2)" }}>{p.price}<small style={{ color: "var(--muted)", fontWeight: 500 }}>/mes</small></span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label>Nombre del restaurante</label>
+                  <input type="text" placeholder="Ej: La Trattoria" required value={form.restaurant} onChange={e => setForm(f => ({ ...f, restaurant: e.target.value }))} />
+                </div>
+                <div className="form-field">
+                  <label>Tu nombre</label>
                   <input type="text" placeholder="Tu nombre" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div className="form-field">
@@ -584,10 +628,11 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                   <label>WhatsApp <span style={{ color: "var(--dim)", fontWeight: 400 }}>(opcional)</span></label>
                   <input type="tel" placeholder="+56 9 1234 5678" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
                 </div>
+                {formError && <p style={{ color: "#fca5a5", fontSize: 13, textAlign: "center", margin: "0 0 10px", lineHeight: 1.5 }}>{formError}</p>}
                 <button type="submit" className="btn primary" style={{ width: "100%", marginTop: 4, fontSize: 15, padding: "14px 20px", justifyContent: "center" }} disabled={formState === "loading"}>
-                  {formState === "loading" ? <><span className="spinner" />Enviando...</> : "Empezar 30 días gratis →"}
+                  {formState === "loading" ? <><span className="spinner" />Abriendo MercadoPago...</> : "Ir a pagar →"}
                 </button>
-                <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", marginTop: 12 }}>Sin tarjeta · 30 días gratis · Sin compromiso</p>
+                <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", marginTop: 12 }}>Cobro mensual · Cancelas cuando quieras</p>
               </form>
             )}
           </div>
@@ -610,7 +655,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <article className="card plan highlight" style={{ position: "relative", maxWidth: 480, width: "100%" }}>
               <span className="tag">Todo incluido</span>
               <h3 style={{ fontSize: 26, marginTop: 8 }}>HOLU — Plan completo</h3>
-              <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 4px", fontWeight: 600, display:"flex", gap:6, alignItems:"center" }}>{Icons.check} Primeros 30 días gratis al registrarte</p>
+              <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 4px", fontWeight: 600, display:"flex", gap:6, alignItems:"center" }}>{Icons.check} Demo abierta, sin registro ni tarjeta</p>
               <div className="price" style={{ fontSize: 44, lineHeight: 1 }}>
                 {billing === "monthly" ? <>USD&nbsp;<span style={{ fontSize: 56 }}>$15</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / mes</small></> : <>USD&nbsp;<span style={{ fontSize: 56 }}>$126</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / año</small></>}
               </div>
@@ -659,7 +704,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <h2>El restaurante moderno funciona con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h2>
             <p>Clientes pidiendo desde la mesa, camareros conectados, cocina sincronizada, caja organizada y autoservicio funcionando en tiempo real.</p>
             <div className="final-btns">
-              <a className="btn primary" href="#registro">Registrarme gratis</a>
+              <a className="btn primary" href="#registro">Quiero mi cuenta</a>
               <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">{Icons.message} Hablar por WhatsApp</a>
             </div>
           </div>
