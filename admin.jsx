@@ -603,6 +603,7 @@ function useBackofficeState(authToken = null) {
     try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken); }
     catch (e) { console.error("[holu admin] resolveMessage:", e.message); }
   };
+  const isStaffUuid = (id) => typeof id === "string" && id.length === 36 && id.includes("-");
   const updateOrderStatus = async (id, uiStatus) => {
     localOrderUpdates.current[id] = Date.now() + 20000;
     setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta: uiStatus === "Servido" ? 0 : o.eta } : o));
@@ -611,6 +612,22 @@ function useBackofficeState(authToken = null) {
       try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }, authToken); }
       catch (e) { console.error("[holu admin] updateOrderStatus:", e.message); }
     }
+  };
+  // Goes through cancel_order() rather than patching the status directly: the
+  // function stamps who voided it and why, and flipping the status is what
+  // fires the triggers that return the stock and recompute the table's bill.
+  // A direct PATCH would skip the audit trail entirely.
+  const cancelOrder = async (id, reason, byStaffId) => {
+    const result = await supaRpc("cancel_order", {
+      p_order_id: id,
+      p_reason: reason,
+      p_staff_id: isStaffUuid(byStaffId) ? byStaffId : null,
+    }, authToken);
+    const outcome = Array.isArray(result) ? result[0] : result;
+    if (outcome === "forbidden") throw new Error("No tienes permiso para anular este pedido");
+    if (outcome === "not_found") throw new Error("El pedido ya no existe");
+    setOrders((rows) => rows.filter((o) => o.id !== id));
+    return outcome;
   };
   const saveMenuItem = async (item) => {
     const isNew = !menuItems.some((r) => r.id === item.id);
@@ -690,7 +707,6 @@ function useBackofficeState(authToken = null) {
   // ── Caja ────────────────────────────────────────────────────────────────────
   // A shift lives in cash_sessions; every movement is appended to cash_movements
   // so the running totals and the audit trail survive a reload or a device swap.
-  const isStaffUuid = (id) => typeof id === "string" && id.length === 36 && id.includes("-");
 
   const logMovement = async (userId, action, detail, amount = 0) => {
     const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
@@ -833,7 +849,7 @@ function useBackofficeState(authToken = null) {
       await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.${getRestaurantId()}`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, authToken);
     } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
   };
-  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
+  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
 function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restaurantName }) {
@@ -1134,16 +1150,64 @@ function TableDrawer({ table, role, state, staffId, onClose }) {
 
 function OrdersView({ role, staffId, state }) {
   const visible = state.orders.filter((o) => role === "admin" || o.waiterId === staffId);
-  return <div className="grid"><div className="panel"><div className="panel-head"><h2>Estado de platos y pedidos</h2><span className="badge blue">{visible.length} activos</span></div><div className="list">{visible.map((o)=><OrderDetail key={o.id} order={o} state={state} role={role} />)}</div></div></div>;
+  return <div className="grid"><div className="panel"><div className="panel-head"><h2>Estado de platos y pedidos</h2><span className="badge blue">{visible.length} activos</span></div><div className="list">{visible.map((o)=><OrderDetail key={o.id} order={o} state={state} role={role} staffId={staffId} />)}</div></div></div>;
 }
 
 function OrderRow({ order, state }) {
   return <div className="row"><span className={`badge ${statusBadge(order.status)}`}>Mesa {order.table}</span><div className="row-main"><b>{order.id} · {order.status}</b><small>{order.items.map((i)=>`${i.qty}× ${i.dish}`).join(" · ")} · Camarero: {getStaff(order.waiterId).name}</small></div><button className="btn ghost" onClick={()=>state.updateOrderStatus(order.id, "Servido")}>Marcar servido</button></div>;
 }
 
-function OrderDetail({ order, state, role }) {
+// Voiding needs a reason on the record, so it asks for one instead of a plain
+// confirm. The quick options cover what actually happens on a floor; anything
+// else can be typed.
+function CancelOrderModal({ order, state, staffId, onClose }) {
+  const REASONS = ["Cliente se arrepintió", "Error al tomar el pedido", "Plato sin stock", "Demora excesiva", "Otro"];
+  const [reason, setReason] = useState(REASONS[0]);
+  const [detail, setDetail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const confirm = async () => {
+    const finalReason = reason === "Otro" ? detail.trim() : reason;
+    if (!finalReason) return setErr("Escribe el motivo");
+    setSaving(true); setErr("");
+    try {
+      await state.cancelOrder(order.id, finalReason, staffId);
+      onClose();
+    } catch (e) {
+      setErr(e.message.slice(0, 160));
+      setSaving(false);
+    }
+  };
+
+  return <div className="modal-backdrop"><div className="modal" style={{ width: "min(460px,100%)" }}>
+    <div className="panel-head">
+      <div><h2>Anular pedido</h2><p style={{ margin: "4px 0 0" }}>{order.id} · Mesa {order.table} · {money(order.items.reduce((s, i) => s + i.price * i.qty, 0))}</p></div>
+      <button className="btn ghost" onClick={onClose}>Cerrar</button>
+    </div>
+    <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, margin: "0 0 14px" }}>
+      Se descuenta de la cuenta de la mesa y los insumos vuelven al inventario. Queda registrado quién anuló y por qué.
+    </p>
+    <div className="field"><label>Motivo</label>
+      <select className="input" value={reason} onChange={(e) => setReason(e.target.value)}>
+        {REASONS.map((r) => <option key={r}>{r}</option>)}
+      </select>
+    </div>
+    {reason === "Otro" && <div className="field" style={{ marginTop: 10 }}><label>Detalle</label>
+      <input className="input" value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="Describe el motivo" autoFocus />
+    </div>}
+    {err && <p style={{ color: "var(--red2)", fontSize: 13, margin: "10px 0 0" }}>{err}</p>}
+    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
+      <button className="btn ghost" onClick={onClose}>Volver</button>
+      <button className="btn danger" onClick={confirm} disabled={saving}>{saving ? "Anulando..." : "Anular pedido"}</button>
+    </div>
+  </div></div>;
+}
+
+function OrderDetail({ order, state, role, staffId }) {
+  const [cancelling, setCancelling] = useState(false);
   const progress = order.status.includes("Recibido") ? 25 : order.status.includes("Preparando") ? 55 : order.status.includes("Listo") ? 90 : order.status.includes("Servido") ? 100 : 40;
-  return <div className="panel" style={{boxShadow:"none"}}><div className="panel-head"><div><h2 style={{fontSize:24}}>{order.id} · Mesa {order.table}</h2><p style={{margin:"5px 0 0"}}>Canal: {order.channel} · Camarero: {getStaff(order.waiterId).name}</p></div><span className={`badge ${statusBadge(order.priority)}`}>{order.priority}</span></div><div className="progress"><span style={{width:`${progress}%`}} /></div><div className="dish-lines">{order.items.map((item, idx)=><div className="dish-line" key={`${order.id}-${idx}`}><span>{item.qty}× {item.dish}</span><b>{item.status}</b></div>)}</div><p>{order.notes}</p><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn ghost" onClick={()=>state.updateOrderStatus(order.id,"Preparando")}>Preparando</button><button className="btn ghost" onClick={()=>state.updateOrderStatus(order.id,"Listo para servir")}>Listo</button><button className="btn primary" onClick={()=>state.updateOrderStatus(order.id,"Servido")}>Servido</button>{role === "admin" && <button className="btn danger">Escalar incidencia</button>}</div></div>;
+  return <div className="panel" style={{boxShadow:"none"}}><div className="panel-head"><div><h2 style={{fontSize:24}}>{order.id} · Mesa {order.table}</h2><p style={{margin:"5px 0 0"}}>Canal: {order.channel} · Camarero: {getStaff(order.waiterId).name}</p></div><span className={`badge ${statusBadge(order.priority)}`}>{order.priority}</span></div><div className="progress"><span style={{width:`${progress}%`}} /></div><div className="dish-lines">{order.items.map((item, idx)=><div className="dish-line" key={`${order.id}-${idx}`}><span>{item.qty}× {item.dish}</span><b>{item.status}</b></div>)}</div><p>{order.notes}</p><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn ghost" onClick={()=>state.updateOrderStatus(order.id,"Preparando")}>Preparando</button><button className="btn ghost" onClick={()=>state.updateOrderStatus(order.id,"Listo para servir")}>Listo</button><button className="btn primary" onClick={()=>state.updateOrderStatus(order.id,"Servido")}>Servido</button>{(role === "admin" || role === "caja") && <button className="btn danger" onClick={()=>setCancelling(true)}>Anular</button>}</div>{cancelling && <CancelOrderModal order={order} state={state} staffId={staffId} onClose={()=>setCancelling(false)} />}</div>;
 }
 
 function CallsView({ role, staffId, state }) {
@@ -1328,8 +1392,21 @@ function SalesView({ authToken }) {
   const [period, setPeriod] = useState("day");
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [dishes, setDishes] = useState([]);
+  const [voided, setVoided] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
+  // Voids are the reason the audit columns exist; the owner has to be able to
+  // actually see them, otherwise recording who voided what changes nothing.
+  useEffect(() => {
+    let cancelled = false;
+    const since = period === "year" ? "365" : period === "month" ? "30" : "1";
+    const from = new Date(Date.now() - Number(since) * 86400000).toISOString();
+    supaGet(`orders?restaurant_id=eq.${getRestaurantId()}&status=eq.cancelled&cancelled_at=gte.${from}&select=id,table_id,total,cancel_reason,cancelled_at,cancelled_by&order=cancelled_at.desc&limit=50`, authToken)
+      .then((rows) => { if (!cancelled && Array.isArray(rows)) setVoided(rows); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [period, authToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1358,7 +1435,7 @@ function SalesView({ authToken }) {
 
   if (loading) return <div className="panel"><p style={{ color: "var(--muted)", textAlign: "center", padding: "32px 0" }}>Cargando ventas...</p></div>;
   if (err) return <div className="panel"><p style={{ color: "var(--red2)", textAlign: "center", padding: "32px 0" }}>No se pudieron cargar las ventas: {err}</p></div>;
-  return <div className="grid"><div className="panel"><div className="panel-head"><div><h2>Ventas por periodo</h2><p style={{margin:"4px 0 0"}}>Calculado sobre pedidos ya cobrados. La propina va aparte, tomada del cierre de caja.</p></div><div className="period-switch">{Object.entries(PERIOD_LABELS).map(([key,label])=><button key={key} className={period===key?"on":""} onClick={()=>setPeriod(key)}>{label}</button>)}</div></div><div className="sales-split"><div className="sales-mini"><span>Ventas {current.label.toLowerCase()}</span><strong>{money(current.sales)}</strong></div><div className="sales-mini"><span>Propina</span><strong>{money(current.tips)}</strong></div><div className="sales-mini"><span>Tickets</span><strong>{current.tickets}</strong></div><div className="sales-mini"><span>Ticket promedio</span><strong>{money(current.avgTicket)}</strong></div></div></div><div className="kpis"><div className="kpi"><span>Ventas platos</span><strong>{money(total)}</strong><small>Suma del detalle por plato</small></div><div className="kpi"><span>Plato top</span><strong>{topDish ? topDish.sold : 0}</strong><small>{topDish ? topDish.dish_name : "Sin ventas aún"}</small></div><div className="kpi"><span>Propina registrada</span><strong>{money(current.tips)}</strong><small>Separada de ventas</small></div><div className="kpi"><span>Stock bajo</span><strong>{lowStock}</strong><small>Revisar cocina</small></div></div>{dishes.length === 0 ? <div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2></div><p style={{color:"var(--muted)",textAlign:"center",padding:"28px 0"}}>Todavía no hay pedidos cobrados en este periodo. Cuando cobres la primera mesa, aparecerán aquí.</p></div> : <><div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2><span className="badge green">Admin</span></div><div className="chart">{dishes.map((d)=><div className="bar" key={d.menu_item_id}><b>{d.dish_name}</b><div className="bar-track"><div className="bar-fill" style={{width:`${Math.max(8, Number(d.revenue) / max * 100)}%`}} /></div><span className="price">{money(d.revenue)}</span></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Detalle de platos</h2></div><div className="list">{dishes.map((d)=><div className="row" key={d.menu_item_id}><span className={`badge ${d.stock_status === "Bajo" ? "red" : "green"}`}>{d.stock_status}</span><div className="row-main"><b>{d.dish_name}</b><small>{d.category} · vendidos: {d.sold} · prep promedio: {d.avg_prep} min</small></div><strong>{money(d.revenue)}</strong></div>)}</div></div></>}</div>;
+  return <div className="grid"><div className="panel"><div className="panel-head"><div><h2>Ventas por periodo</h2><p style={{margin:"4px 0 0"}}>Calculado sobre pedidos ya cobrados. La propina va aparte, tomada del cierre de caja.</p></div><div className="period-switch">{Object.entries(PERIOD_LABELS).map(([key,label])=><button key={key} className={period===key?"on":""} onClick={()=>setPeriod(key)}>{label}</button>)}</div></div><div className="sales-split"><div className="sales-mini"><span>Ventas {current.label.toLowerCase()}</span><strong>{money(current.sales)}</strong></div><div className="sales-mini"><span>Propina</span><strong>{money(current.tips)}</strong></div><div className="sales-mini"><span>Tickets</span><strong>{current.tickets}</strong></div><div className="sales-mini"><span>Ticket promedio</span><strong>{money(current.avgTicket)}</strong></div></div></div><div className="kpis"><div className="kpi"><span>Ventas platos</span><strong>{money(total)}</strong><small>Suma del detalle por plato</small></div><div className="kpi"><span>Plato top</span><strong>{topDish ? topDish.sold : 0}</strong><small>{topDish ? topDish.dish_name : "Sin ventas aún"}</small></div><div className="kpi"><span>Propina registrada</span><strong>{money(current.tips)}</strong><small>Separada de ventas</small></div><div className="kpi"><span>Stock bajo</span><strong>{lowStock}</strong><small>Revisar cocina</small></div></div>{dishes.length === 0 ? <div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2></div><p style={{color:"var(--muted)",textAlign:"center",padding:"28px 0"}}>Todavía no hay pedidos cobrados en este periodo. Cuando cobres la primera mesa, aparecerán aquí.</p></div> : <><div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2><span className="badge green">Admin</span></div><div className="chart">{dishes.map((d)=><div className="bar" key={d.menu_item_id}><b>{d.dish_name}</b><div className="bar-track"><div className="bar-fill" style={{width:`${Math.max(8, Number(d.revenue) / max * 100)}%`}} /></div><span className="price">{money(d.revenue)}</span></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Detalle de platos</h2></div><div className="list">{dishes.map((d)=><div className="row" key={d.menu_item_id}><span className={`badge ${d.stock_status === "Bajo" ? "red" : "green"}`}>{d.stock_status}</span><div className="row-main"><b>{d.dish_name}</b><small>{d.category} · vendidos: {d.sold} · prep promedio: {d.avg_prep} min</small></div><strong>{money(d.revenue)}</strong></div>)}</div></div></>}{voided.length > 0 && <div className="panel"><div className="panel-head"><div><h2>Pedidos anulados</h2><p style={{margin:"4px 0 0"}}>No cuentan como venta. Revisa los que no tengan una explicación clara.</p></div><span className="badge red">{voided.length}</span></div><div className="list">{voided.map((o)=><div className="row" key={o.id}><span className="badge red">Mesa {o.table_id ?? "—"}</span><div className="row-main"><b>{o.cancel_reason || "Sin motivo"}</b><small>{o.id} · {getStaff(o.cancelled_by).name} · {timeAgo(o.cancelled_at)}</small></div><strong>{money(o.total)}</strong></div>)}</div></div>}</div>;
 }
 
 // Links a dish to what it consumes. Without this the inventory only ever moved
