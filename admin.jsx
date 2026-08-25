@@ -113,16 +113,16 @@ const supaPost = (path, body, token = null) =>
 const supaDelete = (path, token = null) =>
   supaFetch(path, { method: "DELETE" }, token);
 
-const supaUploadImage = async (file, token) => {
+const supaUploadImage = async (file, token, bucket = "menu-images") => {
   const ext = file.name.split(".").pop().toLowerCase();
   const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/menu-images/${name}`, {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${name}`, {
     method: "POST",
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": file.type },
     body: file,
   });
   if (!res.ok) { const t = await res.text(); throw new Error(`Upload failed: ${t.slice(0, 100)}`); }
-  return `${SUPABASE_URL}/storage/v1/object/public/menu-images/${name}`;
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${name}`;
 };
 
 
@@ -1679,11 +1679,25 @@ function StaffView({ state }) {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
-  const EMPTY_FORM = { name: "", role: "camarero", shift: "", pin_hash: "", status: "Activo" };
+  const EMPTY_FORM = { name: "", role: "camarero", shift: "", pin_hash: "", status: "Activo", avatar_url: "" };
   const [form, setForm] = useState(EMPTY_FORM);
+  const [uploadingNew, setUploadingNew] = useState(false);
+  const [uploadingEditId, setUploadingEditId] = useState(null);
   const ROLES = ["camarero", "cocina", "caja"];
   const ROLE_LABELS = { camarero: "Camarero", cocina: "Cocina", caja: "Caja" };
   const ROLE_COLORS = { camarero: "linear-gradient(135deg,var(--gold),var(--gold2))", cocina: "linear-gradient(135deg,#ef4444,#fca5a5)", caja: "linear-gradient(135deg,#60a5fa,#93c5fd)" };
+
+  const uploadAvatar = async (file, onDone, setUploading) => {
+    setUploading(true);
+    try {
+      const url = await supaUploadImage(file, authToken, "staff-avatars");
+      onDone(url);
+    } catch (e) {
+      setErr(`No se pudo subir la foto: ${e.message.slice(0, 120)}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // pin_hash is never selected: a PIN that round-trips to the browser is a PIN
   // the browser can leak. It is written only through set_staff_pin(), which
@@ -1710,7 +1724,7 @@ function StaffView({ state }) {
     try {
       const created = await supaFetch(`staff`, {
         method: "POST",
-        body: JSON.stringify({ restaurant_id: getRestaurantId(), name: form.name.trim(), role: form.role, shift: form.shift.trim() || null, status: "Activo" }),
+        body: JSON.stringify({ restaurant_id: getRestaurantId(), name: form.name.trim(), role: form.role, shift: form.shift.trim() || null, status: "Activo", avatar_url: form.avatar_url || null }),
       }, authToken);
       const row = Array.isArray(created) ? created[0] : created;
       if (!row?.id) throw new Error("No se pudo crear el empleado");
@@ -1728,7 +1742,7 @@ function StaffView({ state }) {
     try {
       await supaFetch(`staff?id=eq.${encodeURIComponent(item.id)}`, {
         method: "PATCH",
-        body: JSON.stringify({ name: item.name, role: item.role, shift: item.shift || null, status: item.status }),
+        body: JSON.stringify({ name: item.name, role: item.role, shift: item.shift || null, status: item.status, avatar_url: item.avatar_url || null }),
       }, authToken);
       // An empty PIN field means "leave the current PIN alone", not "clear it".
       if (newPin) await supaRpc("set_staff_pin", { p_staff_id: item.id, p_pin: newPin }, authToken);
@@ -1762,6 +1776,13 @@ function StaffView({ state }) {
         {adding && (
           <div className="config-card" style={{ marginBottom: 16 }}>
             <h3 style={{ margin: "0 0 12px", fontFamily: "'Playfair Display',serif" }}>Nuevo empleado</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+              {form.avatar_url ? <img src={form.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: 16, objectFit: "cover", border: "1px solid var(--line)" }} /> : <div className="avatar" style={{ width: 56, height: 56, fontSize: 20 }}>{(form.name || "?")[0].toUpperCase()}</div>}
+              <label className="btn ghost" style={{ fontSize: 13, cursor: "pointer" }}>
+                {uploadingNew ? "Subiendo..." : "Subir foto"}
+                <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingNew} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, (url) => setForm((s) => ({ ...s, avatar_url: url })), setUploadingNew); e.target.value = ""; }} />
+              </label>
+            </div>
             <div className="form-grid">
               <div className="field"><label>Nombre</label><input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ej: María" autoFocus /></div>
               <div className="field"><label>Rol</label><select className="input" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
@@ -1786,6 +1807,13 @@ function StaffView({ state }) {
           {staff.map((s) => {
             if (editingId === s.id) return (
               <div key={s.id} className="config-card" style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                  {s.avatar_url ? <img src={s.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: 16, objectFit: "cover", border: "1px solid var(--line)" }} /> : <div className="avatar" style={{ width: 56, height: 56, fontSize: 20 }}>{(s.name || "?")[0].toUpperCase()}</div>}
+                  <label className="btn ghost" style={{ fontSize: 13, cursor: "pointer" }}>
+                    {uploadingEditId === s.id ? "Subiendo..." : "Cambiar foto"}
+                    <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploadingEditId === s.id} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f, (url) => updateField(s.id, "avatar_url", url), (v) => setUploadingEditId(v ? s.id : null)); e.target.value = ""; }} />
+                  </label>
+                </div>
                 <div className="form-grid">
                   <div className="field"><label>Nombre</label><input className="input" value={s.name} onChange={(e) => updateField(s.id, "name", e.target.value)} /></div>
                   <div className="field"><label>Rol</label><select className="input" value={s.role} onChange={(e) => updateField(s.id, "role", e.target.value)}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
