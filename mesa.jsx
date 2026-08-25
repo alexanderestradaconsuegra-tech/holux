@@ -15,22 +15,28 @@ const N8N_BASE = getEnv("VITE_N8N_WEBHOOK_BASE", "https://n8n-n8n.fa2cjf.easypan
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc3NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
 
-const QR_FALLBACK = "A7K92";
 const FALLBACK_RESTAURANT_ID = "holu";
 const getQrToken = () => {
   try {
     const url = new URL(window.location.href);
-    return url.searchParams.get("qr") || url.searchParams.get("t") || url.pathname.split("/").filter(Boolean).pop() || QR_FALLBACK;
-  } catch { return QR_FALLBACK; }
+    return url.searchParams.get("qr") || url.searchParams.get("t") || url.pathname.split("/").filter(Boolean).pop() || "";
+  } catch { return ""; }
 };
 
-const QR_TABLES = {
-  A7K92: { tableId: 7, tableLabel: "Mesa 7", zone: "Salón", restaurantId: FALLBACK_RESTAURANT_ID, active: true },
-  B2M18: { tableId: 2, tableLabel: "Mesa 2", zone: "Terraza", restaurantId: FALLBACK_RESTAURANT_ID, active: true },
-  VIP09: { tableId: 9, tableLabel: "Mesa VIP 9", zone: "Privado", restaurantId: FALLBACK_RESTAURANT_ID, active: true },
-};
+// There is deliberately no demo table here. A hardcoded fallback let anyone who
+// opened the app without a QR order against a table that did not exist, and
+// every order in the database ended up hanging off that phantom id. An
+// unresolvable token now yields an inactive context and the app says so.
 
-const FALLBACK_CONTEXT = { ...QR_TABLES[QR_FALLBACK], qrToken: QR_FALLBACK };
+const FALLBACK_CONTEXT = {
+  tableId: 0,
+  tableNumber: 0,
+  tableLabel: "QR no registrado",
+  zone: "",
+  restaurantId: FALLBACK_RESTAURANT_ID,
+  active: false,
+  qrToken: "",
+};
 
 const supaRpc = async (fn, args) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
@@ -65,10 +71,10 @@ const resolveQrContext = async (qrToken) => {
       };
     }
   } catch (e) {
-    console.warn("[holu mesa] QR lookup failed, using fallback:", e.message);
+    console.warn("[holu mesa] QR lookup failed:", e.message);
   }
   await wait(450);
-  return { ...(QR_TABLES[qrToken] || { tableId: 0, tableLabel: "QR no registrado", zone: "", restaurantId: FALLBACK_RESTAURANT_ID, active: false }), qrToken };
+  return { ...FALLBACK_CONTEXT, qrToken };
 };
 
 const RESTAURANT = {

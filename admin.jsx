@@ -613,6 +613,7 @@ function useBackofficeState(authToken = null) {
       tags: item.tags ? String(item.tags).split(",").map((t) => t.trim()).filter(Boolean) : [],
       image_url: item.imageUrl || null,
     };
+    const before = menuItems;
     setMenuItems((rows) => {
       if (!isNew) return rows.map((r) => r.id === item.id ? { ...item, id: newId } : r);
       return [{ ...item, id: newId }, ...rows];
@@ -620,7 +621,14 @@ function useBackofficeState(authToken = null) {
     try {
       if (isNew) await supaPost(`menu_items`, dbItem, authToken);
       else await supaPatch(`menu_items?id=eq.${encodeURIComponent(item.id)}`, dbItem, authToken);
-    } catch (e) { console.error("[holu admin] saveMenuItem:", e.message); }
+    } catch (e) {
+      // Showing the dish in the list while the write failed is worse than not
+      // saving at all: the kitchen would be cooking from a menu that only
+      // exists in this browser tab. Put the list back and let the editor say so.
+      console.error("[holu admin] saveMenuItem:", e.message);
+      setMenuItems(before);
+      throw e;
+    }
   };
   const toggleMenuAvailability = async (id) => {
     const item = menuItems.find((r) => r.id === id);
@@ -1533,7 +1541,7 @@ function QRView({ state }) {
   const fetchTables = async () => {
     try {
       const rows = await supaFetch(
-        `tables?restaurant_id=eq.${getRestaurantId()}&select=id,table_number,qr_token,zone&order=table_number.asc`,
+        `tables?restaurant_id=eq.${getRestaurantId()}&select=id,table_number,qr_token,zone,active&order=table_number.asc`,
         {}, authToken
       );
       if (Array.isArray(rows)) {
@@ -1542,7 +1550,7 @@ function QRView({ state }) {
           table: r.table_number,
           token: r.qr_token,
           zone: r.zone || "Salón",
-          active: true,
+          active: r.active !== false,
         })));
       }
     } catch (e) {
@@ -1688,10 +1696,15 @@ function StaffView({ state }) {
   const ROLE_LABELS = { camarero: "Camarero", cocina: "Cocina", caja: "Caja" };
   const ROLE_COLORS = { camarero: "linear-gradient(135deg,var(--gold),var(--gold2))", cocina: "linear-gradient(135deg,#ef4444,#fca5a5)", caja: "linear-gradient(135deg,#60a5fa,#93c5fd)" };
 
+  // pin_hash is never selected: a PIN that round-trips to the browser is a PIN
+  // the browser can leak. It is written only through set_staff_pin(), which
+  // does the bcrypt hashing inside the database.
+  const STAFF_COLS = "id,restaurant_id,name,email,role,shift,status,avatar_url,phone";
+
   const fetchStaff = async () => {
     try {
-      const rows = await supaFetch(`staff?restaurant_id=eq.${getRestaurantId()}&role=neq.admin&order=name.asc`, {}, authToken);
-      if (Array.isArray(rows)) setStaff(rows);
+      const rows = await supaFetch(`staff?restaurant_id=eq.${getRestaurantId()}&role=neq.admin&select=${STAFF_COLS}&order=name.asc`, {}, authToken);
+      if (Array.isArray(rows)) setStaff(rows.map((r) => ({ ...r, pin_hash: "" })));
     } catch (e) {
       console.error("[holu staff] fetch:", e.message);
     } finally {
@@ -1703,25 +1716,33 @@ function StaffView({ state }) {
 
   const saveNew = async () => {
     if (!form.name.trim()) return setErr("Nombre requerido");
-    if (!form.pin_hash.trim() || form.pin_hash.length < 4) return setErr("PIN mínimo 4 dígitos");
+    if (!/^\d{4,6}$/.test(form.pin_hash.trim())) return setErr("El PIN debe tener entre 4 y 6 dígitos");
     setSaving(true); setErr("");
     try {
-      await supaFetch(`staff`, {
+      const created = await supaFetch(`staff`, {
         method: "POST",
-        body: JSON.stringify({ restaurant_id: getRestaurantId(), name: form.name.trim(), role: form.role, shift: form.shift.trim() || null, pin_hash: form.pin_hash.trim(), status: "Activo" }),
+        body: JSON.stringify({ restaurant_id: getRestaurantId(), name: form.name.trim(), role: form.role, shift: form.shift.trim() || null, status: "Activo" }),
       }, authToken);
+      const row = Array.isArray(created) ? created[0] : created;
+      if (!row?.id) throw new Error("No se pudo crear el empleado");
+      const ok = await supaRpc("set_staff_pin", { p_staff_id: row.id, p_pin: form.pin_hash.trim() }, authToken);
+      if (ok !== true) throw new Error("El empleado se creó pero el PIN no quedó guardado");
       setAdding(false); setForm(EMPTY_FORM);
       await fetchStaff();
     } catch (e) { setErr(e.message.slice(0, 160)); } finally { setSaving(false); }
   };
 
   const saveEdit = async (item) => {
+    const newPin = (item.pin_hash || "").trim();
+    if (newPin && !/^\d{4,6}$/.test(newPin)) { setErr("El PIN debe tener entre 4 y 6 dígitos"); return; }
     setSaving(true);
     try {
       await supaFetch(`staff?id=eq.${encodeURIComponent(item.id)}`, {
         method: "PATCH",
-        body: JSON.stringify({ name: item.name, role: item.role, shift: item.shift || null, pin_hash: item.pin_hash, status: item.status }),
+        body: JSON.stringify({ name: item.name, role: item.role, shift: item.shift || null, status: item.status }),
       }, authToken);
+      // An empty PIN field means "leave the current PIN alone", not "clear it".
+      if (newPin) await supaRpc("set_staff_pin", { p_staff_id: item.id, p_pin: newPin }, authToken);
       setEditingId(null); await fetchStaff();
     } catch (e) { console.error("[holu staff] patch:", e.message); } finally { setSaving(false); }
   };
@@ -1779,7 +1800,7 @@ function StaffView({ state }) {
                 <div className="form-grid">
                   <div className="field"><label>Nombre</label><input className="input" value={s.name} onChange={(e) => updateField(s.id, "name", e.target.value)} /></div>
                   <div className="field"><label>Rol</label><select className="input" value={s.role} onChange={(e) => updateField(s.id, "role", e.target.value)}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
-                  <div className="field"><label>PIN</label><input className="input" type="text" inputMode="numeric" maxLength={6} value={s.pin_hash || ""} onChange={(e) => updateField(s.id, "pin_hash", e.target.value.replace(/\D/g, ""))} placeholder="Nuevo PIN" /></div>
+                  <div className="field"><label>PIN</label><input className="input" type="text" inputMode="numeric" maxLength={6} value={s.pin_hash || ""} onChange={(e) => updateField(s.id, "pin_hash", e.target.value.replace(/\D/g, ""))} placeholder="Dejar vacío para no cambiarlo" /></div>
                   <div className="field"><label>Turno</label><input className="input" value={s.shift || ""} onChange={(e) => updateField(s.id, "shift", e.target.value)} /></div>
                   <div className="field"><label>Estado</label><select className="input" value={s.status} onChange={(e) => updateField(s.id, "status", e.target.value)}><option>Activo</option><option>Pausa</option><option>Fuera</option></select></div>
                 </div>
@@ -1820,13 +1841,15 @@ function MenuView({ state }) {
   const [editing, setEditing] = useState(null);
   const openNew = () => setEditing({ id: `dish-${Date.now()}`, dish: "", category: "Principales", description: "", price: 0, avgPrep: 15, stock: "OK", available: true, visibleClient: true, tags: "", imageUrl: "" });
   const visibleClient = state.menuItems.filter((d) => d.available && d.visibleClient);
-  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><div><h2>Carta operativa</h2><p style={{margin:"4px 0 0"}}>Admin crea/edita platos. Lo visible aparece en el sistema del cliente QR.</p></div><button className="btn primary" onClick={openNew}>Nuevo plato</button></div><div className="list">{state.menuItems.map((d)=><div className="row" key={d.id}><span className={`badge ${d.available ? "green" : "red"}`}>{d.available ? "Activo" : "Oculto"}</span><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div className="row-main"><b>{d.dish}</b><small>{d.category} · {money(d.price)} · Prep {d.avgPrep} min · Tags: {d.tags || "—"}</small><small>{d.description}</small></div><div style={{display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end"}}><button className="btn ghost" onClick={()=>setEditing(d)}>Editar</button><button className="btn ghost" onClick={()=>state.toggleMenuAvailability(d.id)}>{d.available ? "Desactivar" : "Activar"}</button><button className="btn danger" onClick={()=>state.deleteMenuItem(d.id)}>Eliminar</button></div></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Vista cliente QR</h2><span className="badge blue">Sincronizada</span></div><div className="preview-phone">{visibleClient.length ? visibleClient.map((d)=><div className="client-dish" key={d.id}><div style={{display:"flex", gap:12}}><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div style={{flex:1}}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h4>{d.dish}</h4><b className="price">{money(d.price)}</b></div><p>{d.description}</p><small style={{color:"var(--gold2)",fontWeight:900}}>{d.category} · {d.avgPrep} min</small></div></div></div>) : <p style={{color:"var(--muted)"}}>No hay platos visibles para el cliente.</p>}</div></div></div>{editing && <MenuEditor item={editing} authToken={state.authToken} onClose={()=>setEditing(null)} onSave={(item)=>{ state.saveMenuItem(item); setEditing(null); }} />}</div>;
+  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><div><h2>Carta operativa</h2><p style={{margin:"4px 0 0"}}>Admin crea/edita platos. Lo visible aparece en el sistema del cliente QR.</p></div><button className="btn primary" onClick={openNew}>Nuevo plato</button></div><div className="list">{state.menuItems.map((d)=><div className="row" key={d.id}><span className={`badge ${d.available ? "green" : "red"}`}>{d.available ? "Activo" : "Oculto"}</span><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div className="row-main"><b>{d.dish}</b><small>{d.category} · {money(d.price)} · Prep {d.avgPrep} min · Tags: {d.tags || "—"}</small><small>{d.description}</small></div><div style={{display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end"}}><button className="btn ghost" onClick={()=>setEditing(d)}>Editar</button><button className="btn ghost" onClick={()=>state.toggleMenuAvailability(d.id)}>{d.available ? "Desactivar" : "Activar"}</button><button className="btn danger" onClick={()=>state.deleteMenuItem(d.id)}>Eliminar</button></div></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Vista cliente QR</h2><span className="badge blue">Sincronizada</span></div><div className="preview-phone">{visibleClient.length ? visibleClient.map((d)=><div className="client-dish" key={d.id}><div style={{display:"flex", gap:12}}><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div style={{flex:1}}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h4>{d.dish}</h4><b className="price">{money(d.price)}</b></div><p>{d.description}</p><small style={{color:"var(--gold2)",fontWeight:900}}>{d.category} · {d.avgPrep} min</small></div></div></div>) : <p style={{color:"var(--muted)"}}>No hay platos visibles para el cliente.</p>}</div></div></div>{editing && <MenuEditor item={editing} authToken={state.authToken} onClose={()=>setEditing(null)} onSave={async (item)=>{ await state.saveMenuItem(item); setEditing(null); }} />}</div>;
 }
 
 function MenuEditor({ item, onClose, onSave, authToken }) {
   const [form, setForm] = useState(item);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState("");
   const fileRef = useRef(null);
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -1845,10 +1868,18 @@ function MenuEditor({ item, onClose, onSave, authToken }) {
     }
   };
 
-  const submit = () => {
-    if (!form.dish.trim()) return alert("Nombre del plato requerido");
-    if (!Number(form.price)) return alert("Precio requerido");
-    onSave({ ...form, price: Number(form.price), avgPrep: Number(form.avgPrep || 0) });
+  const submit = async () => {
+    if (!form.dish.trim()) return setSaveErr("Nombre del plato requerido");
+    if (!Number(form.price)) return setSaveErr("Precio requerido");
+    setSaving(true);
+    setSaveErr("");
+    try {
+      await onSave({ ...form, price: Number(form.price), avgPrep: Number(form.avgPrep || 0) });
+    } catch (e) {
+      setSaveErr(`No se pudo guardar el plato: ${e.message.slice(0, 140)}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const placeholder = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop";
@@ -1902,9 +1933,10 @@ function MenuEditor({ item, onClose, onSave, authToken }) {
           <label className="toggle"><input type="checkbox" checked={form.available} onChange={(e) => update("available", e.target.checked)} /> Activo en carta</label>
           <label className="toggle"><input type="checkbox" checked={form.visibleClient} onChange={(e) => update("visibleClient", e.target.checked)} /> Visible para cliente QR</label>
         </div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        {saveErr && <p style={{ color: "var(--red2)", margin: "10px 0 0", fontSize: 13, lineHeight: 1.5 }}>{saveErr}</p>}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
           <button className="btn ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn primary" onClick={submit} disabled={uploading}>Guardar y publicar</button>
+          <button className="btn primary" onClick={submit} disabled={uploading || saving}>{saving ? "Guardando..." : "Guardar y publicar"}</button>
         </div>
       </div>
     </div>
