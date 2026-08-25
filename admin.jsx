@@ -172,7 +172,7 @@ const timeAgo = (iso) => {
 const dbOrderToUI = (o) => ({
   id: o.id,
   table: o.table_id,
-  waiterId: o.waiter_id || "w1",
+  waiterId: o.waiter_id || null,
   status: STATUS_UI[o.status] || o.status || "Recibido",
   priority: o.priority || "Normal",
   eta: o.eta_minutes || o.eta || 0,
@@ -190,7 +190,7 @@ const dbCallToUI = (c) => ({
   id: c.id,
   source: c.call_type === "Confirmar plato" ? "cocina" : "mesa",
   table: c.table_id,
-  waiterId: c.waiter_id || "w1",
+  waiterId: c.waiter_id || null,
   type: c.call_type || "Llamado",
   priority: c.priority || "Normal",
   status: c.status || "Pendiente",
@@ -231,16 +231,25 @@ const dbMenuItemToUI = (m) => ({
 
 const money = (n) => `$${Number(n || 0).toLocaleString("es-CL")}`;
 
+// Legal identity printed on customer receipts and cash-closing reports. It
+// starts blank and is filled from the restaurants row: these fields used to
+// carry a demo RUT and address, which any real restaurant would then have
+// printed on its boletas, and would have saved over its own data the first
+// time it opened Configuración.
 const RESTAURANT = {
-  name: "HOLU",
-  legalName: "HOLU SpA",
-  rut: "76.543.210-9",
-  address: "Av. Italia 1450, Providencia, Santiago",
-  phone: "+56 2 2345 6789",
-  website: "holu.cl",
-  location: "Santiago · Salón Principal",
-  service: "Cena",
+  name: "",
+  legalName: "",
+  rut: "",
+  address: "",
+  phone: "",
+  website: "",
+  location: "",
+  service: "",
 };
+
+let LIVE_RESTAURANT = { ...RESTAURANT };
+const setLiveRestaurant = (r) => { LIVE_RESTAURANT = { ...RESTAURANT, ...(r || {}) }; };
+const getRestaurantInfo = () => LIVE_RESTAURANT;
 
 const RECEIPT_CONFIG = {
   title: "BOLETA ELECTRÓNICA",
@@ -253,25 +262,6 @@ const RECEIPT_CONFIG = {
   paperWidth: "80mm",
   printMode: "Ticket térmico nítido",
 };
-
-const STAFF = [
-  { id: "w1", name: "Marco", pin: "1111", role: "camarero", shift: "18:00–00:00", status: "Activo", tables: [2, 7, 8], avatar: "M", photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop", phone: "+56 9 1111 2222", email: "marco@holu.cl" },
-  { id: "w2", name: "Isabella", pin: "2222", role: "camarero", shift: "18:00–00:00", status: "Activo", tables: [3, 4, 9], avatar: "I", photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop", phone: "+56 9 3333 4444", email: "isabella@holu.cl" },
-  { id: "w3", name: "Tomás", pin: "3333", role: "camarero", shift: "19:00–01:00", status: "Pausa", tables: [5], avatar: "T", photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop", phone: "+56 9 5555 6666", email: "tomas@holu.cl" },
-  { id: "a1", name: "Valentina", pin: "0000", role: "admin", shift: "Full", status: "Activo", tables: [], avatar: "V", photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop", phone: "+56 9 7777 8888", email: "valentina@holu.cl" },
-  { id: "k1", name: "Cocina", pin: "5555", role: "cocina", shift: "Full", status: "Activo", tables: [], avatar: "K", photoUrl: "", phone: "", email: "" },
-];
-
-const TABLES = [
-  { id: 1, zone: "Terraza", status: "Libre", guests: 0, waiterId: null, bill: 0, tipAccepted: false, tipAmount: 0, qrToken: "T1K90", lastMessage: "" },
-  { id: 2, zone: "Salón", status: "Comiendo", guests: 2, waiterId: "w1", bill: 53400, tipAccepted: true, tipAmount: 5340, qrToken: "B2M18", lastMessage: "¿Nos traen más pan?" },
-  { id: 3, zone: "Salón", status: "Esperando plato", guests: 4, waiterId: "w2", bill: 98200, tipAccepted: false, tipAmount: 0, qrToken: "K3N70", lastMessage: "Uno sin cebolla por favor." },
-  { id: 4, zone: "Terraza", status: "Pedido nuevo", guests: 2, waiterId: "w2", bill: 28600, tipAccepted: true, tipAmount: 2860, qrToken: "L4P22", lastMessage: "Pedimos dos Spritz." },
-  { id: 5, zone: "Bar", status: "Camarero ocupado", guests: 1, waiterId: "w3", bill: 14300, tipAccepted: false, tipAmount: 0, qrToken: "R5Q10", lastMessage: "Necesito ayuda con alergia." },
-  { id: 7, zone: "Salón", status: "Solicita cobro", guests: 3, waiterId: "w1", bill: 84900, tipAccepted: false, tipAmount: 0, qrToken: "A7K92", lastMessage: "Queremos pedir la cuenta." },
-  { id: 8, zone: "Salón", status: "Preparando", guests: 2, waiterId: "w1", bill: 62100, tipAccepted: true, tipAmount: 6210, qrToken: "H8Z55", lastMessage: "¿Cuánto falta para el plato?" },
-  { id: 9, zone: "VIP", status: "Cocina llama", guests: 5, waiterId: "w2", bill: 156800, tipAccepted: true, tipAmount: 15680, qrToken: "VIP09", lastMessage: "El chef pregunta término de carne." },
-];
 
 // Empty till. The real shift, if one is open, is loaded from cash_sessions.
 const CASH_SESSION_INITIAL = {
@@ -301,74 +291,10 @@ const KITCHEN_COLUMNS = {
   delivered: "Servido",
 };
 
-const SALES_PERIODS = {
-  day: { label: "Día", sales: 497400, tips: 29150, tickets: 18, avgTicket: 27633 },
-  month: { label: "Mes", sales: 14892400, tips: 1287400, tickets: 522, avgTicket: 28529 },
-  year: { label: "Año", sales: 174881000, tips: 14932000, tickets: 6240, avgTicket: 28025 },
-};
-
-const ORDERS = [
-  { id: "ORD-1047", table: 7, waiterId: "w1", status: "Preparando", priority: "Normal", eta: 9, channel: "QR Mesa", items: [
-    { dish: "Tagliatelle al Ragù", qty: 1, status: "Preparando", price: 21500 },
-    { dish: "Spritz Aperol", qty: 2, status: "Servido", price: 9800 },
-  ], notes: "Cliente solicita cuenta al finalizar." },
-  { id: "ORD-1048", table: 2, waiterId: "w1", status: "Listo para servir", priority: "Alta", eta: 0, channel: "QR Mesa", items: [
-    { dish: "Burrata di Bufala", qty: 1, status: "Listo", price: 14500 },
-    { dish: "Branzino al Forno", qty: 1, status: "Listo", price: 28900 },
-  ], notes: "Llevar pan adicional." },
-  { id: "ORD-1049", table: 9, waiterId: "w2", status: "Cocina requiere info", priority: "Alta", eta: 12, channel: "Cocina", items: [
-    { dish: "Osso Buco Milanese", qty: 2, status: "En espera", price: 32500 },
-    { dish: "Tiramisù Classico", qty: 1, status: "Pendiente", price: 9500 },
-  ], notes: "Confirmar término y alergia a lácteos." },
-  { id: "ORD-1050", table: 3, waiterId: "w2", status: "Recibido", priority: "Normal", eta: 18, channel: "QR Mesa", items: [
-    { dish: "Risotto ai Funghi", qty: 2, status: "Recibido", price: 19800 },
-    { dish: "San Pellegrino", qty: 1, status: "Pendiente", price: 4500 },
-  ], notes: "Uno sin cebolla." },
-];
-
-const CALLS = [
-  { id: "C-001", source: "mesa", table: 7, waiterId: "w1", type: "Solicita cobro", priority: "Alta", status: "Pendiente", age: "Ahora", text: "Queremos pedir la cuenta." },
-  { id: "C-002", source: "mesa", table: 5, waiterId: "w3", type: "Alergia", priority: "Crítica", status: "Pendiente", age: "1 min", text: "Necesito ayuda con alergia." },
-  { id: "C-003", source: "cocina", table: 9, waiterId: "w2", type: "Confirmar plato", priority: "Alta", status: "Pendiente", age: "2 min", text: "El chef necesita confirmar término de carne." },
-  { id: "C-004", source: "mesa", table: 2, waiterId: "w1", type: "Más pan", priority: "Normal", status: "En atención", age: "5 min", text: "¿Nos traen más pan?" },
-];
-
-const CLIENT_MESSAGES = [
-  { id: 1, table: 7, waiterId: "w1", from: "Cliente", type: "Cobro", text: "Queremos pedir la cuenta.", time: "20:43", status: "pendiente" },
-  { id: 2, table: 5, waiterId: "w3", from: "Cliente", type: "Alergia", text: "Necesito ayuda con alergia, soy intolerante a lácteos.", time: "20:42", status: "urgente" },
-  { id: 3, table: 8, waiterId: "w1", from: "Cliente", type: "Pedido", text: "¿Cuánto falta para el plato principal?", time: "20:39", status: "pendiente" },
-  { id: 4, table: 3, waiterId: "w2", from: "Cliente", type: "Nota cocina", text: "Uno de los risottos sin cebolla por favor.", time: "20:31", status: "resuelto" },
-];
-
-const MENU_ITEMS = [
-  { id: "tagliatelle", dish: "Tagliatelle al Ragù", category: "Principales", description: "Pasta fresca · ternera 6h · parmesano", price: 21500, avgPrep: 18, stock: "OK", available: true, visibleClient: true, tags: "TOP", imageUrl: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=900&auto=format&fit=crop" },
-  { id: "spritz", dish: "Spritz Aperol", category: "Bebidas", description: "Aperol · Prosecco · soda", price: 9800, avgPrep: 5, stock: "OK", available: true, visibleClient: true, tags: "2×1", imageUrl: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?q=80&w=900&auto=format&fit=crop" },
-  { id: "ossobuco", dish: "Osso Buco Milanese", category: "Principales", description: "Jarrete · gremolata · risotto", price: 32500, avgPrep: 32, stock: "Bajo", available: true, visibleClient: true, tags: "CHEF", imageUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=900&auto=format&fit=crop" },
-  { id: "branzino", dish: "Branzino al Forno", category: "Principales", description: "Lubina · limone · olive", price: 28900, avgPrep: 25, stock: "OK", available: true, visibleClient: true, tags: "Sin gluten", imageUrl: "https://images.unsplash.com/photo-1535400255456-984241443b29?q=80&w=900&auto=format&fit=crop" },
-  { id: "burrata", dish: "Burrata di Bufala", category: "Entradas", description: "Tomate heirloom · albahaca · AOVE", price: 14500, avgPrep: 8, stock: "OK", available: true, visibleClient: true, tags: "TOP,Veg", imageUrl: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?q=80&w=900&auto=format&fit=crop" },
-  { id: "tiramisu", dish: "Tiramisù Classico", category: "Postres", description: "Mascarpone · espresso", price: 9500, avgPrep: 7, stock: "OK", available: true, visibleClient: true, tags: "TOP", imageUrl: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?q=80&w=900&auto=format&fit=crop" },
-];
-
-const MENU_SALES = [
-  { id: "tagliatelle", dish: "Tagliatelle al Ragù", category: "Principales", sold: 34, revenue: 731000, avgPrep: 18, stock: "OK" },
-  { id: "spritz", dish: "Spritz Aperol", category: "Bebidas", sold: 61, revenue: 597800, avgPrep: 5, stock: "OK" },
-  { id: "ossobuco", dish: "Osso Buco Milanese", category: "Principales", sold: 18, revenue: 585000, avgPrep: 32, stock: "Bajo" },
-  { id: "branzino", dish: "Branzino al Forno", category: "Principales", sold: 13, revenue: 375700, avgPrep: 25, stock: "OK" },
-  { id: "burrata", dish: "Burrata di Bufala", category: "Entradas", sold: 22, revenue: 319000, avgPrep: 8, stock: "OK" },
-  { id: "tiramisu", dish: "Tiramisù Classico", category: "Postres", sold: 25, revenue: 237500, avgPrep: 7, stock: "OK" },
-];
-
 const RECEIPT_ITEMS = [
   { name: "Tagliatelle al Ragù", qty: 1, price: 21500 },
   { name: "Spritz Aperol", qty: 2, price: 9800 },
   { name: "Tiramisù Classico", qty: 1, price: 9500 },
-];
-
-const INVENTORY_ITEMS = [
-  { id: "inv-1", name: "Pasta fresca", category: "Ingrediente", stock: 18, unit: "kg", min: 8, linkedDishes: ["Tagliatelle al Ragù"], status: "OK" },
-  { id: "inv-2", name: "Jarrete de ternera", category: "Carne", stock: 4, unit: "kg", min: 6, linkedDishes: ["Osso Buco Milanese"], status: "Bajo" },
-  { id: "inv-3", name: "Aperol", category: "Bar", stock: 11, unit: "botellas", min: 4, linkedDishes: ["Spritz Aperol"], status: "OK" },
-  { id: "inv-4", name: "Mascarpone", category: "Postre", stock: 2, unit: "kg", min: 3, linkedDishes: ["Tiramisù Classico"], status: "Bajo" },
 ];
 
 const QR_TOKENS = [
@@ -376,11 +302,6 @@ const QR_TOKENS = [
   { table: 2, token: "B2M18", zone: "Salón", active: true, scans: 31, lastScan: "20:28" },
   { table: 7, token: "A7K92", zone: "Salón", active: true, scans: 44, lastScan: "20:43" },
   { table: 9, token: "VIP09", zone: "VIP", active: true, scans: 18, lastScan: "20:35" },
-];
-
-const EXPENSES = [
-  { id: "E-1", type: "Caja", detail: "Compra hielo", amount: 12000, userId: "a1", time: "19:22" },
-  { id: "E-2", type: "Proveedor", detail: "Reposición pan", amount: 30000, userId: "a1", time: "20:05" },
 ];
 
 const LOCAL_WEBHOOKS = {
@@ -401,12 +322,6 @@ const PERMISSIONS = [
   { module: "Inventario", admin: true, camarero: false, cocina: true, caja: false },
   { module: "Caja", admin: true, camarero: false, cocina: false, caja: true },
   { module: "Usuarios", admin: true, camarero: false, cocina: false, caja: false },
-];
-
-const REVIEWS = [
-  { id: "R-1", table: 7, waiterId: "w1", rating: 5, comment: "Excelente atención y platos rápidos.", google: true, time: "20:20" },
-  { id: "R-2", table: 2, waiterId: "w1", rating: 3, comment: "La bebida tardó un poco.", google: false, time: "19:58" },
-  { id: "R-3", table: 9, waiterId: "w2", rating: 4, comment: "Muy buena comida, faltó explicar mejor el maridaje.", google: true, time: "19:44" },
 ];
 
 const icons = {
@@ -440,11 +355,14 @@ const CSS = `
 let LIVE_STAFF = [];
 const setLiveStaff = (rows) => { LIVE_STAFF = Array.isArray(rows) ? rows : []; };
 
+const UNASSIGNED = { name: "Sin asignar", avatar: "—", role: "", photoUrl: "" };
+
+// Only ever resolves against staff loaded from the database. There used to be a
+// demo roster behind this, which meant a restaurant with no employees yet still
+// saw invented names like "Marco" in the topbar and on its receipts.
 function getStaff(id) {
-  if (!id) return { name: "Sin asignar", avatar: "—", role: "", photoUrl: "" };
-  return LIVE_STAFF.find((s) => s.id === id)
-    || STAFF.find((s) => s.id === id)
-    || { name: "Sin asignar", avatar: "—", role: "", photoUrl: "" };
+  if (!id) return UNASSIGNED;
+  return LIVE_STAFF.find((s) => s.id === id) || UNASSIGNED;
 }
 
 function StaffAvatar({ staff, className = "avatar" }) {
@@ -819,9 +737,11 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
     ["tables", "Mesas", icons.table],
     ["kitchen", "Cocina", icons.kitchen],
     ["sales", "Caja", icons.sales],
+    ["revenue", "Ventas", icons.sales],
     ["menu", "Carta", icons.menu],
     ["staff", "Camareros", icons.users],
     ["inventory", "Inventario", icons.kitchen],
+    ["reviews", "Reseñas", icons.star],
     ["settings", "Configuración", icons.settings],
   ];
   const waiterTabs = [
@@ -834,7 +754,7 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
   return <div className="app">
     <style>{CSS}</style>
     <aside className="sidebar">
-      <div className="brand">{restaurantName || RESTAURANT.name}<small>BACKOFFICE</small></div>
+      <div className="brand">{restaurantName || getRestaurantInfo().name || "HOLU"}<small>BACKOFFICE</small></div>
       <div className="role-card">
         <div style={{display:"flex", gap:10, alignItems:"center"}}><StaffAvatar staff={currentStaff} /><div><b>{currentStaff.name}</b><small style={{display:"block", color:"var(--muted)", marginTop:3}}>{role === "admin" ? "Administrador" : "Camarero"}</small></div></div>
       </div>
@@ -850,7 +770,7 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
 function Topbar({ role, staffId, authed, restaurantName }) {
   const found = getStaff(staffId);
   const current = (found && found.name !== "Sin asignar") ? found : (authed || found);
-  const name = restaurantName || RESTAURANT.name;
+  const name = restaurantName || getRestaurantInfo().name || "HOLU";
   return <div className="topbar">
     <div className="title"><h1>{name}</h1><p>{role === "admin" ? "Administrador · Control total" : "Camarero · Operación de turno"}</p></div>
     <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{role === "admin" ? "Administrador" : "Camarero"} · {current.shift}</small></div></div>
@@ -1027,11 +947,24 @@ function TablesView({ role, staffId, state, onGoToQr }) {
   </div>;
 }
 
+// Any identity line the restaurant has not filled in is left off the receipt
+// rather than printed as a placeholder.
+function ReceiptIdentity({ info }) {
+  const contact = [info.phone, info.website].filter(Boolean).join(" · ");
+  return <div className="center muted2">
+    {info.legalName && <>{info.legalName}<br /></>}
+    {info.rut && <>RUT {info.rut}<br /></>}
+    {info.address && <>{info.address}<br /></>}
+    {contact}
+  </div>;
+}
+
 function TableReceipt({ table, waiter }) {
+  const info = getRestaurantInfo();
   const subtotal = table.bill;
   const tip = table.tipAmount || 0;
   const total = subtotal + tip;
-  return <div className="receipt-wrap"><div className="receipt"><h3>{RESTAURANT.name}</h3><div className="center muted2">{RESTAURANT.legalName}<br />RUT {RESTAURANT.rut}<br />{RESTAURANT.address}<br />{RESTAURANT.phone} · {RESTAURANT.website}</div><div className="dash" /><div className="center"><b>BOLETA MESA {table.id}</b><br /><span className="muted2">{new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" /><div className="receipt-row"><span>Consumo mesa</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Propina 10%</span><b>{tip ? money(tip) : "No agregada"}</b></div><div className="receipt-row"><span>IVA incluido</span><b>—</b></div><div className="dash" /><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div><div className="receipt-row"><span>Atendió</span><b>{waiter.name}</b></div><div className="receipt-qr" /><div className="center muted2">Escanea para reseña Google</div><div className="dash" /><div className="center muted2">Gracias por visitar HOLU · Vuelve pronto</div></div></div>;
+  return <div className="receipt-wrap"><div className="receipt"><h3>{info.name || "—"}</h3><ReceiptIdentity info={info} /><div className="dash" /><div className="center"><b>BOLETA MESA {table.id}</b><br /><span className="muted2">{new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" /><div className="receipt-row"><span>Consumo mesa</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Propina 10%</span><b>{tip ? money(tip) : "No agregada"}</b></div><div className="receipt-row"><span>IVA incluido</span><b>—</b></div><div className="dash" /><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div><div className="receipt-row"><span>Atendió</span><b>{waiter.name}</b></div><div className="receipt-qr" /><div className="center muted2">Escanea para reseña Google</div><div className="dash" /><div className="center muted2">Gracias por visitar HOLU · Vuelve pronto</div></div></div>;
 }
 
 function TableDrawer({ table, role, state, staffId, onClose }) {
@@ -1179,7 +1112,7 @@ function KitchenView({ state }) {
 
 function CashCloseReport({ session, userId }) {
   const user = getStaff(userId || session.currentUser);
-  return <div className="close-report"><h2>Cierre de caja</h2><div className="muted2">{RESTAURANT.legalName} · RUT {RESTAURANT.rut}<br />Turno {session.activeTurn} · Responsable {user.name}<br />Apertura {session.openedAt} · Cierre {session.closedAt || "pendiente"}</div><div className="report-grid"><div className="report-box"><span>Fondo inicial</span><b>{money(session.openingCash)}</b></div><div className="report-box"><span>Efectivo</span><b>{money(session.cash)}</b></div><div className="report-box"><span>Tarjeta</span><b>{money(session.card)}</b></div><div className="report-box"><span>Transferencia</span><b>{money(session.transfer)}</b></div><div className="report-box"><span>Propinas</span><b>{money(session.tips)}</b></div><div className="report-box"><span>Gastos</span><b>{money(session.expenses)}</b></div><div className="report-box"><span>Total esperado</span><b>{money(session.expected)}</b></div><div className="report-box"><span>Diferencia</span><b>{money(session.difference)}</b></div></div><h3>Historial del turno</h3>{session.history.slice(0,6).map((h,idx)=><div className="receipt-row" key={idx}><span>{h.time} · {getStaff(h.userId).name}</span><b>{h.action}</b></div>)}<div className="signature-line">Firma responsable: {user.name}</div></div>;
+  return <div className="close-report"><h2>Cierre de caja</h2><div className="muted2">{[getRestaurantInfo().legalName, getRestaurantInfo().rut && `RUT ${getRestaurantInfo().rut}`].filter(Boolean).join(" · ")}<br />Turno {session.activeTurn} · Responsable {user.name}<br />Apertura {session.openedAt} · Cierre {session.closedAt || "pendiente"}</div><div className="report-grid"><div className="report-box"><span>Fondo inicial</span><b>{money(session.openingCash)}</b></div><div className="report-box"><span>Efectivo</span><b>{money(session.cash)}</b></div><div className="report-box"><span>Tarjeta</span><b>{money(session.card)}</b></div><div className="report-box"><span>Transferencia</span><b>{money(session.transfer)}</b></div><div className="report-box"><span>Propinas</span><b>{money(session.tips)}</b></div><div className="report-box"><span>Gastos</span><b>{money(session.expenses)}</b></div><div className="report-box"><span>Total esperado</span><b>{money(session.expected)}</b></div><div className="report-box"><span>Diferencia</span><b>{money(session.difference)}</b></div></div><h3>Historial del turno</h3>{session.history.slice(0,6).map((h,idx)=><div className="receipt-row" key={idx}><span>{h.time} · {getStaff(h.userId).name}</span><b>{h.action}</b></div>)}<div className="signature-line">Firma responsable: {user.name}</div></div>;
 }
 
 function CashClosingView({ state, staffId }) {
@@ -1191,7 +1124,7 @@ function CashClosingView({ state, staffId }) {
   const session = state.cashSession;
   const diffOk = session.difference === 0;
   const responsible = getStaff(session.currentUser);
-  const whatsappText = encodeURIComponent(`Cierre de caja ${RESTAURANT.name}
+  const whatsappText = encodeURIComponent(`Cierre de caja ${getRestaurantInfo().name}
 Turno: ${session.activeTurn}
 Responsable: ${responsible.name}
 Efectivo: ${money(session.cash)}
@@ -1201,7 +1134,7 @@ Propinas: ${money(session.tips)}
 Diferencia: ${money(session.difference)}`);
   const whatsappUrl = `https://wa.me/?text=${whatsappText}`;
   const downloadReport = () => {
-    const text = `CIERRE DE CAJA - ${RESTAURANT.name}
+    const text = `CIERRE DE CAJA - ${getRestaurantInfo().name}
 Turno: ${session.activeTurn}
 Responsable: ${responsible.name}
 Estado: ${session.status}
@@ -1236,12 +1169,44 @@ function ExpenseRegister({ state, staffId }) {
   return <div className="panel"><div className="panel-head"><div><h2>Gastos del turno</h2><p style={{margin:"4px 0 0"}}>Todo gasto queda asociado al usuario responsable y afecta cierre de caja.</p></div><span className="badge red">Egresos</span></div><div className="form-grid"><div className="field"><label>Tipo</label><select className="input" value={form.type} onChange={(e)=>setForm({...form,type:e.target.value})}><option>Caja</option><option>Proveedor</option><option>Emergencia</option><option>Operativo</option></select></div><div className="field"><label>Monto</label><input className="input" type="number" value={form.amount} onChange={(e)=>setForm({...form,amount:e.target.value})} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Detalle</label><input className="input" value={form.detail} onChange={(e)=>setForm({...form,detail:e.target.value})} placeholder="Ej: compra hielo, reposición pan..." /></div></div><button className="btn primary" style={{marginTop:12}} onClick={submit}>Registrar gasto</button><div className="list" style={{marginTop:14}}>{state.expenses.map((e)=><div className="row" key={e.id}><span className="badge red">{e.type}</span><div className="row-main"><b>{e.detail}</b><small>{e.time} · {getStaff(e.userId).name}</small></div><strong>{money(e.amount)}</strong></div>)}</div></div>;
 }
 
-function SalesView() {
+const PERIOD_LABELS = { day: "Día", month: "Mes", year: "Año" };
+const EMPTY_SUMMARY = { sales: 0, tips: 0, tickets: 0, avgTicket: 0 };
+
+function SalesView({ authToken }) {
   const [period, setPeriod] = useState("day");
-  const current = SALES_PERIODS[period];
-  const total = MENU_SALES.reduce((s, d) => s + d.revenue, 0);
-  const max = Math.max(...MENU_SALES.map((d) => d.revenue));
-  return <div className="grid"><div className="panel"><div className="panel-head"><div><h2>Ventas por periodo</h2><p style={{margin:"4px 0 0"}}>Incluye control explícito de propina 10% aceptada o rechazada.</p></div><div className="period-switch">{Object.entries(SALES_PERIODS).map(([key,p])=><button key={key} className={period===key?"on":""} onClick={()=>setPeriod(key)}>{p.label}</button>)}</div></div><div className="sales-split"><div className="sales-mini"><span>Ventas {current.label.toLowerCase()}</span><strong>{money(current.sales)}</strong></div><div className="sales-mini"><span>Propina 10%</span><strong>{money(current.tips)}</strong></div><div className="sales-mini"><span>Tickets</span><strong>{current.tickets}</strong></div><div className="sales-mini"><span>Ticket promedio</span><strong>{money(current.avgTicket)}</strong></div></div></div><div className="kpis"><div className="kpi"><span>Ventas platos</span><strong>{money(total)}</strong><small>Acumulado del servicio</small></div><div className="kpi"><span>Plato top</span><strong>{MENU_SALES[0].sold}</strong><small>{MENU_SALES[0].dish}</small></div><div className="kpi"><span>Propina registrada</span><strong>{money(current.tips)}</strong><small>Separada de ventas</small></div><div className="kpi"><span>Stock bajo</span><strong>{MENU_SALES.filter((d)=>d.stock === "Bajo").length}</strong><small>Revisar cocina</small></div></div><div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2><span className="badge green">Admin</span></div><div className="chart">{MENU_SALES.map((d)=><div className="bar" key={d.id}><b>{d.dish}</b><div className="bar-track"><div className="bar-fill" style={{width:`${Math.max(8, d.revenue / max * 100)}%`}} /></div><span className="price">{money(d.revenue)}</span></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Detalle de platos</h2></div><div className="list">{MENU_SALES.map((d)=><div className="row" key={d.id}><span className={`badge ${d.stock === "Bajo" ? "red" : "green"}`}>{d.stock}</span><div className="row-main"><b>{d.dish}</b><small>{d.category} · vendidos: {d.sold} · prep promedio: {d.avgPrep} min</small></div><strong>{money(d.revenue)}</strong></div>)}</div></div></div>;
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [dishes, setDishes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErr("");
+    Promise.all([
+      supaRpc("sales_summary", { p_period: period }, authToken),
+      supaRpc("dish_sales", { p_period: period }, authToken),
+    ])
+      .then(([summaryRows, dishRows]) => {
+        if (cancelled) return;
+        const s = Array.isArray(summaryRows) ? summaryRows[0] : summaryRows;
+        setSummary(s ? { sales: s.sales || 0, tips: s.tips || 0, tickets: s.tickets || 0, avgTicket: s.avg_ticket || 0 } : EMPTY_SUMMARY);
+        setDishes(Array.isArray(dishRows) ? dishRows : []);
+      })
+      .catch((e) => { if (!cancelled) setErr(e.message.slice(0, 160)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [period, authToken]);
+
+  const current = { label: PERIOD_LABELS[period], ...summary };
+  const total = dishes.reduce((s, d) => s + Number(d.revenue || 0), 0);
+  const max = Math.max(1, ...dishes.map((d) => Number(d.revenue || 0)));
+  const topDish = dishes[0] || null;
+  const lowStock = dishes.filter((d) => d.stock_status === "Bajo").length;
+
+  if (loading) return <div className="panel"><p style={{ color: "var(--muted)", textAlign: "center", padding: "32px 0" }}>Cargando ventas...</p></div>;
+  if (err) return <div className="panel"><p style={{ color: "var(--red2)", textAlign: "center", padding: "32px 0" }}>No se pudieron cargar las ventas: {err}</p></div>;
+  return <div className="grid"><div className="panel"><div className="panel-head"><div><h2>Ventas por periodo</h2><p style={{margin:"4px 0 0"}}>Calculado sobre pedidos ya cobrados. La propina va aparte, tomada del cierre de caja.</p></div><div className="period-switch">{Object.entries(PERIOD_LABELS).map(([key,label])=><button key={key} className={period===key?"on":""} onClick={()=>setPeriod(key)}>{label}</button>)}</div></div><div className="sales-split"><div className="sales-mini"><span>Ventas {current.label.toLowerCase()}</span><strong>{money(current.sales)}</strong></div><div className="sales-mini"><span>Propina</span><strong>{money(current.tips)}</strong></div><div className="sales-mini"><span>Tickets</span><strong>{current.tickets}</strong></div><div className="sales-mini"><span>Ticket promedio</span><strong>{money(current.avgTicket)}</strong></div></div></div><div className="kpis"><div className="kpi"><span>Ventas platos</span><strong>{money(total)}</strong><small>Suma del detalle por plato</small></div><div className="kpi"><span>Plato top</span><strong>{topDish ? topDish.sold : 0}</strong><small>{topDish ? topDish.dish_name : "Sin ventas aún"}</small></div><div className="kpi"><span>Propina registrada</span><strong>{money(current.tips)}</strong><small>Separada de ventas</small></div><div className="kpi"><span>Stock bajo</span><strong>{lowStock}</strong><small>Revisar cocina</small></div></div>{dishes.length === 0 ? <div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2></div><p style={{color:"var(--muted)",textAlign:"center",padding:"28px 0"}}>Todavía no hay pedidos cobrados en este periodo. Cuando cobres la primera mesa, aparecerán aquí.</p></div> : <><div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2><span className="badge green">Admin</span></div><div className="chart">{dishes.map((d)=><div className="bar" key={d.menu_item_id}><b>{d.dish_name}</b><div className="bar-track"><div className="bar-fill" style={{width:`${Math.max(8, Number(d.revenue) / max * 100)}%`}} /></div><span className="price">{money(d.revenue)}</span></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Detalle de platos</h2></div><div className="list">{dishes.map((d)=><div className="row" key={d.menu_item_id}><span className={`badge ${d.stock_status === "Bajo" ? "red" : "green"}`}>{d.stock_status}</span><div className="row-main"><b>{d.dish_name}</b><small>{d.category} · vendidos: {d.sold} · prep promedio: {d.avg_prep} min</small></div><strong>{money(d.revenue)}</strong></div>)}</div></div></>}</div>;
 }
 
 function InventoryView({ state }) {
@@ -1943,16 +1908,35 @@ function MenuEditor({ item, onClose, onSave, authToken }) {
   );
 }
 
-function ReviewsView({ role, staffId }) {
-  const visible = REVIEWS.filter((r)=>role === "admin" || r.waiterId === staffId);
-  return <div className="panel"><div className="panel-head"><h2>Reseñas y experiencia</h2><span className="badge">Google + internas</span></div><div className="list">{visible.map((r)=><div className="row" key={r.id}><span className={`badge ${r.rating >= 4 ? "green" : ""}`}>Mesa {r.table}</span><div className="row-main"><b style={{color:"var(--gold2)"}}>{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</b><small>{r.comment} · {getStaff(r.waiterId).name} · {r.time}</small></div><span className={`badge ${r.google ? "green" : ""}`}>{r.google ? "Google" : "Interna"}</span></div>)}</div></div>;
+function ReviewsView({ role, staffId, authToken }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    supaGet(`reviews?select=id,table_id,waiter_id,rating,comment,source,created_at&order=created_at.desc&limit=100`, authToken)
+      .then((rows) => { if (!cancelled && Array.isArray(rows)) setReviews(rows); })
+      .catch((e) => { if (!cancelled) setErr(e.message.slice(0, 160)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [authToken]);
+
+  // A waiter only sees the reviews left on their own tables; the admin sees all.
+  const visible = reviews.filter((r) => role === "admin" || r.waiter_id === staffId);
+  const avg = visible.length ? (visible.reduce((s, r) => s + (r.rating || 0), 0) / visible.length).toFixed(1) : null;
+
+  if (loading) return <div className="panel"><p style={{color:"var(--muted)",textAlign:"center",padding:"32px 0"}}>Cargando reseñas...</p></div>;
+  if (err) return <div className="panel"><p style={{color:"var(--red2)",textAlign:"center",padding:"32px 0"}}>No se pudieron cargar las reseñas: {err}</p></div>;
+
+  return <div className="panel"><div className="panel-head"><div><h2>Reseñas y experiencia</h2><p style={{margin:"4px 0 0"}}>{visible.length ? `${visible.length} reseñas · promedio ${avg} ★` : "Las reseñas llegan desde la pantalla de la mesa"}</p></div><span className="badge">{visible.length}</span></div>{visible.length === 0 ? <p style={{color:"var(--muted)",textAlign:"center",padding:"28px 0"}}>Todavía no hay reseñas. Aparecerán aquí cuando un cliente califique desde el QR de su mesa.</p> : <div className="list">{visible.map((r)=><div className="row" key={r.id}><span className={`badge ${r.rating >= 4 ? "green" : "red"}`}>Mesa {r.table_id ?? "—"}</span><div className="row-main"><b style={{color:"var(--gold2)"}}>{"★".repeat(r.rating || 0)}{"☆".repeat(Math.max(0, 5-(r.rating || 0)))}</b><small>{r.comment || "Sin comentario"} · {getStaff(r.waiter_id).name} · {timeAgo(r.created_at)}</small></div><span className="badge">{r.source === "table_qr" ? "QR mesa" : (r.source || "Interna")}</span></div>)}</div>}</div>;
 }
 
 function ReceiptPreview({ receiptConfig, restaurant }) {
   const subtotal = RECEIPT_ITEMS.reduce((s, i)=>s + i.qty * i.price, 0);
   const service = Math.round(subtotal * 0.1);
   const total = subtotal + service;
-  return <div className="receipt-wrap"><div className="receipt"><h3>{restaurant.name}</h3><div className="center muted2">{restaurant.legalName}<br />RUT {restaurant.rut}<br />{restaurant.address}<br />{restaurant.phone} · {restaurant.website}</div><div className="dash" /><div className="center"><b>{receiptConfig.title}</b><br /><span className="muted2">Mesa 7 · {new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" />{RECEIPT_ITEMS.map((i)=><div className="receipt-row" key={i.name}><span>{i.qty}× {i.name}</span><b>{money(i.qty * i.price)}</b></div>)}<div className="dash" /><div className="receipt-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Servicio 10%</span><b>{money(service)}</b></div><div className="receipt-row"><span>{receiptConfig.taxLabel}</span><b>—</b></div><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div>{receiptConfig.showWaiter && <div className="receipt-row"><span>Atendió</span><b>Marco</b></div>}{receiptConfig.showQr && <><div className="receipt-qr" /><div className="center muted2">Escanea para reseña Google</div></>}<div className="dash" /><div className="center muted2">{receiptConfig.footer}</div></div></div>;
+  return <div className="receipt-wrap"><div className="receipt"><h3>{restaurant.name}</h3><div className="center muted2">{restaurant.legalName}<br />RUT {restaurant.rut}<br />{restaurant.address}<br />{restaurant.phone} · {restaurant.website}</div><div className="dash" /><div className="center"><b>{receiptConfig.title}</b><br /><span className="muted2">Mesa 7 · {new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" />{RECEIPT_ITEMS.map((i)=><div className="receipt-row" key={i.name}><span>{i.qty}× {i.name}</span><b>{money(i.qty * i.price)}</b></div>)}<div className="dash" /><div className="receipt-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Servicio 10%</span><b>{money(service)}</b></div><div className="receipt-row"><span>{receiptConfig.taxLabel}</span><b>—</b></div><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div>{receiptConfig.showWaiter && <div className="receipt-row"><span>Atendió</span><b>Nombre del camarero</b></div>}{receiptConfig.showQr && <><div className="receipt-qr" /><div className="center muted2">Escanea para reseña Google</div></>}<div className="dash" /><div className="center muted2">{receiptConfig.footer}</div></div></div>;
 }
 
 function SettingsView({ state, onRestaurantNameChange }) {
@@ -1967,6 +1951,7 @@ function SettingsView({ state, onRestaurantNameChange }) {
   ]);
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
+  const [saveErr, setSaveErr] = useState("");
   const [promos, setPromos] = useState([]);
   const updateRestaurant = (key, value) => setRestaurant((r)=>({ ...r, [key]: value }));
   const updatePromo = (idx, key, value) => setPromos((rows) => rows.map((p, i) => i === idx ? { ...p, [key]: value } : p));
@@ -1997,7 +1982,7 @@ function SettingsView({ state, onRestaurantNameChange }) {
   }, []);
 
   const saveRestaurant = async () => {
-    setSaving(true); setSavedOk(false);
+    setSaving(true); setSavedOk(false); setSaveErr("");
     try {
       await supaFetch(`restaurants?id=eq.${getRestaurantId()}`, {
         method: "PATCH",
@@ -2018,8 +2003,17 @@ function SettingsView({ state, onRestaurantNameChange }) {
         }),
       }, authToken);
       setSavedOk(true); setTimeout(() => setSavedOk(false), 2500);
+      // Receipts read the identity from module state, so refresh it here or the
+      // next boleta would still carry the values from before this save.
+      setLiveRestaurant({
+        name: restaurant.name, legalName: restaurant.legalName, rut: restaurant.rut,
+        address: restaurant.address, phone: restaurant.phone, website: restaurant.website,
+      });
       if (onRestaurantNameChange && restaurant.name) onRestaurantNameChange(restaurant.name);
-    } catch (e) { console.error("[holu settings] save:", e.message); }
+    } catch (e) {
+      console.error("[holu settings] save:", e.message);
+      setSaveErr(`No se pudo guardar: ${e.message.slice(0, 140)}`);
+    }
     finally { setSaving(false); }
   };
   const updateReceipt = (key, value) => setReceiptConfig((r)=>({ ...r, [key]: value }));
@@ -2095,7 +2089,7 @@ function SettingsView({ state, onRestaurantNameChange }) {
       }
     }
   };
-  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><label style={{fontWeight:700,fontSize:13,marginBottom:8,display:"block"}}>Identidad visual en app de mesa</label><div className="config-grid" style={{gap:10}}><div className="field"><label>Logo URL <small style={{color:"var(--dim)",fontWeight:400}}>(aparece en la cabecera de mesa)</small></label><input className="input" value={restaurant.logoUrl||""} onChange={(e)=>updateRestaurant("logoUrl",e.target.value)} placeholder="https://..." />{restaurant.logoUrl&&<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10}}><img src={restaurant.logoUrl} alt="logo" style={{width:48,height:48,borderRadius:12,objectFit:"cover",border:"1px solid var(--line)"}} onError={(e)=>e.target.style.display="none"} /><small style={{color:"var(--dim)"}}>Vista previa del logo</small></div>}</div><div className="field"><label>Foto portada URL <small style={{color:"var(--dim)",fontWeight:400}}>(fondo hero de mesa)</small></label><input className="input" value={restaurant.coverUrl||""} onChange={(e)=>updateRestaurant("coverUrl",e.target.value)} placeholder="https://..." />{restaurant.coverUrl&&<div style={{marginTop:8,height:60,borderRadius:12,backgroundImage:`url(${restaurant.coverUrl})`,backgroundSize:"cover",backgroundPosition:"center",border:"1px solid var(--line)"}} />}</div></div></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Promociones visibles en la app de mesa</label><button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} onClick={addPromo}>+ Promo</button></div>{promos.length===0&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Sin promociones. El cliente no verá esta sección.</p>}{promos.map((p,idx)=><div key={idx} className="config-card" style={{marginBottom:8}}><div className="form-grid"><div className="field"><label>Etiqueta</label><input className="input" value={p.eyebrow||""} onChange={(e)=>updatePromo(idx,"eyebrow",e.target.value)} placeholder="LUN–VIE" /></div><div className="field"><label>Título</label><input className="input" value={p.title||""} onChange={(e)=>updatePromo(idx,"title",e.target.value)} placeholder="Menú del Día" /></div><div className="field"><label>Descripción</label><input className="input" value={p.body||""} onChange={(e)=>updatePromo(idx,"body",e.target.value)} placeholder="Entrada + principal + postre" /></div><div className="field"><label>Precio / destacado</label><input className="input" value={p.price||""} onChange={(e)=>updatePromo(idx,"price",e.target.value)} placeholder="$32.000" /></div></div><button className="btn danger" style={{marginTop:8,fontSize:12,padding:"7px 10px"}} onClick={()=>removePromo(idx)}>Eliminar</button></div>)}</div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
+  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}{saveErr&&<span className="badge red">{saveErr}</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><label style={{fontWeight:700,fontSize:13,marginBottom:8,display:"block"}}>Identidad visual en app de mesa</label><div className="config-grid" style={{gap:10}}><div className="field"><label>Logo URL <small style={{color:"var(--dim)",fontWeight:400}}>(aparece en la cabecera de mesa)</small></label><input className="input" value={restaurant.logoUrl||""} onChange={(e)=>updateRestaurant("logoUrl",e.target.value)} placeholder="https://..." />{restaurant.logoUrl&&<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10}}><img src={restaurant.logoUrl} alt="logo" style={{width:48,height:48,borderRadius:12,objectFit:"cover",border:"1px solid var(--line)"}} onError={(e)=>e.target.style.display="none"} /><small style={{color:"var(--dim)"}}>Vista previa del logo</small></div>}</div><div className="field"><label>Foto portada URL <small style={{color:"var(--dim)",fontWeight:400}}>(fondo hero de mesa)</small></label><input className="input" value={restaurant.coverUrl||""} onChange={(e)=>updateRestaurant("coverUrl",e.target.value)} placeholder="https://..." />{restaurant.coverUrl&&<div style={{marginTop:8,height:60,borderRadius:12,backgroundImage:`url(${restaurant.coverUrl})`,backgroundSize:"cover",backgroundPosition:"center",border:"1px solid var(--line)"}} />}</div></div></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Promociones visibles en la app de mesa</label><button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} onClick={addPromo}>+ Promo</button></div>{promos.length===0&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Sin promociones. El cliente no verá esta sección.</p>}{promos.map((p,idx)=><div key={idx} className="config-card" style={{marginBottom:8}}><div className="form-grid"><div className="field"><label>Etiqueta</label><input className="input" value={p.eyebrow||""} onChange={(e)=>updatePromo(idx,"eyebrow",e.target.value)} placeholder="LUN–VIE" /></div><div className="field"><label>Título</label><input className="input" value={p.title||""} onChange={(e)=>updatePromo(idx,"title",e.target.value)} placeholder="Menú del Día" /></div><div className="field"><label>Descripción</label><input className="input" value={p.body||""} onChange={(e)=>updatePromo(idx,"body",e.target.value)} placeholder="Entrada + principal + postre" /></div><div className="field"><label>Precio / destacado</label><input className="input" value={p.price||""} onChange={(e)=>updatePromo(idx,"price",e.target.value)} placeholder="$32.000" /></div></div><button className="btn danger" style={{marginTop:8,fontSize:12,padding:"7px 10px"}} onClick={()=>removePromo(idx)}>Eliminar</button></div>)}</div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
 <>
   <button className="btn ghost" style={{marginTop:10}} onClick={()=>setShowPrinterPanel(!showPrinterPanel)}>
     {showPrinterPanel ? "Ocultar" : "Ver"} configuración de impresora
@@ -2390,7 +2384,7 @@ export default function HoluAdmin() {
     } catch { return null; }
   });
   const [role, setRole] = useState(authed?.role || "camarero");
-  const [staffId, setStaffId] = useState(authed?.id || "w1");
+  const [staffId, setStaffId] = useState(authed?.id || null);
   const [tab, setTab] = useState("dashboard");
   const [restaurantName, setRestaurantName] = useState("");
   const [trialInfo, setTrialInfo] = useState(null);
@@ -2401,12 +2395,22 @@ export default function HoluAdmin() {
   // screen gets the name from restaurant_public(), which exposes only branding.
   useEffect(() => {
     if (session?.access_token) {
-      supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,trial_ends_at,activated_at&limit=1`, {}, session.access_token)
+      supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,legal_name,rut,address,phone,website,trial_ends_at,activated_at&limit=1`, {}, session.access_token)
         .then((rows) => {
-          if (Array.isArray(rows) && rows[0]) {
-            if (rows[0].name) setRestaurantName(rows[0].name);
-            setTrialInfo({ trial_ends_at: rows[0].trial_ends_at, activated_at: rows[0].activated_at });
-          }
+          const r = Array.isArray(rows) ? rows[0] : null;
+          if (!r) return;
+          if (r.name) setRestaurantName(r.name);
+          // Receipts and the cash-closing report read this, so it has to be the
+          // restaurant's own legal identity, never a placeholder.
+          setLiveRestaurant({
+            name: r.name || "",
+            legalName: r.legal_name || "",
+            rut: r.rut || "",
+            address: r.address || "",
+            phone: r.phone || "",
+            website: r.website || "",
+          });
+          setTrialInfo({ trial_ends_at: r.trial_ends_at, activated_at: r.activated_at });
         })
         .catch(() => {});
       return;
@@ -2437,11 +2441,12 @@ export default function HoluAdmin() {
       case "calls": return <CallsView role={role} staffId={staffId} state={state} />;
       case "messages": return <MessagesView role={role} staffId={staffId} state={state} />;
       case "sales": return <CashClosingView state={state} staffId={staffId} />;
+      case "revenue": return <SalesView authToken={state.authToken} />;
       case "staff": return <StaffView state={state} />;
       case "inventory": return <InventoryView state={state} />;
       case "qr": return <QRView state={state} />;
       case "menu": return <MenuView state={state} />;
-      case "reviews": return <ReviewsView role={role} staffId={staffId} />;
+      case "reviews": return <ReviewsView role={role} staffId={staffId} authToken={state.authToken} />;
       case "settings": return <SettingsView state={state} onRestaurantNameChange={setRestaurantName} />;
       default: return <Dashboard role={role} staffId={staffId} state={state} onGoToCaja={() => setTab("sales")} />;
     }
@@ -2480,7 +2485,7 @@ export default function HoluAdmin() {
     setSession(null);
     setAuthed(null);
     setRole("camarero");
-    setStaffId("w1");
+    setStaffId(null);
   };
 
   const handleActivate = async (code) => {

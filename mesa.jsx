@@ -77,13 +77,16 @@ const resolveQrContext = async (qrToken) => {
   return { ...FALLBACK_CONTEXT, qrToken };
 };
 
+// Filled in by resolve_qr() from the restaurant the scanned QR belongs to.
+// Nothing here is invented: a placeholder concept or Google link would be
+// shown to that restaurant's real diners.
 const RESTAURANT = {
-  name: "HOLU",
-  concept: "Cocina italiana de autor",
-  city: "Santiago",
-  service: "Cena",
-  avgPrep: "18–32 min",
-  googleReviewUrl: "https://g.page/r/CODIGO-DE-RESTAURANTE/review",
+  name: "",
+  concept: "",
+  city: "",
+  service: "",
+  avgPrep: "",
+  googleReviewUrl: "",
 };
 
 const buildSessionId = (qrToken, tableId) => `holu-${qrToken}-table-${tableId}-${new Date().toISOString().slice(0, 10)}`;
@@ -126,27 +129,6 @@ const loadSession = (storageKey) => {
 const saveSession = (storageKey, state) => {
   try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch {}
 };
-
-const MENU = [
-  { id: "burrata", category: "Entradas", name: "Burrata di Bufala", subtitle: "Tomate heirloom · albahaca · AOVE", detail: "Cremosa, fresca y perfecta para compartir.", price: 14500, minutes: 8, kcal: 420, tags: ["TOP", "Vegetariano"], allergens: ["Lácteos"], pair: "Prosecco brut" },
-  { id: "carpaccio", category: "Entradas", name: "Carpaccio di Manzo", subtitle: "Filete · rúcula · parmesano 36m", detail: "Corte fino, cítrico y salino, terminado con aceite de oliva.", price: 16800, minutes: 10, kcal: 360, tags: ["Nuevo"], allergens: ["Lácteos"], pair: "Chianti clásico" },
-  { id: "arancini", category: "Entradas", name: "Arancini al Tartufo", subtitle: "Risotto frito · fontina · trufa negra", detail: "Crujiente por fuera, cremoso por dentro. Especial de la casa.", price: 12900, minutes: 12, kcal: 510, tags: ["CHEF", "Vegetariano"], allergens: ["Gluten", "Lácteos", "Huevo"], pair: "Pinot Grigio" },
-  { id: "tagliatelle", category: "Principales", name: "Tagliatelle al Ragù", subtitle: "Pasta fresca · ternera 6h · parmesano", detail: "Nuestra pasta más pedida: ragù profundo, cocción lenta y pasta al dente.", price: 21500, minutes: 18, kcal: 690, tags: ["TOP"], allergens: ["Gluten", "Lácteos", "Huevo"], pair: "Sangiovese" },
-  { id: "branzino", category: "Principales", name: "Branzino al Forno", subtitle: "Lubina · limone · olive · hinojo", detail: "Pescado de horno, ligero y aromático, con terminación cítrica.", price: 28900, minutes: 25, kcal: 540, tags: ["Sin gluten"], allergens: ["Pescado"], pair: "Vermentino" },
-  { id: "ossobuco", category: "Principales", name: "Osso Buco Milanese", subtitle: "Jarrete de ternera · gremolata · risotto", detail: "Plato lento, intenso y elegante. Ideal si quieres algo memorable.", price: 32500, minutes: 32, kcal: 820, tags: ["CHEF"], allergens: ["Lácteos"], pair: "Barolo" },
-  { id: "risotto", category: "Principales", name: "Risotto ai Funghi", subtitle: "Carnaroli · porcini · grana padano", detail: "Textura cremosa, perfume de bosque y umami elegante.", price: 19800, minutes: 21, kcal: 620, tags: ["Vegetariano"], allergens: ["Lácteos"], pair: "Nebbiolo joven" },
-  { id: "tiramisu", category: "Postres", name: "Tiramisù Classico", subtitle: "Mascarpone · espresso · savoiardi", detail: "Capas suaves, café intenso y cacao amargo.", price: 9500, minutes: 7, kcal: 410, tags: ["TOP"], allergens: ["Gluten", "Lácteos", "Huevo", "Cafeína"], pair: "Vin Santo" },
-  { id: "panna", category: "Postres", name: "Panna Cotta", subtitle: "Vainilla bourbon · frutti rossi", detail: "Fina, fría y sedosa, con acidez de frutos rojos.", price: 8200, minutes: 6, kcal: 330, tags: ["Sin gluten"], allergens: ["Lácteos"], pair: "Moscato d'Asti" },
-  { id: "spritz", category: "Bebidas", name: "Spritz Aperol", subtitle: "Aperol · Prosecco · soda", detail: "Aperitivo fresco, cítrico y amargo suave.", price: 9800, minutes: 5, kcal: 180, tags: ["2x1 18–20"], allergens: [], pair: "Arancini" },
-  { id: "vino", category: "Bebidas", name: "Vino de la Casa", subtitle: "Tinto o blanco · copa", detail: "Selección rotativa por temporada.", price: 7500, minutes: 3, kcal: 125, tags: [], allergens: ["Sulfitos"], pair: "Pasta fresca" },
-  { id: "agua", category: "Bebidas", name: "San Pellegrino", subtitle: "Acqua frizzante 750ml", detail: "Agua mineral con gas.", price: 4500, minutes: 2, kcal: 0, tags: [], allergens: [], pair: "Toda la carta" },
-];
-
-const PROMOS = [
-  { eyebrow: "LUN–VIE", title: "Menú del Día", body: "Entrada + principal + postre + bebida", price: "$32.000" },
-  { eyebrow: "18–20 H", title: "Aperitivo", body: "Spritz y cócteles seleccionados", price: "2×1" },
-  { eyebrow: "CHEF", title: "Maridaje", body: "3 copas recomendadas por plato", price: "$18.900" },
-];
 
 const KITCHEN_STEPS = [
   { key: "received", label: "Recibido", detail: "Orden confirmada" },
@@ -246,7 +228,7 @@ function Header({ title = RESTAURANT.name, qrContext = FALLBACK_CONTEXT }) {
   return <div className="header"><button className="icon">{icons.menu}</button><div className="header-title">{title}</div><div className="pill">{qrContext.tableLabel}</div></div>;
 }
 
-function Home({ go, session, qrContext = FALLBACK_CONTEXT, restaurant = RESTAURANT, promos = PROMOS }) {
+function Home({ go, session, qrContext = FALLBACK_CONTEXT, restaurant = RESTAURANT, promos = [] }) {
   const active = session.orders.find((o) => o.status !== "served");
   const heroStyle = restaurant.coverUrl
     ? { backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.72)),url('${restaurant.coverUrl}')`, backgroundSize: "cover", backgroundPosition: "center" }
@@ -254,15 +236,15 @@ function Home({ go, session, qrContext = FALLBACK_CONTEXT, restaurant = RESTAURA
   return <main className="screen fade"><section className="hero" style={heroStyle}><div className="topbar">{restaurant.logoUrl ? <img src={restaurant.logoUrl} alt={restaurant.name} style={{ width: 40, height: 40, borderRadius: 12, objectFit: "cover", border: "1px solid rgba(255,255,255,.2)" }} /> : <button className="icon">{icons.menu}</button>}<div className="brand">{restaurant.name}<small>{restaurant.concept ? restaurant.concept.toUpperCase().slice(0, 18) : "RISTORANTE"}</small></div><div className="pill">{qrContext.tableLabel}</div></div><div className="hero-copy"><span className="eyebrow">Bienvenido · {qrContext.zone || "Mesa"}</span><h1>Disfruta tu experiencia</h1><p>{restaurant.concept || RESTAURANT.concept}</p></div></section><div className="action-grid"><button className="action" onClick={() => go("menu")}>{icons.menu}<h3>Carta</h3><p>Explora el menú y agrega platos.</p></button><button className="action" onClick={() => go("order")}>{icons.order}<h3>Estado del pedido</h3><p>{active ? `${active.id} · ${active.eta} min` : "Sigue cocina en vivo."}</p></button><button className="action" onClick={() => go("waiter")}>{icons.bell}<h3>Llamar camarero</h3><p>Ayuda, bebidas o atención rápida.</p></button><button className="action" onClick={() => go("bill")}>{icons.bill}<h3>La cuenta</h3><p>Ver consumo y solicitar cobro.</p></button><button className="action" onClick={() => go("feedback")}>{icons.star}<h3>Reseña</h3><p>Valora la experiencia.</p></button></div>{promos.length > 0 && <div className="promo-row">{promos.map((p, i) => <article className="promo glass" key={p.title || i}><b>{p.eyebrow}</b><h3>{p.title}</h3><p>{p.body}</p><strong>{p.price}</strong></article>)}</div>}</main>;
 }
 
-function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT, menu = MENU }) {
+function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT, menu = [] }) {
   const [cat, setCat] = useState("Todos"); const [q, setQ] = useState("");
   const cats = ["Todos", ...Array.from(new Set(menu.map((d) => d.category)))];
   const list = menu.filter((d) => (cat === "Todos" || d.category === cat) && (d.name + d.subtitle + (Array.isArray(d.tags) ? d.tags.join(" ") : String(d.tags || ""))).toLowerCase().includes(q.toLowerCase()));
   const subtotal = Object.values(session.cart).reduce((s, i) => s + i.price * i.qty, 0); const count = getCartCount(session.cart);
-  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato, alérgeno o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.map((d) => { const imgUrl = d.imageUrl || photos[d.id] || ""; const tagList = Array.isArray(d.tags) ? d.tags : String(d.tags || "").split(",").map((t) => t.trim()).filter(Boolean); return <article className="dish glass" key={d.id}><div className="photo" style={imgUrl ? { backgroundImage: `url(${imgUrl})` } : {}} /><div><h3>{d.name}</h3><p>{d.subtitle}</p><div className="tags">{tagList.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}</div><div style={{ marginTop: 8, color: "#bfae9d", fontSize: 11 }}>{d.minutes || d.avgPrep || 0} min{d.kcal ? ` · ${d.kcal} kcal` : ""}</div></div><div style={{ display: "grid", gap: 10, justifyItems: "end" }}><div className="price">{money(d.price)}</div><button className="add" style={session.cart[d.id]?.qty > 0 ? { background: "linear-gradient(135deg,var(--gold),var(--gold2))", color: "#171006", borderColor: "transparent", fontWeight: 900, fontSize: 13 } : {}} onClick={() => session.addItem(d)}>{session.cart[d.id]?.qty > 0 ? session.cart[d.id].qty : icons.plus}</button></div></article>; })}</div>{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
+  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato, alérgeno o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.length === 0 && <div className="empty">La carta todavía no está publicada. Llama al camarero y con gusto te ayudamos.</div>}{list.map((d) => { const imgUrl = d.imageUrl || photos[d.id] || ""; const tagList = Array.isArray(d.tags) ? d.tags : String(d.tags || "").split(",").map((t) => t.trim()).filter(Boolean); return <article className="dish glass" key={d.id}><div className="photo" style={imgUrl ? { backgroundImage: `url(${imgUrl})` } : {}} /><div><h3>{d.name}</h3><p>{d.subtitle}</p><div className="tags">{tagList.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}</div><div style={{ marginTop: 8, color: "#bfae9d", fontSize: 11 }}>{d.minutes || d.avgPrep || 0} min{d.kcal ? ` · ${d.kcal} kcal` : ""}</div></div><div style={{ display: "grid", gap: 10, justifyItems: "end" }}><div className="price">{money(d.price)}</div><button className="add" style={session.cart[d.id]?.qty > 0 ? { background: "linear-gradient(135deg,var(--gold),var(--gold2))", color: "#171006", borderColor: "transparent", fontWeight: 900, fontSize: 13 } : {}} onClick={() => session.addItem(d)}>{session.cart[d.id]?.qty > 0 ? session.cart[d.id].qty : icons.plus}</button></div></article>; })}</div>{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
 }
 
-function CartDrawer({ open, setOpen, session, go }) {
+function CartDrawer({ open, setOpen, session, go, menu = [] }) {
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(false);
@@ -279,7 +261,7 @@ function CartDrawer({ open, setOpen, session, go }) {
       setSending(false);
     }
   };
-  return <aside className={`drawer ${open ? "open" : ""}`}><div className="drawer-head"><h2>Tu pedido</h2><button className="icon" onClick={() => setOpen(false)}>{icons.x}</button></div><div className="cart-list">{items.length ? items.map((item) => <div className="cart-item" key={item.id}><div><h4>{item.name}</h4><small>{item.qty} × {money(item.price)}</small></div><div className="qty"><button onClick={() => session.removeItem(item.id)}>{icons.minus}</button><strong>{item.qty}</strong><button onClick={() => session.addItem(MENU.find((d) => d.id === item.id))}>{icons.plus}</button></div></div>) : <div className="empty">Aún no agregaste platos.</div>}</div>{!!items.length && <><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 72, border: "1px solid rgba(255,255,255,.12)" }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notas para cocina: sin cebolla, punto de carne, alergias..." /><div className="total-row"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="total-row"><span>Servicio sugerido 10%</span><strong>{money(subtotal * 0.1)}</strong></div><div className="total-row strong"><span>Total estimado</span><strong>{money(subtotal * 1.1)}</strong></div>{sendError && <div style={{ background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.3)", borderRadius:12, padding:"12px 14px", color:"#fca5a5", fontSize:13, lineHeight:1.5 }}>No se pudo enviar el pedido. Verifica tu conexión e inténtalo de nuevo. Llama al camarero si el problema persiste.</div>}<button className="btn primary" style={{ width: "100%", opacity: sending ? .7 : 1 }} disabled={sending} onClick={handleSend}>{sending ? "Enviando..." : "Enviar a cocina"}</button></>}</aside>;
+  return <aside className={`drawer ${open ? "open" : ""}`}><div className="drawer-head"><h2>Tu pedido</h2><button className="icon" onClick={() => setOpen(false)}>{icons.x}</button></div><div className="cart-list">{items.length ? items.map((item) => <div className="cart-item" key={item.id}><div><h4>{item.name}</h4><small>{item.qty} × {money(item.price)}</small></div><div className="qty"><button onClick={() => session.removeItem(item.id)}>{icons.minus}</button><strong>{item.qty}</strong><button onClick={() => session.addItem(menu.find((d) => d.id === item.id) || item)}>{icons.plus}</button></div></div>) : <div className="empty">Aún no agregaste platos.</div>}</div>{!!items.length && <><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 72, border: "1px solid rgba(255,255,255,.12)" }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notas para cocina: sin cebolla, punto de carne, alergias..." /><div className="total-row"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="total-row"><span>Servicio sugerido 10%</span><strong>{money(subtotal * 0.1)}</strong></div><div className="total-row strong"><span>Total estimado</span><strong>{money(subtotal * 1.1)}</strong></div>{sendError && <div style={{ background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.3)", borderRadius:12, padding:"12px 14px", color:"#fca5a5", fontSize:13, lineHeight:1.5 }}>No se pudo enviar el pedido. Verifica tu conexión e inténtalo de nuevo. Llama al camarero si el problema persiste.</div>}<button className="btn primary" style={{ width: "100%", opacity: sending ? .7 : 1 }} disabled={sending} onClick={handleSend}>{sending ? "Enviando..." : "Enviar a cocina"}</button></>}</aside>;
 }
 
 const STATUS_STEP = { received: "received", preparing: "prep", "listo para servir": "plating", ready: "plating", served: "served" };
@@ -459,5 +441,5 @@ export default function HoluMesa() {
 
   if (!qrContext.active) return <div className="app"><style>{CSS}</style><main className="screen fade"><section className="hero"><div className="brand">{restaurantData.name}<small>RISTORANTE</small></div><div className="hero-copy"><span className="eyebrow">QR no disponible</span><h1>Solicita ayuda</h1><p>Este código no está activo. Por favor avisa al camarero.</p></div></section></main></div>;
 
-  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} promos={promos ?? PROMOS} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} menu={liveMenu || MENU} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} liveOrders={liveOrders} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} liveOrders={liveOrders} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
+  return <div className="app"><style>{CSS}</style>{tab === "home" && <Home go={setTab} session={session} qrContext={qrContext} restaurant={restaurantData} promos={promos ?? []} />}{tab === "menu" && <Menu session={session} qrContext={qrContext} openCart={() => setCartOpen(true)} menu={liveMenu || []} />}{tab === "order" && <OrderStatus session={session} qrContext={qrContext} liveOrders={liveOrders} />}{tab === "waiter" && <Waiter session={session} qrContext={qrContext} />}{tab === "bill" && <Bill session={session} qrContext={qrContext} liveOrders={liveOrders} />}{tab === "feedback" && <Feedback qrContext={qrContext} restaurant={restaurantData} />}<CartDrawer open={cartOpen} setOpen={setCartOpen} session={session} go={setTab} menu={liveMenu || []} /><Nav tab={tab} setTab={setTab} cartCount={cartCount} /></div>;
 }
