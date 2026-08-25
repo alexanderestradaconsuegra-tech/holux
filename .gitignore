@@ -5,3 +5,9 @@ node_modules
 .env
 .env.local
 .DS_Store
+
+# Artefactos de build
+.next
+landing/.next
+*.tsbuildinfo
+landing/next-env.d.ts
