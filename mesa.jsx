@@ -341,14 +341,47 @@ function Bill({ session, qrContext = FALLBACK_CONTEXT, liveOrders }) {
   return <main className="screen fade"><Header qrContext={qrContext} /><div className="section-title"><h2>Cuenta</h2><span>{qrContext.tableLabel}</span></div><section className="bill-card glass">{Object.values(grouped).length ? Object.values(grouped).map((it) => <div className="bill-line" key={it.id}><div><strong>{it.name}</strong><small>{it.qty} × {money(it.price)}</small></div><strong>{money(it.qty * it.price)}</strong></div>) : <div className="empty">Sin consumo registrado todavía.</div>}<div className="total-row"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="total-row"><span>Servicio sugerido 10%</span><strong>{money(tip)}</strong></div><div className="total-row strong"><span>Total</span><strong>{money(total)}</strong></div><button disabled={!subtotal || paying} className="btn primary" style={{ width: "100%", opacity: !subtotal ? .45 : 1 }} onClick={requestPayment}>{paying ? "Notificando al camarero..." : "Solicitar cobro"}</button><p style={{ color: "#bfae9d", fontSize: 12, lineHeight: 1.5, margin: "12px 0 0" }}>El cobro siempre lo realiza el camarero en la mesa.</p></section></main>;
 }
 
+// Every review is recorded either way. What changes with the rating is where
+// the diner is pointed next: a happy table gets the Google link while it is
+// still sitting there, an unhappy one gets the restaurant a chance to fix it
+// before it becomes a public one-star.
 function Feedback({ qrContext = FALLBACK_CONTEXT, restaurant = RESTAURANT }) {
-  const [rating, setRating] = useState(5); const [comment, setComment] = useState(""); const [sent, setSent] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(false);
+
   const submitFeedback = async () => {
-    await postWebhook("feedback", { table_id: qrContext.tableId, rating: Number(rating), comment: comment || null, source: "table_qr" }, qrContext.restaurantId);
-    setSent(true);
+    if (!rating) return;
+    setSending(true); setError(false);
+    try {
+      await postWebhook("feedback", { table_id: qrContext.tableId, rating: Number(rating), comment: comment || null, source: "table_qr" }, qrContext.restaurantId);
+      setSent(true);
+    } catch { setError(true); } finally { setSending(false); }
   };
-  const reviewUrl = restaurant.googleReviewUrl || RESTAURANT.googleReviewUrl;
-  return <main className="screen fade"><Header title="Reseña" /><section className="review-card glass"><div className="section-title" style={{ display: "block", textAlign: "center", margin: 0 }}><h2>¿Qué tal estuvo?</h2><span>Tu opinión ayuda al restaurante a mejorar.</span></div><div className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} className={`star-btn ${n <= rating ? "on" : ""}`} onClick={() => setRating(n)}>{icons.star}</button>)}</div><textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 96, border: "1px solid rgba(255,255,255,.12)" }} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comentario opcional..." /><button className="btn primary" style={{ width: "100%", marginTop: 12 }} onClick={submitFeedback}>{sent ? "Reseña enviada ✓" : "Enviar valoración"}</button>{reviewUrl && <button className="btn ghost" style={{ width: "100%", marginTop: 10 }} onClick={() => window.open(reviewUrl, "_blank")}>Dejar reseña en Google</button>}</section></main>;
+
+  const reviewUrl = restaurant.googleReviewUrl || "";
+  const happy = rating >= 4;
+
+  if (sent) return <main className="screen fade"><Header title="Reseña" /><section className="review-card glass" style={{ textAlign: "center" }}>
+    <div style={{ fontSize: 46, marginBottom: 6 }}>{happy ? "★" : "✓"}</div>
+    <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, margin: "0 0 8px" }}>{happy ? "¡Gracias!" : "Gracias por decírnoslo"}</h2>
+    <p style={{ color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+      {happy
+        ? "Nos alegra que la hayas pasado bien. Si tienes un minuto, compartirlo en Google nos ayuda muchísimo."
+        : "Tu comentario va directo al encargado para que podamos mejorarlo. Si quieres resolverlo ahora, llama al camarero."}
+    </p>
+    {happy && reviewUrl && <a className="btn primary" style={{ display: "block", width: "100%", marginTop: 16, textDecoration: "none", textAlign: "center" }} href={reviewUrl} target="_blank" rel="noreferrer">Compartir en Google</a>}
+  </section></main>;
+
+  return <main className="screen fade"><Header title="Reseña" /><section className="review-card glass">
+    <div className="section-title" style={{ display: "block", textAlign: "center", margin: 0 }}><h2>¿Qué tal estuvo?</h2><span>Tu opinión ayuda al restaurante a mejorar.</span></div>
+    <div className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} className={`star-btn ${n <= rating ? "on" : ""}`} onClick={() => setRating(n)} aria-label={`${n} estrella${n > 1 ? "s" : ""}`}>{icons.star}</button>)}</div>
+    <textarea className="searchbox glass" style={{ width: "100%", color: "white", minHeight: 96, border: "1px solid rgba(255,255,255,.12)" }} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={rating && rating <= 3 ? "¿Qué podríamos hacer mejor?" : "Comentario opcional..."} />
+    {error && <div style={{ background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, padding: "12px 14px", color: "#fca5a5", fontSize: 13, lineHeight: 1.5, marginTop: 12 }}>No se pudo enviar tu valoración. Inténtalo de nuevo.</div>}
+    <button className="btn primary" style={{ width: "100%", marginTop: 12, opacity: !rating || sending ? .5 : 1 }} disabled={!rating || sending} onClick={submitFeedback}>{sending ? "Enviando..." : !rating ? "Elige una calificación" : "Enviar valoración"}</button>
+  </section></main>;
 }
 
 
