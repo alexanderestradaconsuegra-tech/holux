@@ -517,8 +517,15 @@ function useBackofficeState(authToken = null) {
     try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken); }
     catch (e) { console.error("[holu admin] attendCall:", e.message); }
   };
-  const resolveMessage = (id, actor) => {
+  // A message is a table call with text, so resolving one has to close the call
+  // in the database. This only changed local state before: the message came
+  // straight back on the next poll, and the waiter kept seeing a request they
+  // had already handled.
+  const resolveMessage = async (id, actor) => {
     setMessages((rows) => rows.map((m) => m.id === id ? { ...m, status: `resuelto por ${actor}` } : m));
+    setCalls((rows) => rows.filter((c) => c.id !== id));
+    try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken); }
+    catch (e) { console.error("[holu admin] resolveMessage:", e.message); }
   };
   const updateOrderStatus = async (id, uiStatus) => {
     localOrderUpdates.current[id] = Date.now() + 20000;
