@@ -365,6 +365,51 @@ const ROLE_TABS = { admin: ADMIN_TABS, camarero: WAITER_TABS, caja: CAJA_TABS };
 const ROLE_HOME = { admin: "dashboard", camarero: "dashboard", caja: "sales", cocina: "kitchen" };
 const ROLE_DISPLAY = { admin: "Administrador", camarero: "Camarero", caja: "Caja", cocina: "Cocina" };
 
+// A call nobody hears is a table left waiting, which is the exact problem this
+// product claims to solve — yet nothing made a sound. Synthesised rather than
+// shipped as an audio file so it needs no asset, no network, and no licence.
+//
+// Browsers refuse to play audio until the user has interacted with the page, so
+// this stays silent until the operator turns it on with a click, which doubles
+// as the consent that unlocks playback.
+let AUDIO_CTX = null;
+const alertsEnabled = () => {
+  try { return localStorage.getItem("holu:alerts") === "on"; } catch { return false; }
+};
+const setAlertsEnabled = (on) => {
+  try { localStorage.setItem("holu:alerts", on ? "on" : "off"); } catch {}
+};
+
+const playAlert = (urgent = false) => {
+  if (!alertsEnabled()) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    AUDIO_CTX = AUDIO_CTX || new Ctx();
+    if (AUDIO_CTX.state === "suspended") AUDIO_CTX.resume();
+
+    // Two rising notes for a normal call; three sharper, higher ones for a
+    // critical one, so the kind of alert is audible from across the room
+    // without anyone having to look at a screen.
+    const notes = urgent ? [880, 1175, 1480] : [660, 880];
+    notes.forEach((freq, i) => {
+      const t0 = AUDIO_CTX.currentTime + i * (urgent ? 0.14 : 0.18);
+      const osc = AUDIO_CTX.createOscillator();
+      const gain = AUDIO_CTX.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(urgent ? 0.35 : 0.22, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+      osc.connect(gain).connect(AUDIO_CTX.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.24);
+    });
+  } catch {}
+  // Phones in an apron pocket are the real target; desktops just ignore this.
+  try { navigator.vibrate?.(urgent ? [90, 60, 90, 60, 90] : [70, 50, 70]); } catch {}
+};
+
 // Populated from Supabase by useBackofficeState; falls back to the seed list so
 // the UI still renders before the first poll returns.
 let LIVE_STAFF = [];
@@ -409,6 +454,11 @@ function useBackofficeState(authToken = null) {
 
   // Track locally-changed order IDs so the poll doesn't overwrite them right away
   const localOrderUpdates = useRef({});
+  // Which calls have already been announced. Starts null so the first poll of
+  // a shift primes it silently instead of firing an alarm for every call that
+  // was already open when the screen was switched on.
+  const announcedCalls = useRef(null);
+  const announcedOrders = useRef(null);
   // Id of the cash_sessions row currently open, if any.
   const cashSessionId = useRef(null);
 
@@ -469,6 +519,17 @@ function useBackofficeState(authToken = null) {
         ]);
         if (Array.isArray(rawOrders)) {
           const now = Date.now();
+
+          // Same priming rule as calls: the first poll of a shift is silent.
+          const incomingIds = rawOrders.map((o) => o.id);
+          if (announcedOrders.current === null) {
+            announcedOrders.current = new Set(incomingIds);
+          } else {
+            const fresh = incomingIds.filter((id) => !announcedOrders.current.has(id));
+            if (fresh.length) playAlert(false);
+            announcedOrders.current = new Set(incomingIds);
+          }
+
           setOrders((prev) => {
             const incoming = rawOrders.map(dbOrderToUI);
             // Keep local state for orders touched in the last 20s
@@ -483,6 +544,21 @@ function useBackofficeState(authToken = null) {
         }
         if (Array.isArray(rawCalls)) {
           const uiCalls = rawCalls.map(dbCallToUI);
+
+          const pending = uiCalls.filter((c) => c.status === "Pendiente");
+          if (announcedCalls.current === null) {
+            announcedCalls.current = new Set(pending.map((c) => c.id));
+          } else {
+            const fresh = pending.filter((c) => !announcedCalls.current.has(c.id));
+            if (fresh.length) {
+              playAlert(fresh.some((c) => c.priority === "Crítica"));
+              fresh.forEach((c) => announcedCalls.current.add(c.id));
+            }
+            // Forget resolved calls so the same table calling again is heard.
+            const stillPending = new Set(pending.map((c) => c.id));
+            announcedCalls.current.forEach((id) => { if (!stillPending.has(id)) announcedCalls.current.delete(id); });
+          }
+
           setCalls(uiCalls);
           setMessages(uiCalls
             .filter((c) => c.text && c.source === "mesa")
@@ -769,7 +845,10 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
       <style>{CSS}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 22px", borderBottom: "1px solid rgba(255,255,255,.09)", background: "rgba(10,8,6,.92)", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ fontFamily: "'Playfair Display',serif", color: "#f7d37b", fontSize: 24, letterSpacing: ".1em" }}>{restaurantName || "HOLU"} · <span style={{ fontFamily: "Inter,sans-serif", fontSize: 14, color: "#bfae9d", letterSpacing: 0 }}>Pantalla Cocina</span></div>
-        <button className="btn ghost" style={{ fontSize: 12 }} onClick={onLogout}>Salir</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <AlertToggle />
+          <button className="btn ghost" style={{ fontSize: 12 }} onClick={onLogout}>Salir</button>
+        </div>
       </div>
       <div style={{ flex: 1, padding: "18px" }}>{children}</div>
     </div>
@@ -792,13 +871,36 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
   </div>;
 }
 
+// Turning alerts on is what unlocks audio in the browser, so this has to be a
+// real click by the operator — it cannot be defaulted on.
+function AlertToggle() {
+  const [on, setOn] = useState(alertsEnabled);
+  const toggle = () => {
+    const next = !on;
+    setAlertsEnabled(next);
+    setOn(next);
+    if (next) playAlert(false); // confirms out loud that it works
+  };
+  return <button
+    className={`btn ${on ? "primary" : "ghost"}`}
+    onClick={toggle}
+    title={on ? "Avisos sonoros activados" : "Activar avisos sonoros"}
+    aria-pressed={on}
+    style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+    {on ? "🔔 Avisos on" : "🔕 Avisos off"}
+  </button>;
+}
+
 function Topbar({ role, staffId, authed, restaurantName }) {
   const found = getStaff(staffId);
   const current = (found && found.name !== "Sin asignar") ? found : (authed || found);
   const name = restaurantName || getRestaurantInfo().name || "HOLU";
   return <div className="topbar">
-    <div className="title"><h1>{name}</h1><p>{role === "admin" ? "Administrador · Control total" : "Camarero · Operación de turno"}</p></div>
-    <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{ROLE_DISPLAY[role] || "Camarero"} · {current.shift}</small></div></div>
+    <div className="title"><h1>{name}</h1><p>{role === "admin" ? "Administrador · Control total" : `${ROLE_DISPLAY[role] || "Camarero"} · Operación de turno`}</p></div>
+    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+      <AlertToggle />
+      <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{ROLE_DISPLAY[role] || "Camarero"} · {current.shift}</small></div></div>
+    </div>
   </div>;
 }
 
@@ -1259,6 +1361,110 @@ function SalesView({ authToken }) {
   return <div className="grid"><div className="panel"><div className="panel-head"><div><h2>Ventas por periodo</h2><p style={{margin:"4px 0 0"}}>Calculado sobre pedidos ya cobrados. La propina va aparte, tomada del cierre de caja.</p></div><div className="period-switch">{Object.entries(PERIOD_LABELS).map(([key,label])=><button key={key} className={period===key?"on":""} onClick={()=>setPeriod(key)}>{label}</button>)}</div></div><div className="sales-split"><div className="sales-mini"><span>Ventas {current.label.toLowerCase()}</span><strong>{money(current.sales)}</strong></div><div className="sales-mini"><span>Propina</span><strong>{money(current.tips)}</strong></div><div className="sales-mini"><span>Tickets</span><strong>{current.tickets}</strong></div><div className="sales-mini"><span>Ticket promedio</span><strong>{money(current.avgTicket)}</strong></div></div></div><div className="kpis"><div className="kpi"><span>Ventas platos</span><strong>{money(total)}</strong><small>Suma del detalle por plato</small></div><div className="kpi"><span>Plato top</span><strong>{topDish ? topDish.sold : 0}</strong><small>{topDish ? topDish.dish_name : "Sin ventas aún"}</small></div><div className="kpi"><span>Propina registrada</span><strong>{money(current.tips)}</strong><small>Separada de ventas</small></div><div className="kpi"><span>Stock bajo</span><strong>{lowStock}</strong><small>Revisar cocina</small></div></div>{dishes.length === 0 ? <div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2></div><p style={{color:"var(--muted)",textAlign:"center",padding:"28px 0"}}>Todavía no hay pedidos cobrados en este periodo. Cuando cobres la primera mesa, aparecerán aquí.</p></div> : <><div className="panel"><div className="panel-head"><h2>Registro de ventas por plato</h2><span className="badge green">Admin</span></div><div className="chart">{dishes.map((d)=><div className="bar" key={d.menu_item_id}><b>{d.dish_name}</b><div className="bar-track"><div className="bar-fill" style={{width:`${Math.max(8, Number(d.revenue) / max * 100)}%`}} /></div><span className="price">{money(d.revenue)}</span></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Detalle de platos</h2></div><div className="list">{dishes.map((d)=><div className="row" key={d.menu_item_id}><span className={`badge ${d.stock_status === "Bajo" ? "red" : "green"}`}>{d.stock_status}</span><div className="row-main"><b>{d.dish_name}</b><small>{d.category} · vendidos: {d.sold} · prep promedio: {d.avg_prep} min</small></div><strong>{money(d.revenue)}</strong></div>)}</div></div></>}</div>;
 }
 
+// Links a dish to what it consumes. Without this the inventory only ever moved
+// when someone retyped a number, so the low-stock warnings meant nothing; with
+// it, a sale deducts the ingredients on its own (the deduction itself happens
+// in a database trigger, so it works for orders arriving from the QR table and
+// the kiosk too, not just ones placed here).
+function RecipeEditor({ state, items }) {
+  const authToken = state.authToken;
+  const [recipes, setRecipes] = useState([]);
+  const [dishId, setDishId] = useState("");
+  const [invId, setInvId] = useState("");
+  const [qty, setQty] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const load = async () => {
+    try {
+      const rows = await supaFetch(`recipe_items?restaurant_id=eq.${getRestaurantId()}&select=id,menu_item_id,inventory_id,qty_per_unit`, {}, authToken);
+      if (Array.isArray(rows)) setRecipes(rows);
+    } catch (e) { console.error("[holu recipes] fetch:", e.message); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const dishName = (id) => state.menuItems.find((d) => d.id === id)?.dish || id;
+  const invItem = (id) => items.find((i) => i.id === id);
+
+  const add = async () => {
+    if (!dishId || !invId) return setErr("Elige un plato y un insumo");
+    const n = Number(qty);
+    if (!n || n <= 0) return setErr("La cantidad debe ser mayor a cero");
+    setSaving(true); setErr("");
+    try {
+      await supaFetch(`recipe_items`, {
+        method: "POST",
+        prefer: "resolution=merge-duplicates,return=minimal",
+        body: JSON.stringify({ restaurant_id: getRestaurantId(), menu_item_id: dishId, inventory_id: invId, qty_per_unit: n }),
+      }, authToken);
+      setQty(""); await load();
+    } catch (e) { setErr(`No se pudo guardar: ${e.message.slice(0, 120)}`); }
+    finally { setSaving(false); }
+  };
+
+  const remove = async (id) => {
+    try {
+      await supaFetch(`recipe_items?id=eq.${id}`, { method: "DELETE", prefer: "return=minimal" }, authToken);
+      setRecipes((rows) => rows.filter((r) => r.id !== id));
+    } catch (e) { console.error("[holu recipes] delete:", e.message); }
+  };
+
+  const byDish = recipes.reduce((acc, r) => { (acc[r.menu_item_id] ||= []).push(r); return acc; }, {});
+  const dishesWithoutRecipe = state.menuItems.filter((d) => !byDish[d.id]);
+
+  return <div className="panel">
+    <div className="panel-head">
+      <div><h2>Recetas</h2><p style={{ margin: "4px 0 0" }}>Cuánto consume cada plato. Con esto el stock baja solo al vender.</p></div>
+      <span className="badge">{recipes.length} enlaces</span>
+    </div>
+
+    {items.length === 0
+      ? <p style={{ color: "var(--muted)", textAlign: "center", padding: "22px 0" }}>Agrega ingredientes al inventario primero.</p>
+      : <>
+        <div className="form-grid" style={{ gridTemplateColumns: "1.4fr 1.4fr .8fr auto", alignItems: "end", gap: 8 }}>
+          <div className="field"><label>Plato</label>
+            <select className="input" value={dishId} onChange={(e) => setDishId(e.target.value)}>
+              <option value="">Elegir plato…</option>
+              {state.menuItems.map((d) => <option key={d.id} value={d.id}>{d.dish}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Insumo</label>
+            <select className="input" value={invId} onChange={(e) => setInvId(e.target.value)}>
+              <option value="">Elegir insumo…</option>
+              {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Cantidad{invId ? ` (${invItem(invId)?.unit || ""})` : ""}</label>
+            <input className="input" type="number" min="0" step="0.01" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0.25" />
+          </div>
+          <button className="btn primary" onClick={add} disabled={saving}>{saving ? "..." : "Enlazar"}</button>
+        </div>
+        {err && <p style={{ color: "var(--red2)", margin: "8px 0 0", fontSize: 13 }}>{err}</p>}
+
+        <div className="list" style={{ marginTop: 14 }}>
+          {Object.entries(byDish).map(([id, rows]) => <div className="row" key={id} style={{ gridTemplateColumns: "1fr" }}>
+            <div>
+              <b>{dishName(id)}</b>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                {rows.map((r) => <span key={r.id} className="badge" style={{ display: "inline-flex", gap: 8 }}>
+                  {invItem(r.inventory_id)?.name || r.inventory_id}: {r.qty_per_unit} {invItem(r.inventory_id)?.unit || ""}
+                  <button onClick={() => remove(r.id)} style={{ background: "none", border: 0, color: "var(--red2)", cursor: "pointer", fontWeight: 900 }} aria-label="Quitar">×</button>
+                </span>)}
+              </div>
+            </div>
+          </div>)}
+          {recipes.length === 0 && <p style={{ color: "var(--dim)", textAlign: "center", padding: "16px 0", fontSize: 13 }}>Ningún plato tiene receta todavía. El stock no bajará solo hasta que enlaces al menos uno.</p>}
+        </div>
+
+        {dishesWithoutRecipe.length > 0 && recipes.length > 0 && (
+          <p style={{ color: "var(--dim)", fontSize: 12, marginTop: 10, lineHeight: 1.5 }}>
+            {dishesWithoutRecipe.length} plato{dishesWithoutRecipe.length === 1 ? "" : "s"} sin receta: su venta no descuenta stock.
+          </p>
+        )}
+      </>}
+  </div>;
+}
+
 function InventoryView({ state }) {
   const authToken = state.authToken;
   const [items, setItems] = useState([]);
@@ -1480,6 +1686,7 @@ function InventoryView({ state }) {
           })}
         </div>
       </div>
+      <RecipeEditor state={state} items={items} />
     </div>
   );
 }
