@@ -528,10 +528,10 @@ function useBackofficeState(authToken = null) {
       try {
         const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const [rawOrders, rawCalls, rawTables, rawMenu, rawStaff] = await Promise.all([
-          supaGet(`orders?restaurant_id=eq.${getRestaurantId()}&status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, null),
-          supaGet(`calls?restaurant_id=eq.${getRestaurantId()}&status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, null),
-          supaGet(`tables?restaurant_id=eq.${getRestaurantId()}&active=eq.true&order=table_number.asc`, null),
-          supaGet(`menu_items?restaurant_id=eq.${getRestaurantId()}&order=sort_order.asc,name.asc`, null),
+          supaGet(`orders?restaurant_id=eq.${getRestaurantId()}&status=neq.served&created_at=gte.${since}&select=*,order_items(*)&order=created_at.desc&limit=50`, authToken),
+          supaGet(`calls?restaurant_id=eq.${getRestaurantId()}&status=neq.Resuelto&created_at=gte.${since}&select=*&order=created_at.desc`, authToken),
+          supaGet(`tables?restaurant_id=eq.${getRestaurantId()}&active=eq.true&order=table_number.asc`, authToken),
+          supaGet(`menu_items?restaurant_id=eq.${getRestaurantId()}&order=sort_order.asc,name.asc`, authToken),
           supaGet(`staff?restaurant_id=eq.${getRestaurantId()}&select=id,name,role,shift,status,avatar_url&order=name.asc`, authToken),
         ]);
         if (Array.isArray(rawOrders)) {
@@ -581,7 +581,7 @@ function useBackofficeState(authToken = null) {
 
   const attendCall = async (id, actor) => {
     setCalls((rows) => rows.filter((c) => c.id !== id));
-    try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null); }
+    try { await supaPatch(`calls?id=eq.${encodeURIComponent(id)}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken); }
     catch (e) { console.error("[holu admin] attendCall:", e.message); }
   };
   const resolveMessage = (id, actor) => {
@@ -592,7 +592,7 @@ function useBackofficeState(authToken = null) {
     setOrders((rows) => rows.map((o) => o.id === id ? { ...o, status: uiStatus, eta: uiStatus === "Servido" ? 0 : o.eta } : o));
     if (uiStatus === "Servido") setOrders((rows) => rows.filter((o) => o.id !== id));
     if (STATUS_DB[uiStatus]) {
-      try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }, null); }
+      try { await supaPatch(`orders?id=eq.${encodeURIComponent(id)}`, { status: STATUS_DB[uiStatus] }, authToken); }
       catch (e) { console.error("[holu admin] updateOrderStatus:", e.message); }
     }
   };
@@ -639,7 +639,7 @@ function useBackofficeState(authToken = null) {
     const table = tables.find((t) => t.id === tableId);
     const tipAmt = accepted && table ? Math.round(table.bill * 0.1) : 0;
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, tipAccepted: accepted, tipAmount: tipAmt } : t));
-    try { await supaPatch(`tables?id=eq.${tableId}`, { tip_accepted: accepted, tip_amount: tipAmt }, null); }
+    try { await supaPatch(`tables?id=eq.${tableId}`, { tip_accepted: accepted, tip_amount: tipAmt }, authToken); }
     catch (e) { console.error("[holu admin] setTableTip:", e.message); }
   };
   // ── Caja ────────────────────────────────────────────────────────────────────
@@ -745,7 +745,7 @@ function useBackofficeState(authToken = null) {
   const assignWaiter = async (tableId, waiterId) => {
     setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, waiterId } : t));
     addCashHistory(waiterId, "Mesa reasignada", `Mesa ${tableId} asignada a ${getStaff(waiterId).name}`);
-    try { await supaPatch(`tables?id=eq.${tableId}`, { waiter_id: waiterId || null }, null); }
+    try { await supaPatch(`tables?id=eq.${tableId}`, { waiter_id: waiterId || null }, authToken); }
     catch (e) { console.error("[holu admin] assignWaiter:", e.message); }
   };
   const cobrarMesa = async (tableId, callId, method, tipAccepted, total, tipAmt, staffUserId) => {
@@ -783,9 +783,9 @@ function useBackofficeState(authToken = null) {
       } catch (e) { console.error("[holu caja] cobro:", e.message); }
     }
     try {
-      await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.${getRestaurantId()}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, null);
-      await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.${getRestaurantId()}`, { status: "served" }, null);
-      await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.${getRestaurantId()}`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, null);
+      await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.${getRestaurantId()}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken);
+      await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.${getRestaurantId()}`, { status: "served" }, authToken);
+      await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.${getRestaurantId()}`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, authToken);
     } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
   };
   return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, saveMenuItem, toggleMenuAvailability, deleteMenuItem, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
@@ -2364,15 +2364,25 @@ export default function HoluAdmin() {
   const [trialInfo, setTrialInfo] = useState(null);
   const state = useBackofficeState(session?.access_token || null);
 
-  // Load restaurant name + trial status as soon as we have an auth token
+  // Load restaurant name + trial status as soon as we have an auth token.
+  // The restaurants table is no longer readable with the anon key, so the login
+  // screen gets the name from restaurant_public(), which exposes only branding.
   useEffect(() => {
-    if (!session?.access_token && !SUPABASE_ANON_KEY) return;
-    supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,trial_ends_at,activated_at&limit=1`, {}, session?.access_token || null)
+    if (session?.access_token) {
+      supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,trial_ends_at,activated_at&limit=1`, {}, session.access_token)
+        .then((rows) => {
+          if (Array.isArray(rows) && rows[0]) {
+            if (rows[0].name) setRestaurantName(rows[0].name);
+            setTrialInfo({ trial_ends_at: rows[0].trial_ends_at, activated_at: rows[0].activated_at });
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+    supaRpc("restaurant_public", { p_id: getRestaurantId() }, null)
       .then((rows) => {
-        if (Array.isArray(rows) && rows[0]) {
-          if (rows[0].name) setRestaurantName(rows[0].name);
-          setTrialInfo({ trial_ends_at: rows[0].trial_ends_at, activated_at: rows[0].activated_at });
-        }
+        const row = Array.isArray(rows) ? rows[0] : rows;
+        if (row?.name) setRestaurantName(row.name);
       })
       .catch(() => {});
   }, [session?.access_token]);

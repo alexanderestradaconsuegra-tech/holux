@@ -279,36 +279,33 @@ function CartDrawer({ open, setOpen, session, go }) {
 const STATUS_STEP = { received: "received", preparing: "prep", "listo para servir": "plating", ready: "plating", served: "served" };
 function normalizeDbStatus(s) { return STATUS_STEP[(s || "").toLowerCase()] || s || "received"; }
 
-// Polls the orders table directly via REST — same approach as admin.jsx.
-// This bypasses the table_orders RPC so status updates from kitchen
-// are always reflected, even if the RPC has stale behavior.
+// Reads the table's orders through table_orders(), which resolves them from the
+// QR token itself. Querying /rest/v1/orders directly needed an anon SELECT
+// policy on the table, and the one that existed was pinned to a single
+// restaurant id — every other restaurant's diners saw an empty tracker.
 function useLiveOrders(qrContext) {
   const [orders, setOrders] = useState(null);
   useEffect(() => {
-    const { tableId, restaurantId } = qrContext;
-    if (!tableId || !restaurantId) return;
+    const { qrToken } = qrContext;
+    if (!qrToken) return;
+    let cancelled = false;
     const poll = async () => {
       try {
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/orders?table_id=eq.${encodeURIComponent(tableId)}&restaurant_id=eq.${encodeURIComponent(restaurantId)}&order=created_at.desc&select=id,status,eta_minutes,created_at,order_items(dish_name,qty,unit_price)`,
-          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
-        );
-        if (!res.ok) return;
-        const rows = await res.json();
-        if (!Array.isArray(rows)) return;
+        const rows = await supaRpc("table_orders", { p_qr_token: qrToken });
+        if (cancelled || !Array.isArray(rows)) return;
         setOrders(rows.map((o) => ({
           id: o.id,
           createdAt: new Date(o.created_at).getTime(),
           eta: o.eta_minutes || 18,
           status: normalizeDbStatus(o.status),
-          items: (o.order_items || []).map((i) => ({ id: i.dish_name, name: i.dish_name, qty: i.qty, price: i.unit_price })),
+          items: (o.items || []).map((i) => ({ id: i.dish_name, name: i.dish_name, qty: i.qty, price: i.unit_price })),
         })));
       } catch (e) { console.error("[holu mesa] orders poll:", e.message); }
     };
     poll();
     const t = setInterval(poll, 5000);
-    return () => clearInterval(t);
-  }, [qrContext.tableId, qrContext.restaurantId]);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [qrContext.qrToken]);
   return orders;
 }
 
