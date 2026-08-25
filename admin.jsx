@@ -333,6 +333,38 @@ const CSS = `
 .permission-table{display:block;overflow-x:auto}
 .audit,.integration-log{overflow-x:auto}`;
 
+// One source of truth for what each role can reach — the sidebar nav, the
+// route guard and the login redirect all read the same table, so a role can
+// no longer end up wired into the nav but rejected by the guard (or the
+// reverse: caja used to fall through to the waiter's tab list, which has no
+// Caja tab at all, leaving that role with no way to open or close a register).
+const ADMIN_TABS = [
+  ["dashboard", "Resumen", icons.dashboard],
+  ["tables", "Mesas", icons.table],
+  ["kitchen", "Cocina", icons.kitchen],
+  ["sales", "Caja", icons.sales],
+  ["revenue", "Ventas", icons.sales],
+  ["menu", "Carta", icons.menu],
+  ["staff", "Camareros", icons.users],
+  ["inventory", "Inventario", icons.kitchen],
+  ["reviews", "Reseñas", icons.star],
+  ["settings", "Configuración", icons.settings],
+];
+const WAITER_TABS = [
+  ["dashboard", "Mi turno", icons.dashboard],
+  ["tables", "Mis mesas", icons.table],
+  ["kitchen", "Cocina", icons.kitchen],
+  ["calls", "Llamados", icons.bell],
+];
+const CAJA_TABS = [
+  ["tables", "Mesas", icons.table],
+  ["sales", "Caja", icons.sales],
+  ["revenue", "Ventas", icons.sales],
+];
+const ROLE_TABS = { admin: ADMIN_TABS, camarero: WAITER_TABS, caja: CAJA_TABS };
+const ROLE_HOME = { admin: "dashboard", camarero: "dashboard", caja: "sales", cocina: "kitchen" };
+const ROLE_DISPLAY = { admin: "Administrador", camarero: "Camarero", caja: "Caja", cocina: "Cocina" };
+
 // Populated from Supabase by useBackofficeState; falls back to the seed list so
 // the UI still renders before the first poll returns.
 let LIVE_STAFF = [];
@@ -736,31 +768,13 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
     </div>
   );
 
-  const adminTabs = [
-    ["dashboard", "Resumen", icons.dashboard],
-    ["tables", "Mesas", icons.table],
-    ["kitchen", "Cocina", icons.kitchen],
-    ["sales", "Caja", icons.sales],
-    ["revenue", "Ventas", icons.sales],
-    ["menu", "Carta", icons.menu],
-    ["staff", "Camareros", icons.users],
-    ["inventory", "Inventario", icons.kitchen],
-    ["reviews", "Reseñas", icons.star],
-    ["settings", "Configuración", icons.settings],
-  ];
-  const waiterTabs = [
-    ["dashboard", "Mi turno", icons.dashboard],
-    ["tables", "Mis mesas", icons.table],
-    ["kitchen", "Cocina", icons.kitchen],
-    ["calls", "Llamados", icons.bell],
-  ];
-  const tabs = role === "admin" ? adminTabs : waiterTabs;
+  const tabs = ROLE_TABS[role] || WAITER_TABS;
   return <div className="app">
     <style>{CSS}</style>
     <aside className="sidebar">
       <div className="brand">{restaurantName || getRestaurantInfo().name || "HOLU"}<small>BACKOFFICE</small></div>
       <div className="role-card">
-        <div style={{display:"flex", gap:10, alignItems:"center"}}><StaffAvatar staff={currentStaff} /><div><b>{currentStaff.name}</b><small style={{display:"block", color:"var(--muted)", marginTop:3}}>{role === "admin" ? "Administrador" : "Camarero"}</small></div></div>
+        <div style={{display:"flex", gap:10, alignItems:"center"}}><StaffAvatar staff={currentStaff} /><div><b>{currentStaff.name}</b><small style={{display:"block", color:"var(--muted)", marginTop:3}}>{ROLE_DISPLAY[role] || "Camarero"}</small></div></div>
       </div>
       <nav className="nav">{tabs.map(([id, label, ic]) => <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{ic}<span>{label}</span></button>)}</nav>
       <div className="side-footer">Conectado a QR de mesas, cocina y panel de cliente. El rol Camarero no accede a ventas ni configuración financiera.</div>
@@ -777,7 +791,7 @@ function Topbar({ role, staffId, authed, restaurantName }) {
   const name = restaurantName || getRestaurantInfo().name || "HOLU";
   return <div className="topbar">
     <div className="title"><h1>{name}</h1><p>{role === "admin" ? "Administrador · Control total" : "Camarero · Operación de turno"}</p></div>
-    <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{role === "admin" ? "Administrador" : "Camarero"} · {current.shift}</small></div></div>
+    <div className="operator"><StaffAvatar staff={current} /><div><b>{current.name}</b><small style={{display:"block", color:"var(--muted)"}}>{ROLE_DISPLAY[role] || "Camarero"} · {current.shift}</small></div></div>
   </div>;
 }
 
@@ -888,16 +902,21 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
 
 function TablesView({ role, staffId, state, onGoToQr }) {
   const isAdmin = role === "admin";
+  // Caja isn't assigned to tables the way a waiter is — their job is charging
+  // whichever table asks, so they need the same full floor view as admin,
+  // not just the ones nobody has claimed yet.
+  const seesAllTables = isAdmin || role === "caja";
+  const canClaimTables = role === "camarero";
   const [selectedTable, setSelectedTable] = useState(null);
   // A waiter sees the tables they already hold plus any table nobody has claimed,
   // so they can pick one up from their phone the moment a call comes in.
   const mine = state.tables.filter((t) => t.waiterId === staffId);
   const free = state.tables.filter((t) => !t.waiterId);
-  const visible = isAdmin ? state.tables : [...mine, ...free];
+  const visible = seesAllTables ? state.tables : [...mine, ...free];
   const waiters = state.staffList.filter((s) => s.role === "camarero");
 
   if (state.tables.length === 0) return <div className="grid"><div className="panel">
-    <div className="panel-head"><h2>{isAdmin ? "Mapa de mesas" : "Mesas"}</h2>{isAdmin && onGoToQr && <button className="btn primary" onClick={onGoToQr}>+ Agregar mesas y QR</button>}</div>
+    <div className="panel-head"><h2>{seesAllTables ? "Mapa de mesas" : "Mesas"}</h2>{isAdmin && onGoToQr && <button className="btn primary" onClick={onGoToQr}>+ Agregar mesas y QR</button>}</div>
     <p style={{ color: "var(--muted)", textAlign: "center", padding: "28px 0", lineHeight: 1.6 }}>
       Aún no hay mesas configuradas.<br />
       {isAdmin ? 'Usa el botón "Agregar mesas y QR" para crear mesas y descargar sus códigos QR.' : "Pide al administrador que configure las mesas."}
@@ -906,9 +925,9 @@ function TablesView({ role, staffId, state, onGoToQr }) {
 
   return <div className="grid"><div className="panel">
     <div className="panel-head">
-      <h2>{isAdmin ? "Mapa de mesas" : "Mesas"}</h2>
+      <h2>{seesAllTables ? "Mapa de mesas" : "Mesas"}</h2>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <span className="badge">{isAdmin ? `${visible.length} mesas` : `${mine.length} mías · ${free.length} libres`}</span>
+        <span className="badge">{seesAllTables ? `${visible.length} mesas` : `${mine.length} mías · ${free.length} libres`}</span>
         {isAdmin && onGoToQr && <button className="btn ghost" style={{ fontSize: 12, padding: "7px 12px" }} onClick={onGoToQr}>QR</button>}
       </div>
     </div>
@@ -922,7 +941,7 @@ function TablesView({ role, staffId, state, onGoToQr }) {
         </div>
         <div className="meta"><span>{t.zone}</span><span>{t.guests} pax</span></div>
         <div className="meta"><span>Camarero</span><b>{t.waiterId ? getStaff(t.waiterId).name : "Sin asignar"}</b></div>
-        {isAdmin && <div className="meta"><span>Cuenta</span><b>{money(t.bill)}</b></div>}
+        {seesAllTables && <div className="meta"><span>Cuenta</span><b>{money(t.bill)}</b></div>}
         <div className="tip-box" style={{ marginTop: 10 }}>
           <small style={{ color: "var(--muted)" }}>Propina 10%</small>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
@@ -937,10 +956,10 @@ function TablesView({ role, staffId, state, onGoToQr }) {
           </select>
         </div>}
         <div className="table-actions">
-          {!isAdmin && unclaimed
+          {canClaimTables && unclaimed
             ? <button className="btn primary" onClick={() => state.assignWaiter(t.id, staffId)}>Tomar mesa</button>
             : <button className="btn primary" onClick={() => setSelectedTable(t)}>Atender</button>}
-          {!isAdmin && isMine
+          {canClaimTables && isMine
             ? <button className="btn ghost" onClick={() => state.assignWaiter(t.id, null)}>Soltar</button>
             : <button className="btn ghost" onClick={() => setSelectedTable(t)}>Ver ficha</button>}
         </div>
@@ -1001,7 +1020,7 @@ function TableDrawer({ table, role, state, staffId, onClose }) {
   const suggestedTip = Math.round(liveTable.bill * 0.1);
   const total = liveTable.bill + liveTable.tipAmount;
   const generateReceipt = () => setShowReceipt(true);
-  return <aside className="drawer-lite"><div className="panel-head"><div><h2>Ficha Mesa {liveTable.id}</h2><p style={{margin:"4px 0 0"}}>Token QR {liveTable.qrToken} · {liveTable.zone}</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="list"><div className="row"><span className={`badge ${statusBadge(liveTable.status)}`}>{liveTable.status}</span><div className="row-main"><b>{liveTable.guests} clientes</b><small>Camarero: {waiter.name}</small></div><strong>{money(liveTable.bill)}</strong></div><div className="tip-box"><b>Propina sugerida 10%</b><p style={{margin:"6px 0",color:"var(--muted)"}}>El cliente decide si desea agregarla. Debe quedar registrado para cierre diario/semanal/mensual.</p><div className="receipt-row" style={{color:"var(--text)"}}><span>Subtotal mesa</span><b>{money(liveTable.bill)}</b></div><div className="receipt-row" style={{color:"var(--text)"}}><span>Propina 10%</span><b>{liveTable.tipAccepted ? money(liveTable.tipAmount) : `${money(suggestedTip)} sugerida`}</b></div><div className="receipt-row receipt-total" style={{color:"var(--text)"}}><span>Total cobro</span><b>{money(total)}</b></div><div className="tip-actions"><button className="btn primary" onClick={()=>state.setTableTip(liveTable.id, true)}>Agregar 10%</button><button className="btn ghost" onClick={()=>state.setTableTip(liveTable.id, false)}>Sin propina</button></div><small style={{display:"block",color:"var(--muted)",marginTop:10}}>Estado: {liveTable.tipAccepted ? "propina aceptada y registrada" : "sin propina registrada"}</small></div><div className="panel" style={{boxShadow:"none"}}><h2>Pedidos</h2>{tableOrders.map((o)=><p key={o.id} style={{color:"var(--muted)"}}><b>{o.id}</b> · {o.status} · {o.items.map(i=>`${i.qty}× ${i.dish}`).join(", ")}</p>)}</div><div className="panel" style={{boxShadow:"none"}}><h2>Mensajes del cliente</h2>{tableMessages.map((m)=><blockquote key={m.id} style={{borderLeft:"3px solid var(--gold)",paddingLeft:10,color:"#eadfd4"}}>{m.text}</blockquote>)}</div>{liveTable.bill > 0 && <button className="btn primary" style={{width:"100%",padding:"14px 0",fontSize:15,background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#160f02",marginBottom:8}} onClick={()=>setCobrarOpen(true)}>Cobrar mesa · {money(total)}</button>}{role === "admin" && <button className="btn ghost" style={{width:"100%"}} onClick={generateReceipt}>Generar boleta</button>}{showReceipt && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>Boleta generada</h2><p style={{margin:"4px 0 0"}}>Mesa {liveTable.id} · Total {money(total)}</p></div><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Cerrar</button></div><TableReceipt table={liveTable} waiter={waiter} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Volver</button><button className="btn primary" onClick={()=>window.print()}>Imprimir boleta</button></div></div></div>}{cobrarOpen && <CobrarModal table={liveTable} callId={null} state={state} staffId={staffId} onClose={()=>setCobrarOpen(false)} />}</div></aside>;
+  return <aside className="drawer-lite"><div className="panel-head"><div><h2>Ficha Mesa {liveTable.id}</h2><p style={{margin:"4px 0 0"}}>Token QR {liveTable.qrToken} · {liveTable.zone}</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="list"><div className="row"><span className={`badge ${statusBadge(liveTable.status)}`}>{liveTable.status}</span><div className="row-main"><b>{liveTable.guests} clientes</b><small>Camarero: {waiter.name}</small></div><strong>{money(liveTable.bill)}</strong></div><div className="tip-box"><b>Propina sugerida 10%</b><p style={{margin:"6px 0",color:"var(--muted)"}}>El cliente decide si desea agregarla. Debe quedar registrado para cierre diario/semanal/mensual.</p><div className="receipt-row" style={{color:"var(--text)"}}><span>Subtotal mesa</span><b>{money(liveTable.bill)}</b></div><div className="receipt-row" style={{color:"var(--text)"}}><span>Propina 10%</span><b>{liveTable.tipAccepted ? money(liveTable.tipAmount) : `${money(suggestedTip)} sugerida`}</b></div><div className="receipt-row receipt-total" style={{color:"var(--text)"}}><span>Total cobro</span><b>{money(total)}</b></div><div className="tip-actions"><button className="btn primary" onClick={()=>state.setTableTip(liveTable.id, true)}>Agregar 10%</button><button className="btn ghost" onClick={()=>state.setTableTip(liveTable.id, false)}>Sin propina</button></div><small style={{display:"block",color:"var(--muted)",marginTop:10}}>Estado: {liveTable.tipAccepted ? "propina aceptada y registrada" : "sin propina registrada"}</small></div><div className="panel" style={{boxShadow:"none"}}><h2>Pedidos</h2>{tableOrders.map((o)=><p key={o.id} style={{color:"var(--muted)"}}><b>{o.id}</b> · {o.status} · {o.items.map(i=>`${i.qty}× ${i.dish}`).join(", ")}</p>)}</div><div className="panel" style={{boxShadow:"none"}}><h2>Mensajes del cliente</h2>{tableMessages.map((m)=><blockquote key={m.id} style={{borderLeft:"3px solid var(--gold)",paddingLeft:10,color:"#eadfd4"}}>{m.text}</blockquote>)}</div>{liveTable.bill > 0 && <button className="btn primary" style={{width:"100%",padding:"14px 0",fontSize:15,background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#160f02",marginBottom:8}} onClick={()=>setCobrarOpen(true)}>Cobrar mesa · {money(total)}</button>}{(role === "admin" || role === "caja") && <button className="btn ghost" style={{width:"100%"}} onClick={generateReceipt}>Generar boleta</button>}{showReceipt && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>Boleta generada</h2><p style={{margin:"4px 0 0"}}>Mesa {liveTable.id} · Total {money(total)}</p></div><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Cerrar</button></div><TableReceipt table={liveTable} waiter={waiter} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Volver</button><button className="btn primary" onClick={()=>window.print()}>Imprimir boleta</button></div></div></div>}{cobrarOpen && <CobrarModal table={liveTable} callId={null} state={state} staffId={staffId} onClose={()=>setCobrarOpen(false)} />}</div></aside>;
 }
 
 function OrdersView({ role, staffId, state }) {
@@ -2577,7 +2596,10 @@ export default function HoluAdmin() {
     };
   }, [trialInfo]);
 
-  const safeTab = role === "cocina" ? "kitchen" : (role === "camarero" && ["sales", "staff", "inventory", "qr", "menu", "settings"].includes(tab) ? "dashboard" : tab);
+  // Driven by the same ROLE_TABS table the sidebar renders from: a role can
+  // only land on a tab it was actually given a button for.
+  const allowedTabIds = new Set((ROLE_TABS[role] || WAITER_TABS).map(([id]) => id));
+  const safeTab = role === "cocina" ? "kitchen" : (allowedTabIds.has(tab) ? tab : (ROLE_HOME[role] || "dashboard"));
 
   // useMemo MUST be before any conditional return (Rules of Hooks)
   const content = useMemo(() => {
@@ -2614,6 +2636,7 @@ export default function HoluAdmin() {
     setAuthed(staff);
     setRole(staff.role);
     setStaffId(staff.id);
+    setTab(ROLE_HOME[staff.role] || "dashboard");
   };
 
   const handleAdminAuth = (sess) => {
