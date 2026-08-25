@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
+import { RealtimeClient } from "@supabase/realtime-js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOLU ADMIN — ADMIN + CAMARERO
@@ -103,6 +104,45 @@ const supaFetch = (path, opts = {}, authToken = null) => {
     if (r.status === 204 || !ct.includes("json")) return null;
     return r.json();
   });
+};
+
+// Live updates over a websocket instead of asking every few seconds. Polling
+// stays as the fallback: a phone that sleeps, a tablet that loses wifi, or a
+// dropped socket must not leave a kitchen looking at a frozen screen — it just
+// backs off to a slow tick once the socket is confirmed healthy.
+//
+// Realtime evaluates each subscriber's RLS policy per row, and every table here
+// is scoped by get_user_restaurant_id(), so a restaurant only receives its own.
+const subscribeToService = (token, restaurantId, onChange, onStatus) => {
+  if (!token || !restaurantId) return () => {};
+  let client;
+  try {
+    client = new RealtimeClient(`${SUPABASE_URL.replace(/^http/, "ws")}/realtime/v1`, {
+      params: { apikey: SUPABASE_ANON_KEY, eventsPerSecond: 20 },
+    });
+    // The socket authenticates as the signed-in user, which is what makes the
+    // per-row policy check resolve to this restaurant.
+    client.setAuth(token);
+    client.connect();
+
+    const channel = client.channel(`service:${restaurantId}`);
+    ["orders", "order_items", "calls", "tables"].forEach((table) => {
+      channel.on("postgres_changes", { event: "*", schema: "public", table }, (payload) => {
+        onChange(table, payload);
+      });
+    });
+
+    channel.subscribe((status) => onStatus?.(status));
+
+    return () => {
+      try { channel.unsubscribe(); } catch {}
+      try { client.disconnect(); } catch {}
+    };
+  } catch (e) {
+    console.warn("[holu realtime] no disponible, se mantiene el sondeo:", e.message);
+    try { client?.disconnect(); } catch {}
+    return () => {};
+  }
 };
 
 const supaGet = (path, token = null) => supaFetch(path, {}, token);
@@ -584,9 +624,22 @@ function useBackofficeState(authToken = null) {
       }
     };
     poll();
-    const t = setInterval(poll, 8000);
-    return () => clearInterval(t);
-  }, []);
+
+    // Live socket drives the refresh; the timer becomes a safety net that
+    // slows right down once the socket proves it is working, so a dropped
+    // connection still recovers on its own instead of freezing the screen.
+    let interval = setInterval(poll, 8000);
+    const retime = (ms) => { clearInterval(interval); interval = setInterval(poll, ms); };
+
+    const stop = subscribeToService(
+      authToken,
+      getRestaurantId(),
+      () => { poll(); },
+      (status) => { retime(status === "SUBSCRIBED" ? 60000 : 8000); }
+    );
+
+    return () => { clearInterval(interval); stop(); };
+  }, [authToken]);
 
   const attendCall = async (id, actor) => {
     setCalls((rows) => rows.filter((c) => c.id !== id));
