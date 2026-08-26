@@ -1,3 +1,8 @@
+# Reference config for the admin service. All active development happens on
+# claude/elegant-darwin-zcAa4 — main is not kept in sync, so pointing a
+# service at "main" silently deploys a stale build no matter how many times
+# it's redeployed. Every other service (mesa, kiosco, landing, delivery) has
+# its own branch/ref setting in EasyPanel and needs checking separately.
 services:
   - name: holux
     type: app
@@ -5,7 +10,7 @@ services:
       source:
         type: github
         repo: alexanderestradaconsuegra-tech/holux
-        ref: main
+        ref: claude/elegant-darwin-zcAa4
       build:
         type: dockerfile
         file: Dockerfile
