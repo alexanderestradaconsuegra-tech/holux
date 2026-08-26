@@ -387,6 +387,7 @@ const ADMIN_TABS = [
   ["menu", "Carta", icons.menu],
   ["staff", "Camareros", icons.users],
   ["inventory", "Inventario", icons.kitchen],
+  ["delivery", "Delivery", icons.order],
   ["reviews", "Reseñas", icons.star],
   ["settings", "Configuración", icons.settings],
 ];
@@ -400,6 +401,7 @@ const CAJA_TABS = [
   ["tables", "Mesas", icons.table],
   ["sales", "Caja", icons.sales],
   ["revenue", "Ventas", icons.sales],
+  ["delivery", "Delivery", icons.order],
 ];
 const ROLE_TABS = { admin: ADMIN_TABS, camarero: WAITER_TABS, caja: CAJA_TABS };
 const ROLE_HOME = { admin: "dashboard", camarero: "dashboard", caja: "sales", cocina: "kitchen" };
@@ -2553,6 +2555,94 @@ function MenuEditor({ item, onClose, onSave, authToken }) {
   );
 }
 
+// Delivery orders already appear on the kitchen board like any other; this is
+// the half the kitchen does not handle — who it goes to, where, and whether it
+// has left. Only orders that were paid for reach this list, because the order
+// itself is not created until MercadoPago confirms.
+const DELIVERY_LABEL = { pending: "Por despachar", en_route: "En camino", delivered: "Entregada", cancelled: "Anulada" };
+const DELIVERY_BADGE = { pending: "red", en_route: "blue", delivered: "green", cancelled: "" };
+
+function DeliveryView({ authToken }) {
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+
+  const load = async () => {
+    try {
+      const data = await supaGet(
+        `deliveries?restaurant_id=eq.${getRestaurantId()}&select=order_id,customer_name,phone,address,address_notes,delivery_fee,status,created_at,dispatched_at&order=created_at.desc&limit=60`,
+        authToken);
+      if (Array.isArray(data)) setRows(data);
+    } catch (e) { setErr(e.message.slice(0, 140)); setRows([]); }
+  };
+
+  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [authToken]);
+
+  const mark = async (orderId, status) => {
+    setBusy(orderId); setErr("");
+    try {
+      await supaRpc("set_delivery_status", { p_order_id: orderId, p_status: status }, authToken);
+      await load();
+    } catch (e) { setErr(e.message.slice(0, 140)); }
+    finally { setBusy(""); }
+  };
+
+  if (rows === null) return <div className="panel"><p style={{ color: "var(--muted)", textAlign: "center", padding: "32px 0" }}>Cargando repartos...</p></div>;
+
+  const open = rows.filter((r) => r.status === "pending" || r.status === "en_route");
+  const past = rows.filter((r) => r.status === "delivered" || r.status === "cancelled");
+
+  const Card = (r) => (
+    <div className="row" key={r.order_id} style={{ gridTemplateColumns: "1fr" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div style={{ minWidth: 0 }}>
+          <b style={{ display: "block" }}>{r.customer_name}</b>
+          <small style={{ display: "block", color: "var(--muted)", marginTop: 4, lineHeight: 1.5 }}>
+            {r.address}{r.address_notes ? ` · ${r.address_notes}` : ""}
+          </small>
+          <small style={{ display: "block", color: "var(--dim)", marginTop: 4 }}>
+            {r.order_id} · {timeAgo(r.created_at)}
+          </small>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span className={`badge ${DELIVERY_BADGE[r.status] || ""}`}>{DELIVERY_LABEL[r.status] || r.status}</span>
+          {/* Calling the customer is the first thing anyone does when an
+              address is unclear, so the number is one tap away. */}
+          <a className="btn ghost" style={{ fontSize: 12, textDecoration: "none" }} href={`tel:${r.phone.replace(/\s/g, "")}`}>{r.phone}</a>
+          {r.status === "pending" && <button className="btn primary" style={{ fontSize: 12 }} disabled={busy === r.order_id} onClick={() => mark(r.order_id, "en_route")}>Marcar en camino</button>}
+          {r.status === "en_route" && <button className="btn primary" style={{ fontSize: 12 }} disabled={busy === r.order_id} onClick={() => mark(r.order_id, "delivered")}>Marcar entregada</button>}
+        </div>
+      </div>
+    </div>
+  );
+
+  return <div className="grid">
+    <div className="kpis">
+      <div className="kpi"><span>Por despachar</span><strong>{rows.filter((r) => r.status === "pending").length}</strong><small>Listas o en cocina</small></div>
+      <div className="kpi"><span>En camino</span><strong>{rows.filter((r) => r.status === "en_route").length}</strong><small>Fuera del local</small></div>
+      <div className="kpi"><span>Entregadas</span><strong>{rows.filter((r) => r.status === "delivered").length}</strong><small>En la lista</small></div>
+      <div className="kpi"><span>Envíos</span><strong>{money(rows.reduce((s, r) => s + (r.delivery_fee || 0), 0))}</strong><small>Cobrado por reparto</small></div>
+    </div>
+
+    {err && <div className="panel"><p style={{ color: "var(--red2)", margin: 0 }}>{err}</p></div>}
+
+    <div className="panel">
+      <div className="panel-head">
+        <div><h2>Repartos activos</h2><p style={{ margin: "4px 0 0" }}>El pedido ya está pagado y en cocina. Aquí solo se despacha.</p></div>
+        <span className="badge">{open.length}</span>
+      </div>
+      {open.length === 0
+        ? <p style={{ color: "var(--muted)", textAlign: "center", padding: "26px 0" }}>Sin repartos pendientes.</p>
+        : <div className="list">{open.map(Card)}</div>}
+    </div>
+
+    {past.length > 0 && <div className="panel">
+      <div className="panel-head"><h2>Historial</h2><span className="badge green">{past.length}</span></div>
+      <div className="list">{past.slice(0, 20).map(Card)}</div>
+    </div>}
+  </div>;
+}
+
 function ReviewsView({ role, staffId, authToken }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -3059,6 +3149,7 @@ export default function HoluAdmin() {
       case "inventory": return <InventoryView state={state} />;
       case "qr": return <QRView state={state} />;
       case "menu": return <MenuView state={state} />;
+      case "delivery": return <DeliveryView authToken={state.authToken} />;
       case "reviews": return <ReviewsView role={role} staffId={staffId} authToken={state.authToken} />;
       case "settings": return <SettingsView state={state} onRestaurantNameChange={setRestaurantName} />;
       default: return <Dashboard role={role} staffId={staffId} state={state} onGoToCaja={() => setTab("sales")} />;

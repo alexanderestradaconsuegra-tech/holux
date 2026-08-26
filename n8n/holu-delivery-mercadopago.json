@@ -1,0 +1,578 @@
+{
+  "name": "HOLU - Delivery (MercadoPago Checkout)",
+  "nodes": [
+    {
+      "id": "c1",
+      "name": "Webhook - Delivery Checkout",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "delivery-checkout",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "delivery-checkout",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "c2",
+      "name": "Validate Basket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// ── Validate ─────────────────────────────────────────────────\nconst b = $input.first().json.body ?? $input.first().json;\n\nfor (const f of ['restaurant_id', 'customer_name', 'phone', 'address']) {\n  if (!b[f] || String(b[f]).trim() === '') throw new Error(`Missing required field: ${f}`);\n}\nif (!Array.isArray(b.items) || b.items.length === 0) throw new Error('El carrito está vacío');\n\n// Only ids and quantities are accepted. Prices are read from the database in\n// the next node, so an edited page cannot buy a $20.000 dish for $1.\nconst items = b.items.map((i) => ({\n  menu_item_id: String(i.menu_item_id || '').trim(),\n  qty: Math.max(1, Math.min(50, parseInt(i.qty, 10) || 1)),\n})).filter((i) => i.menu_item_id);\n\nif (items.length === 0) throw new Error('El carrito está vacío');\n\nreturn [{ json: {\n  restaurant_id: String(b.restaurant_id).trim(),\n  customer_name: String(b.customer_name).trim().slice(0, 120),\n  phone:         String(b.phone).trim().slice(0, 40),\n  address:       String(b.address).trim().slice(0, 300),\n  address_notes: b.address_notes ? String(b.address_notes).trim().slice(0, 300) : null,\n  items,\n  ids: items.map((i) => i.menu_item_id),\n}}];"
+      }
+    },
+    {
+      "id": "c3",
+      "name": "Fetch Prices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/menu_items?restaurant_id=eq.{{ $json.restaurant_id }}&available=eq.true&visible_client=eq.true&id=in.({{ $json.ids.join(',') }})&select=id,name,price",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c4",
+      "name": "Fetch Delivery Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/restaurants?id=eq.{{ $('Validate Basket').item.json.restaurant_id }}&select=name,settings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c5",
+      "name": "Price Basket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The authoritative total, built from the database's own prices.\nconst basket = $('Validate Basket').first().json;\nconst menu   = $('Fetch Prices').all().map((i) => i.json).flat();\nconst rest   = $input.first().json;\nconst r      = Array.isArray(rest) ? rest[0] : rest;\n\nconst byId = {};\nfor (const m of menu) byId[m.id] = m;\n\nconst items = basket.items.map((i) => {\n  const m = byId[i.menu_item_id];\n  if (!m) throw new Error(`Plato no disponible: ${i.menu_item_id}`);\n  return { menu_item_id: m.id, dish_name: m.name, unit_price: m.price, qty: i.qty };\n});\n\nconst cfg      = (r && r.settings && r.settings.delivery) || {};\nif (cfg.enabled === false) throw new Error('El restaurante no está tomando pedidos a domicilio');\n\nconst subtotal = items.reduce((s, i) => s + i.unit_price * i.qty, 0);\nconst minOrder = Number(cfg.min_order || 0);\nif (subtotal < minOrder) throw new Error(`El pedido mínimo es ${minOrder}`);\n\nconst fee   = Number(cfg.fee || 0);\nconst total = subtotal + fee;\n\nreturn [{ json: { ...basket, items, subtotal, delivery_fee: fee, total,\n                  restaurant_name: (r && r.name) || 'Restaurante' } }];"
+      }
+    },
+    {
+      "id": "c6",
+      "name": "Save Basket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/delivery_requests",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"restaurant_id\": \"{{ $json.restaurant_id }}\",\n  \"customer_name\": \"{{ $json.customer_name }}\",\n  \"phone\":         \"{{ $json.phone }}\",\n  \"address\":       \"{{ $json.address }}\",\n  \"address_notes\": {{ $json.address_notes ? '\"' + $json.address_notes + '\"' : 'null' }},\n  \"items\":         {{ JSON.stringify($json.items) }},\n  \"subtotal\":      {{ $json.subtotal }},\n  \"delivery_fee\":  {{ $json.delivery_fee }},\n  \"total\":         {{ $json.total }},\n  \"status\":        \"pending\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "c7",
+      "name": "MP Create Preference",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mercadopago.com/checkout/preferences",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MP_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"external_reference\": \"{{ $json[0].id }}\",\n  \"items\": [{\n    \"title\": \"Pedido {{ $('Price Basket').item.json.restaurant_name }}\",\n    \"quantity\": 1,\n    \"unit_price\": {{ $('Price Basket').item.json.total }},\n    \"currency_id\": \"CLP\"\n  }],\n  \"payer\": { \"name\": \"{{ $('Price Basket').item.json.customer_name }}\" },\n  \"back_urls\": {\n    \"success\": \"{{ $env.DELIVERY_PUBLIC_URL }}/?seguimiento={{ $json[0].track_token }}\",\n    \"pending\": \"{{ $env.DELIVERY_PUBLIC_URL }}/?seguimiento={{ $json[0].track_token }}\",\n    \"failure\": \"{{ $env.DELIVERY_PUBLIC_URL }}/?r={{ $('Price Basket').item.json.restaurant_id }}\"\n  },\n  \"auto_return\": \"approved\",\n  \"notification_url\": \"{{ $env.N8N_PUBLIC_URL }}/webhook/mp-delivery-webhook\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "c8",
+      "name": "Link Preference",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/delivery_requests?id=eq.{{ $('Save Basket').item.json[0].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mp_preference_id\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "c9",
+      "name": "Respond Checkout",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, init_point: $('MP Create Preference').item.json.init_point, track_token: $('Save Basket').item.json[0].track_token }) }}"
+      }
+    },
+    {
+      "id": "w1",
+      "name": "Webhook - MP Delivery",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        420
+      ],
+      "webhookId": "mp-delivery-webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mp-delivery-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "w2",
+      "name": "Read Payment Notice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        420
+      ],
+      "parameters": {
+        "jsCode": "// Checkout Pro notifies with type='payment'. Anything else is acknowledged\n// and ignored so MercadoPago stops retrying it.\nconst j = $input.first().json;\nconst b = j.body ?? j;\nconst q = j.query ?? {};\nconst type = b.type || b.topic || q.type || q.topic || '';\nconst id   = (b.data && b.data.id) || b.id || q['data.id'] || q.id || null;\nreturn [{ json: { handled: type === 'payment' && Boolean(id), payment_id: id } }];"
+      }
+    },
+    {
+      "id": "w3",
+      "name": "Is Payment",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "p1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.handled }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w4",
+      "name": "MP Get Payment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        320
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.mercadopago.com/v1/payments/{{ $json.payment_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.MP_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w5",
+      "name": "Is Approved",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "approved"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w6",
+      "name": "Create Paid Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://nlwrkumlrudfgsdnhfhw.supabase.co/rest/v1/rpc/claim_delivery_payment",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_request_id\":    \"{{ $json.external_reference }}\",\n  \"p_mp_payment_id\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "w7",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Delivery Checkout": {
+      "main": [
+        [
+          {
+            "node": "Validate Basket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Basket": {
+      "main": [
+        [
+          {
+            "node": "Fetch Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Prices": {
+      "main": [
+        [
+          {
+            "node": "Fetch Delivery Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Delivery Config": {
+      "main": [
+        [
+          {
+            "node": "Price Basket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Basket": {
+      "main": [
+        [
+          {
+            "node": "Save Basket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Basket": {
+      "main": [
+        [
+          {
+            "node": "MP Create Preference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MP Create Preference": {
+      "main": [
+        [
+          {
+            "node": "Link Preference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link Preference": {
+      "main": [
+        [
+          {
+            "node": "Respond Checkout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - MP Delivery": {
+      "main": [
+        [
+          {
+            "node": "Read Payment Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Payment Notice": {
+      "main": [
+        [
+          {
+            "node": "Is Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Payment": {
+      "main": [
+        [
+          {
+            "node": "MP Get Payment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MP Get Payment": {
+      "main": [
+        [
+          {
+            "node": "Is Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Approved": {
+      "main": [
+        [
+          {
+            "node": "Create Paid Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Paid Order": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
