@@ -387,7 +387,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         <div className="container nav-in">
           <a href="#top">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://assets.zyrosite.com/rvH9B7W9kUvvSHwW/holu-logo-cIEzv6scenVM9k3O.png" alt="HOLU" style={{ height: 108, display: "block" }} />
+            <img src="/holu-logo-256.png" alt="HOLU" style={{ height: 64, width: "auto", display: "block" }} />
           </a>
           <div className="nav-links">
             <a href="#modulos">Módulos</a>

@@ -266,7 +266,10 @@ function Ordering() {
 
   return <div style={{ minHeight: "100vh", background: "#0f1117", color: "#fff", paddingBottom: count ? 96 : 24 }}>
     <div style={{ padding: "20px 20px 12px", borderBottom: "1px solid #1e2130" }}>
-      <div style={{ fontWeight: 900, fontSize: 22 }}>{rest.name}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <img src="/holu-logo-128.png" alt="HOLU" style={{ height: 26, width: "auto" }} />
+        <div style={{ fontWeight: 900, fontSize: 22 }}>{rest.name}</div>
+      </div>
       <div style={{ color: "#888", fontSize: 13, marginTop: 4 }}>
         Delivery{cfg.eta_minutes ? ` · ${cfg.eta_minutes} min aprox` : ""}{fee ? ` · Envío ${money(fee)}` : " · Envío gratis"}
       </div>
@@ -324,7 +327,7 @@ function Ordering() {
 }
 
 // ── Piezas compartidas ───────────────────────────────────────────────────────
-const Shell = ({ children }) => <div style={S.screen}>{children}</div>;
+const Shell = ({ children }) => <div style={S.screen}><div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, width: "100%" }}><img src="/holu-logo-128.png" alt="HOLU" style={{ height: 40, width: "auto" }} />{children}</div></div>;
 const Card = ({ children, wide }) => <div style={{ ...S.card, maxWidth: wide ? 460 : 380 }}>{children}</div>;
 const Line = ({ label, value, strong }) => (
   <div style={{ display: "flex", justifyContent: "space-between", margin: "7px 0", fontSize: strong ? 17 : 14, fontWeight: strong ? 900 : 400 }}>

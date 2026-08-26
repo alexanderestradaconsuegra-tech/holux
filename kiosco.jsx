@@ -221,7 +221,10 @@ export default function HoluKiosco() {
   return (
     <div style={{ minHeight: "100vh", background: "#0f1117", color: "#fff", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderBottom: "1px solid #1e2130" }}>
-        <span style={{ fontWeight: 900, fontSize: 22, letterSpacing: 3 }}>{ctx.restaurantName || "HOLU"}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src="/holu-logo-128.png" alt="HOLU" style={{ height: 30, width: "auto" }} />
+          <span style={{ fontWeight: 900, fontSize: 22, letterSpacing: 3 }}>{ctx.restaurantName || "HOLU"}</span>
+        </div>
         <span style={{ color: "#888", fontSize: 13 }}>Kiosco · {ctx.label}</span>
         {cartCount > 0 && (
           <button style={styles.btnPrimary} onClick={() => setStep("confirm")}>
