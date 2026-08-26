@@ -348,7 +348,7 @@ const S = {
   chip: { border: "none", padding: "10px 18px", borderRadius: 20, fontWeight: 700, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap" },
   dish: { display: "flex", gap: 12, alignItems: "center", background: "#1e2130", borderRadius: 16, padding: 12 },
   photo: { width: 64, height: 64, borderRadius: 14, objectFit: "cover", background: "#0f1117", border: "1px solid #2a2d3d", flexShrink: 0 },
-  qty: { width: 40, height: 40, borderRadius: 12, border: "1px solid #333", background: "#0f1117", color: "#fff", fontSize: 20, cursor: "pointer", display: "grid", placeItems: "center" },
+  qty: { width: 44, height: 44, borderRadius: 12, border: "1px solid #333", background: "#0f1117", color: "#fff", fontSize: 20, cursor: "pointer", display: "grid", placeItems: "center" },
   bar: { position: "fixed", left: 16, right: 16, bottom: 16, maxWidth: 560, margin: "0 auto", background: "#6366f1", borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontWeight: 800, boxShadow: "0 16px 40px rgba(99,102,241,.35)" },
   input: { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #333", background: "#0f1117", color: "#fff", fontSize: 16, boxSizing: "border-box" },
 };
