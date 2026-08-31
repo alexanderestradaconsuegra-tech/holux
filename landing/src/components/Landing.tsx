@@ -81,17 +81,53 @@ const benefits = [
   "Entrega una imagen premium y diferente frente a otros restaurantes.",
 ];
 
-const planFeatures = [
-  "HOLU Admin completo — gratis para siempre, sin límite de tiempo",
-  "Mesas con QR y carta digital premium",
-  "Panel de camareros en tiempo real",
-  "Pantalla de cocina organizada",
-  "Inventario con precio costo",
-  "Caja, turnos y boletas",
-  "Propinas y reseñas de clientes",
-  "Analítica de ventas y rendimiento",
-  "Delivery propio, sin comisión de apps externas",
-  "Tótem de autoservicio para barra — de regalo",
+// Precios de la sección "#precios" (activación manual por WhatsApp). El
+// formulario de "Quiero mi cuenta" más abajo cobra automático vía
+// MercadoPago con sus propios montos en CLP definidos en n8n — son dos
+// cosas distintas a propósito, no las mezcles al editar precios acá.
+const TIERS = [
+  {
+    key: "mesa",
+    name: "Admin + Mesa",
+    monthly: 15,
+    annual: 126,
+    tag: null,
+    blurb: "Tu sistema completo, más pedidos desde la mesa por QR.",
+    features: [
+      "HOLU Admin completo — gratis para siempre",
+      "Mesas con QR y carta digital premium",
+      "Panel de camareros en tiempo real",
+      "Pantalla de cocina organizada",
+      "Caja, turnos, boletas e inventario",
+    ],
+  },
+  {
+    key: "delivery",
+    name: "Admin + Mesa + Delivery",
+    monthly: 20,
+    annual: 168,
+    tag: "Más elegido",
+    blurb: "Todo lo anterior, más tu propia página de pedidos a domicilio.",
+    features: [
+      "Todo lo del plan Admin + Mesa",
+      "Delivery propio, sin comisión de apps externas",
+      "Seguimiento del pedido en vivo para el cliente",
+    ],
+  },
+  {
+    key: "full",
+    name: "Full — con Agente IA",
+    monthly: 49,
+    annual: 412,
+    tag: "Todo incluido",
+    blurb: "Todo conectado, más un agente que vende solo por WhatsApp.",
+    features: [
+      "Todo lo del plan Delivery",
+      "Agente de WhatsApp que toma pedidos por chat",
+      "Kiosco de autoservicio — de regalo",
+    ],
+    gift: true,
+  },
 ];
 
 // Cada extensión se conecta al mismo Admin gratuito — no son sistemas
@@ -318,6 +354,19 @@ a{color:inherit;text-decoration:none}
 .price{font-size:30px;font-weight:700;color:var(--gold2);margin:12px 0}
 .features{display:grid;gap:8px;margin:16px 0}
 .features div{color:var(--muted);font-size:14px;line-height:1.4}
+
+/* TIER GRID — tres niveles de precio */
+.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch}
+.tier-card{position:relative;display:flex;flex-direction:column;border-radius:24px;padding:26px 24px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line)}
+.tier-card.tier-full{border-color:rgba(240,212,141,.4);background:linear-gradient(160deg,rgba(200,169,107,.14),rgba(255,255,255,.03));box-shadow:0 22px 60px rgba(200,169,107,.14)}
+.tier-name{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:6px 0 6px}
+.tier-blurb{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 14px;min-height:40px}
+.tier-price{font-size:38px;font-weight:700;color:var(--gold2);line-height:1;margin-bottom:2px}
+.tier-price small{font-size:13px;color:var(--muted);font-weight:500}
+.tier-annual-note{color:var(--green);font-size:12px;font-weight:600;margin:0 0 14px}
+.tier-features{display:grid;gap:8px;margin:14px 0 20px;flex:1}
+.tier-features div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13.5px;line-height:1.5}
+@media(max-width:960px){.tier-grid{grid-template-columns:1fr}}
 
 /* REGISTER FORM */
 .register-section{padding:80px 0;background:radial-gradient(circle at 50% 50%,rgba(200,169,107,.06),transparent 60%)}
@@ -719,8 +768,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section id="precios" className="section">
         <div className="container">
           <div className="section-head">
-            <h2>El Admin es gratis. Esto es para conectar tus extensiones.</h2>
-            <p>Un solo plan activa Mesa, Kiosco y Delivery a la vez — todas conectadas al mismo Admin gratuito. Sin tiers, sin sorpresas.</p>
+            <h2>El Admin es gratis. Elige hasta dónde quieres conectarlo.</h2>
+            <p>Cada nivel incluye todo el anterior — Admin y Mesa nunca dejan de estar, solo le sumas canales de venta.</p>
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
@@ -728,30 +777,36 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
               <button type="button" onClick={() => setBilling("annual")} style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease", background: billing === "annual" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent", color: billing === "annual" ? "#160f02" : "var(--muted)" }}>Anual&nbsp;<span style={{ fontSize: 12, fontWeight: 700, color: billing === "annual" ? "#064" : "var(--green)" }}>−30%</span></button>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <article className="card plan highlight" style={{ position: "relative", maxWidth: 480, width: "100%" }}>
-              <span className="tag">Todo conectado</span>
-              <h3 style={{ fontSize: 26, marginTop: 8 }}>Mesa + Kiosco + Delivery</h3>
-              <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 10px", lineHeight: 1.5 }}>Tu Admin es gratis lo actives o no. Este plan es solo para conectarle canales de venta nuevos.</p>
-              <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 4px", fontWeight: 600, display:"flex", gap:6, alignItems:"center" }}>{Icons.check} Demo abierta, sin registro ni tarjeta</p>
-              <div className="price" style={{ fontSize: 44, lineHeight: 1 }}>
-                {billing === "monthly" ? <>USD&nbsp;<span style={{ fontSize: 56 }}>$15</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / mes</small></> : <>USD&nbsp;<span style={{ fontSize: 56 }}>$126</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / año</small></>}
-              </div>
-              {billing === "annual" && <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 8px", fontWeight: 600 }}>Equivale a USD $10.50/mes — ahorras $54 al año</p>}
-              <div className="features" style={{ marginTop: 16 }}>
-                {planFeatures.map(f => {
-                  const isGift = f.includes("de regalo");
-                  return (
-                    <div key={f} style={{ display:"flex", gap:8, alignItems:"flex-start", color: isGift ? "var(--gold2)" : "var(--muted)", fontWeight: isGift ? 600 : 400 }}>
-                      <span style={{ color: isGift ? "var(--gold2)" : "var(--green)", flex:"0 0 auto", marginTop:2 }}>{isGift ? Icons.gift : Icons.check}</span>
-                      <span>{f}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (plan ${billing === "annual" ? "anual $126" : "mensual $15"})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", marginTop: 20, fontSize: 15, padding: "14px 20px" }}>{Icons.message} Activar por WhatsApp</a>
-            </article>
+          <div className="tier-grid">
+            {TIERS.map((t) => (
+              <article className={`tier-card${t.key === "full" ? " tier-full" : ""}`} key={t.key}>
+                {t.tag && <span className="tag" style={{ position: "static", alignSelf: "flex-start", marginBottom: 8 }}>{t.tag}</span>}
+                <h3 className="tier-name">{t.name}</h3>
+                <p className="tier-blurb">{t.blurb}</p>
+                <div className="tier-price">
+                  {billing === "monthly"
+                    ? <>USD ${t.monthly}<small> / mes</small></>
+                    : <>USD ${t.annual}<small> / año</small></>}
+                </div>
+                {billing === "annual" && (
+                  <p className="tier-annual-note">Equivale a USD ${(t.annual / 12).toFixed(2)}/mes</p>
+                )}
+                <div className="tier-features">
+                  {t.features.map((f) => {
+                    const isGift = f.includes("de regalo");
+                    return (
+                      <div key={f} style={{ color: isGift ? "var(--gold2)" : "var(--muted)", fontWeight: isGift ? 600 : 400 }}>
+                        <span style={{ color: isGift ? "var(--gold2)" : "var(--green)", flex: "0 0 auto", marginTop: 2 }}>{isGift ? Icons.gift : Icons.check}</span>
+                        <span>{f}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU - Plan: ${t.name} (${billing === "annual" ? `anual USD $${t.annual}` : `mensual USD $${t.monthly}`})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", fontSize: 14, padding: "13px 18px" }}>{Icons.message} Activar por WhatsApp</a>
+              </article>
+            ))}
           </div>
+          <p style={{ textAlign: "center", color: "var(--dim)", fontSize: 13, marginTop: 20 }}>{Icons.check} Demo abierta, sin registro ni tarjeta, para probar el sistema completo antes de elegir.</p>
         </div>
       </section>
 
