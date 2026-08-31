@@ -82,15 +82,39 @@ const benefits = [
 ];
 
 const planFeatures = [
+  "HOLU Admin completo — gratis para siempre, sin límite de tiempo",
   "Mesas con QR y carta digital premium",
   "Panel de camareros en tiempo real",
   "Pantalla de cocina organizada",
-  "Administración completa",
   "Inventario con precio costo",
   "Caja, turnos y boletas",
   "Propinas y reseñas de clientes",
   "Analítica de ventas y rendimiento",
+  "Delivery propio, sin comisión de apps externas",
   "Tótem de autoservicio para barra — de regalo",
+];
+
+// Cada extensión se conecta al mismo Admin gratuito — no son sistemas
+// aparte, ni instalaciones aparte, ni cartas aparte.
+const extensions = [
+  {
+    name: "Mesa QR",
+    tagline: "Pedidos desde la mesa",
+    desc: "El cliente escanea el código de su mesa, ve la carta y pide desde su teléfono. Menos errores, menos espera, camareros libres para atender mejor.",
+    color: "#f0d48d",
+  },
+  {
+    name: "Kiosco",
+    tagline: "Autoservicio en barra",
+    desc: "Una pantalla en barra o mostrador para pedidos rápidos en horas de más movimiento, sin filas ni esperar atención.",
+    color: "#a78bfa",
+  },
+  {
+    name: "Delivery",
+    tagline: "Tu propia página de pedidos",
+    desc: "Vendé a domicilio directo desde tu marca, sin pagarle un 25-30% de comisión a Rappi o Uber Eats por cada pedido.",
+    color: "#34d399",
+  },
 ];
 
 const stats = [
@@ -102,6 +126,7 @@ const stats = [
 ];
 
 const faqs = [
+  { q: "¿El panel de administración tiene costo?", a: "No. HOLU Admin —carta, cocina, caja, empleados, inventario y reportes— es gratis para siempre, sin límite de tiempo. Pagas solo cuando decides conectarle un canal de venta nuevo: Mesa QR, Kiosco o Delivery." },
   { q: "¿HOLU reemplaza al camarero?",         a: "No. HOLU ayuda al equipo a trabajar mejor. El camarero sigue siendo clave para la atención, la experiencia humana y el cobro presencial cuando corresponde." },
   { q: "¿Funciona con QR por mesa?",           a: "Sí. Cada mesa tiene un QR único. El cliente entra directamente a la experiencia de su mesa y todo queda conectado con pedidos, cocina, camareros y administración." },
   { q: "¿Puedo agregar o editar platos?",       a: "Sí. Desde administración puedes crear platos, cambiar precios, subir imágenes, activar o desactivar disponibilidad y decidir qué ve el cliente." },
@@ -265,6 +290,28 @@ a{color:inherit;text-decoration:none}
 .flow-content b{display:block;font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:5px}
 .flow-content span{display:block;color:var(--muted);font-size:14px;line-height:1.6}
 
+/* HUB — Admin gratis + extensiones conectadas */
+.hub{display:flex;flex-direction:column;align-items:center;margin-top:12px}
+.hub-core{max-width:460px;width:100%;text-align:center;border-radius:28px;padding:34px 30px;background:linear-gradient(160deg,rgba(52,211,153,.14),rgba(255,255,255,.03));border:1px solid rgba(52,211,153,.32);box-shadow:0 26px 74px rgba(52,211,153,.14)}
+.hub-badge{display:inline-block;background:rgba(52,211,153,.16);color:var(--green);border-radius:999px;padding:6px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.hub-core h3{font-size:27px;margin:14px 0 8px;font-weight:700;letter-spacing:-.03em}
+.hub-core p{color:var(--muted);font-size:14.5px;line-height:1.65;margin:0}
+.hub-line{width:2px;height:46px;background:linear-gradient(180deg,rgba(52,211,153,.55),rgba(240,212,141,.55))}
+.hub-spokes{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;width:100%;position:relative}
+.hub-spokes::before{content:'';position:absolute;top:0;left:16.6%;right:16.6%;height:2px;background:linear-gradient(90deg,transparent,rgba(240,212,141,.45),rgba(240,212,141,.45),transparent)}
+.hub-spoke{display:flex;flex-direction:column;align-items:center}
+.hub-spoke-line{width:2px;height:26px;background:rgba(240,212,141,.45)}
+.hub-card{width:100%;border-radius:22px;padding:24px 20px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);text-align:center;transition:.2s ease}
+.hub-card:hover{transform:translateY(-2px)}
+.hub-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);background:rgba(240,212,141,.12);border-radius:999px;padding:5px 11px;margin-bottom:10px}
+.hub-card h4{margin:0 0 8px;font-size:19px;font-weight:700;letter-spacing:-.02em}
+.hub-card p{color:var(--muted);font-size:13.5px;line-height:1.6;margin:0}
+.hub-foot{text-align:center;color:var(--dim);font-size:13px;margin-top:26px;max-width:520px}
+@media(max-width:900px){
+  .hub-spokes{grid-template-columns:1fr;gap:30px}
+  .hub-spokes::before{display:none}
+}
+
 /* PLANS */
 .plan.highlight{border-color:rgba(240,212,141,.32);background:linear-gradient(145deg,rgba(200,169,107,.1),rgba(255,255,255,.03))}
 .tag{position:absolute;top:14px;right:14px;border-radius:999px;background:rgba(52,211,153,.12);color:var(--green);font-size:11px;padding:6px 10px;font-weight:600;letter-spacing:.04em}
@@ -390,8 +437,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <img src="/holu-logo-256.png" alt="HOLU" style={{ height: 64, width: "auto", display: "block" }} />
           </a>
           <div className="nav-links">
+            <a href="#conectado">Cómo funciona</a>
             <a href="#modulos">Módulos</a>
-            <a href="#beneficios">Beneficios</a>
             <a href="#precios">Planes</a>
             <a href="#faq">Preguntas</a>
             <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
@@ -402,17 +449,17 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <header id="top" className="hero">
         <div className="container hero-grid">
           <div>
-            <div className="eyebrow">Simple · Rápido · Todo conectado</div>
+            <div className="eyebrow">El sistema es gratis · Pagas solo lo que conectas</div>
             <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
-            <p>HOLU es la forma fácil de organizar tu restaurante: mesas, pedidos, camareros, cocina, caja, propinas y clientes conectados en una sola app.</p>
+            <p>HOLU Admin —carta, cocina, caja, inventario, reportes— es gratis para siempre. Cuando quieras vender más, conectas Mesa, Kiosco o Delivery al mismo sistema.</p>
             <div className="cta-row">
               <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
-              <a className="btn ghost" href="#modulos">Ver cómo funciona</a>
+              <a className="btn ghost" href="#conectado">Ver cómo se conecta</a>
             </div>
             <div className="trust">
+              <span><i className="dot" />Admin 100% gratis, sin límite de tiempo</span>
               <span><i className="dot" />Demo abierta · sin registro</span>
-              <span><i className="dot" />Fácil de usar</span>
-              <span><i className="dot" />Hecho para el día a día</span>
+              <span><i className="dot" />Extensiones que se conectan al instante</span>
             </div>
             <div className="logos">{socialProof.map(item => <div className="logo-pill" key={item}>{item}</div>)}</div>
             <div className="metrics">{metrics.map(([value, label]) => <div className="metric" key={value}><b>{value}</b><span>{label}</span></div>)}</div>
@@ -479,6 +526,36 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           <div className="stats">{stats.map(([value, label]) => <div className="stat" key={value}><b>{value}</b><span>{label}</span></div>)}</div>
         </div>
       </header>
+
+      <section id="conectado" className="section">
+        <div className="container">
+          <div className="section-head">
+            <h2>Un sistema. Tres formas de vender más.</h2>
+            <p>HOLU Admin no tiene costo ni fecha de vencimiento. Mesa, Kiosco y Delivery son extensiones que se conectan directo — misma carta, misma cocina, misma caja.</p>
+          </div>
+          <div className="hub">
+            <div className="hub-core">
+              <span className="hub-badge">Gratis para siempre</span>
+              <h3>HOLU Admin</h3>
+              <p>Carta, cocina, caja, empleados, inventario, propinas, reportes y auditoría — el sistema completo, sin costo, sin límite de tiempo.</p>
+            </div>
+            <div className="hub-line" />
+            <div className="hub-spokes">
+              {extensions.map((e) => (
+                <div className="hub-spoke" key={e.name}>
+                  <div className="hub-spoke-line" />
+                  <div className="hub-card" style={{ borderColor: `${e.color}28` }}>
+                    <span className="hub-tag" style={{ color: e.color, background: `${e.color}14` }}>{e.tagline}</span>
+                    <h4>{e.name}</h4>
+                    <p>{e.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="hub-foot">Ninguna corre por su cuenta: apenas la conectas, sus pedidos ya están en la cocina, en la caja y en los reportes de tu Admin.</p>
+          </div>
+        </div>
+      </section>
 
       <section id="modulos" className="section">
         <div className="container">
@@ -642,8 +719,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section id="precios" className="section">
         <div className="container">
           <div className="section-head">
-            <h2>Un solo plan. Todo incluido.</h2>
-            <p>Sin tiers, sin sorpresas. Todo lo que necesita tu restaurante desde el primer día.</p>
+            <h2>El Admin es gratis. Esto es para conectar tus extensiones.</h2>
+            <p>Un solo plan activa Mesa, Kiosco y Delivery a la vez — todas conectadas al mismo Admin gratuito. Sin tiers, sin sorpresas.</p>
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
@@ -653,8 +730,9 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           </div>
           <div style={{ display: "flex", justifyContent: "center" }}>
             <article className="card plan highlight" style={{ position: "relative", maxWidth: 480, width: "100%" }}>
-              <span className="tag">Todo incluido</span>
-              <h3 style={{ fontSize: 26, marginTop: 8 }}>HOLU — Plan completo</h3>
+              <span className="tag">Todo conectado</span>
+              <h3 style={{ fontSize: 26, marginTop: 8 }}>Mesa + Kiosco + Delivery</h3>
+              <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 10px", lineHeight: 1.5 }}>Tu Admin es gratis lo actives o no. Este plan es solo para conectarle canales de venta nuevos.</p>
               <p style={{ color: "var(--green)", fontSize: 14, margin: "0 0 4px", fontWeight: 600, display:"flex", gap:6, alignItems:"center" }}>{Icons.check} Demo abierta, sin registro ni tarjeta</p>
               <div className="price" style={{ fontSize: 44, lineHeight: 1 }}>
                 {billing === "monthly" ? <>USD&nbsp;<span style={{ fontSize: 56 }}>$15</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / mes</small></> : <>USD&nbsp;<span style={{ fontSize: 56 }}>$126</span><small style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}> / año</small></>}
@@ -700,9 +778,9 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section className="final">
         <div className="container">
           <div className="final-box">
-            <div className="eyebrow">El restaurante moderno empieza aquí</div>
+            <div className="eyebrow">El sistema es gratis. El resto, cuando quieras</div>
             <h2>El restaurante moderno funciona con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h2>
-            <p>Clientes pidiendo desde la mesa, camareros conectados, cocina sincronizada, caja organizada y autoservicio funcionando en tiempo real.</p>
+            <p>Empieza gratis con tu Admin completo. Conecta Mesa, Kiosco o Delivery el día que quieras abrir un canal de venta nuevo.</p>
             <div className="final-btns">
               <a className="btn primary" href="#registro">Quiero mi cuenta</a>
               <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">{Icons.message} Hablar por WhatsApp</a>
