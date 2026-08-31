@@ -89,6 +89,15 @@ body{margin:0}
 .dv-empty{padding:60px 20px;text-align:center;color:#8a7c6d}
 .dv-bar{position:fixed;left:16px;right:16px;bottom:16px;max-width:640px;margin:0 auto;background:linear-gradient(135deg,#d9a441,#f7d37b);color:#171006;border-radius:16px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:900;box-shadow:0 18px 44px rgba(217,164,65,.32);z-index:10}
 .dv-bar button{background:#171006;color:#f7d37b;border:0;border-radius:12px;padding:10px 18px;font-weight:900;font-size:14px;cursor:pointer}
+.dv-promos{display:flex;gap:12px;overflow-x:auto;padding:18px 0 4px;-ms-overflow-style:none;scrollbar-width:none}
+.dv-promos::-webkit-scrollbar{display:none}
+.dv-promo{flex:0 0 auto;width:220px;background:linear-gradient(150deg,rgba(217,164,65,.16),rgba(255,255,255,.02));border:1px solid rgba(217,164,65,.28);border-radius:18px;padding:16px}
+.dv-promo b{display:block;color:#f7d37b;font-size:10px;letter-spacing:.14em;font-weight:800;margin-bottom:6px}
+.dv-promo h4{margin:0 0 4px;font-family:'Playfair Display',serif;font-size:19px;line-height:1.2}
+.dv-promo p{margin:0;color:#bfae9d;font-size:12px;line-height:1.4}
+.dv-promo strong{display:block;margin-top:10px;color:#fff7ed;font-size:17px;font-weight:900}
+.dv-foot{margin-top:36px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);display:grid;gap:6px;color:#8a7c6d;font-size:13px}
+.dv-foot a{color:#f7d37b;text-decoration:none}
 a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #f7d37b;outline-offset:2px;border-radius:6px}
 `;
 
@@ -224,6 +233,7 @@ function Ordering() {
   const fee = Number(cfg.fee || 0);
   const minOrder = Number(cfg.min_order || 0);
   const coverUrl = rest?.settings?.coverUrl || "";
+  const promos = Array.isArray(rest?.settings?.promos) ? rest.settings.promos.filter((p) => p.title?.trim()) : [];
 
   const cats = useMemo(() => (menu ? [...new Set(menu.map((i) => i.category).filter(Boolean))] : []), [menu]);
   const items = Object.entries(cart)
@@ -331,6 +341,7 @@ function Ordering() {
           <div className="dv-brand"><img src="/holu-logo-128.png" alt="HOLU" /><span>DELIVERY</span></div>
         </div>
         <h1>{rest.name}</h1>
+        {rest.concept && <p style={{ margin: "0 0 12px", color: "#e7dbce", fontSize: 14 }}>{rest.concept}</p>}
         <div className="dv-hero-meta">
           <span className="dv-badge">{cfg.eta_minutes ? `⏱ ${cfg.eta_minutes} min aprox` : "⏱ Delivery"}</span>
           <span className="dv-badge">{fee ? `🛵 Envío ${money(fee)}` : "🛵 Envío gratis"}</span>
@@ -340,6 +351,19 @@ function Ordering() {
     </div>
 
     <div className="dv-body">
+      {promos.length > 0 && (
+        <div className="dv-promos">
+          {promos.map((p, i) => (
+            <div className="dv-promo" key={p.title || i}>
+              {p.eyebrow && <b>{p.eyebrow}</b>}
+              <h4>{p.title}</h4>
+              {p.body && <p>{p.body}</p>}
+              {p.price && <strong>{p.price}</strong>}
+            </div>
+          ))}
+        </div>
+      )}
+
       {menu === null && <p className="dv-empty">Cargando la carta…</p>}
       {menu !== null && menu.length === 0 && <p className="dv-empty">La carta todavía no está publicada.</p>}
 
@@ -376,6 +400,15 @@ function Ordering() {
           ))}
         </div>
       </>}
+
+      {(rest.address || rest.phone || rest.website || rest.google_review_url) && (
+        <div className="dv-foot">
+          {rest.address && <span>📍 {rest.address}</span>}
+          {rest.phone && <span>📞 {rest.phone}</span>}
+          {rest.website && <span>🌐 {rest.website}</span>}
+          {rest.google_review_url && <a href={rest.google_review_url} target="_blank" rel="noreferrer">⭐ Déjanos una reseña →</a>}
+        </div>
+      )}
     </div>
 
     {count > 0 && (
