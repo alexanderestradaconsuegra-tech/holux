@@ -47,6 +47,51 @@ const supaRpc = async (fn, args) => {
   return res.json();
 };
 
+// The same gold-on-black identity as mesa.jsx and admin.jsx, so a diner who
+// ordered from the table QR recognizes the brand when they order delivery too.
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box}
+body{margin:0}
+.dv{min-height:100dvh;background:#080705;color:#fff7ed;font-family:Inter,system-ui,sans-serif}
+.dv a,.dv button{font-family:inherit}
+.dv-hero{position:relative;padding:20px 20px 26px;display:flex;flex-direction:column;justify-content:flex-end;min-height:200px;background-size:cover;background-position:center}
+.dv-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,7,5,.55),rgba(8,7,5,.92)),radial-gradient(circle at 15% 0%,rgba(217,164,65,.22),transparent 55%)}
+.dv-hero-in{position:relative;z-index:1}
+.dv-hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dv-brand{display:flex;align-items:center;gap:9px}
+.dv-brand img{height:26px;width:auto}
+.dv-brand span{font-weight:900;font-size:13px;letter-spacing:.14em;color:#bfae9d}
+.dv-hero h1{font-family:'Playfair Display',serif;font-size:32px;line-height:1.05;margin:16px 0 8px;letter-spacing:-.02em}
+.dv-hero-meta{display:flex;gap:8px;flex-wrap:wrap}
+.dv-badge{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:999px;padding:6px 13px;font-weight:700;font-size:12px;color:#f3e7d6}
+.dv-badge.warn{background:rgba(217,164,65,.16);border-color:rgba(217,164,65,.35);color:#f7d37b}
+.dv-body{max-width:980px;margin:0 auto;padding:0 16px 110px}
+.dv-cats{display:flex;gap:8px;overflow-x:auto;padding:16px 0;position:sticky;top:0;background:#080705;z-index:6;-ms-overflow-style:none;scrollbar-width:none}
+.dv-cats::-webkit-scrollbar{display:none}
+.dv-cat{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#bfae9d;border-radius:999px;padding:9px 16px;font-weight:800;font-size:13px;white-space:nowrap;cursor:pointer;flex-shrink:0}
+.dv-cat.on{background:linear-gradient(135deg,#d9a441,#f7d37b);color:#171006;border-color:transparent}
+.dv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media(min-width:600px){.dv-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:860px){.dv-grid{grid-template-columns:repeat(4,1fr)}}
+.dv-card{background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid rgba(255,255,255,.08);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.dv-card-photo{aspect-ratio:1/1;background:#15120f;display:grid;place-items:center;font-size:28px;font-weight:900;color:#f7d37b;overflow:hidden}
+.dv-card-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.dv-card-body{padding:10px 11px 12px;display:flex;flex-direction:column;gap:3px;flex:1}
+.dv-card h3{margin:0;font-size:13.5px;font-weight:700;line-height:1.3}
+.dv-card p{margin:0;font-size:11px;color:#8a7c6d;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dv-card-foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:7px}
+.dv-price{color:#f7d37b;font-weight:900;font-size:13.5px}
+.dv-add{width:30px;height:30px;border-radius:10px;border:0;background:linear-gradient(135deg,#d9a441,#f7d37b);color:#171006;font-size:18px;font-weight:900;cursor:pointer;display:grid;place-items:center;line-height:1}
+.dv-qty{display:flex;align-items:center;gap:6px}
+.dv-qty button{width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff7ed;font-size:15px;cursor:pointer;display:grid;place-items:center;line-height:1}
+.dv-qty span{min-width:14px;text-align:center;font-weight:800;font-size:13px}
+.dv-empty{padding:60px 20px;text-align:center;color:#8a7c6d}
+.dv-bar{position:fixed;left:16px;right:16px;bottom:16px;max-width:640px;margin:0 auto;background:linear-gradient(135deg,#d9a441,#f7d37b);color:#171006;border-radius:16px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:900;box-shadow:0 18px 44px rgba(217,164,65,.32);z-index:10}
+.dv-bar button{background:#171006;color:#f7d37b;border:0;border-radius:12px;padding:10px 18px;font-weight:900;font-size:14px;cursor:pointer}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #f7d37b;outline-offset:2px;border-radius:6px}
+`;
+
 // ── Seguimiento ──────────────────────────────────────────────────────────────
 // The token is the customer's only credential, and track_delivery() runs as
 // definer so it returns their progress without anon needing to read orders.
@@ -106,14 +151,15 @@ function Tracking({ token }) {
             <div style={{
               width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
               display: "grid", placeItems: "center", fontSize: 14, fontWeight: 900,
-              background: i <= idx ? "#6366f1" : "#1e2130", color: "#fff",
+              background: i <= idx ? "linear-gradient(135deg,#d9a441,#f7d37b)" : "#211b14",
+              color: i <= idx ? "#171006" : "#8a7c6d",
             }}>{i < idx || done ? "✓" : i + 1}</div>
             <span style={{ fontWeight: i === idx ? 800 : 500 }}>{s.label}</span>
           </div>
         ))}
       </div>
 
-      <div style={{ borderTop: "1px solid #2a2d3d", paddingTop: 14, textAlign: "left" }}>
+      <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 14, textAlign: "left" }}>
         {(data.items || []).map((it, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, margin: "6px 0" }}>
             <span>{it.qty}× {it.dish_name}</span>
@@ -177,6 +223,7 @@ function Ordering() {
   const cfg = rest?.settings?.delivery || {};
   const fee = Number(cfg.fee || 0);
   const minOrder = Number(cfg.min_order || 0);
+  const coverUrl = rest?.settings?.coverUrl || "";
 
   const cats = useMemo(() => (menu ? [...new Set(menu.map((i) => i.category).filter(Boolean))] : []), [menu]);
   const items = Object.entries(cart)
@@ -257,7 +304,7 @@ function Ordering() {
         <Field label="Referencias (opcional)" value={form.notes} onChange={(v) => setForm((f) => ({ ...f, notes: v }))} placeholder="Portón, timbre, piso…" />
       </div>
 
-      <div style={{ borderTop: "1px solid #2a2d3d", marginTop: 18, paddingTop: 14, textAlign: "left" }}>
+      <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", marginTop: 18, paddingTop: 14, textAlign: "left" }}>
         <Line label="Subtotal" value={money(subtotal)} />
         <Line label="Envío" value={fee ? money(fee) : "Gratis"} />
         <Line label="Total" value={money(total)} strong />
@@ -275,62 +322,69 @@ function Ordering() {
 
   const visible = (menu || []).filter((i) => i.category === cat);
 
-  return <div style={{ minHeight: "100vh", background: "#0f1117", color: "#fff", paddingBottom: count ? 96 : 24 }}>
-    <div style={{ padding: "20px 20px 12px", borderBottom: "1px solid #1e2130" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <img src="/holu-logo-128.png" alt="HOLU" style={{ height: 26, width: "auto" }} />
-        <div style={{ fontWeight: 900, fontSize: 22 }}>{rest.name}</div>
+  return <div className="dv">
+    <style>{CSS}</style>
+
+    <div className="dv-hero" style={coverUrl ? { backgroundImage: `url('${coverUrl}')` } : undefined}>
+      <div className="dv-hero-in">
+        <div className="dv-hero-top">
+          <div className="dv-brand"><img src="/holu-logo-128.png" alt="HOLU" /><span>DELIVERY</span></div>
+        </div>
+        <h1>{rest.name}</h1>
+        <div className="dv-hero-meta">
+          <span className="dv-badge">{cfg.eta_minutes ? `⏱ ${cfg.eta_minutes} min aprox` : "⏱ Delivery"}</span>
+          <span className="dv-badge">{fee ? `🛵 Envío ${money(fee)}` : "🛵 Envío gratis"}</span>
+          {minOrder > 0 && <span className="dv-badge warn">Mínimo {money(minOrder)}</span>}
+        </div>
       </div>
-      <div style={{ color: "#888", fontSize: 13, marginTop: 4 }}>
-        Delivery{cfg.eta_minutes ? ` · ${cfg.eta_minutes} min aprox` : ""}{fee ? ` · Envío ${money(fee)}` : " · Envío gratis"}
-      </div>
-      {minOrder > 0 && <div style={{ color: "#888", fontSize: 12, marginTop: 2 }}>Pedido mínimo {money(minOrder)}</div>}
     </div>
 
-    {menu === null && <p style={{ padding: 40, color: "#888" }}>Cargando la carta…</p>}
-    {menu !== null && menu.length === 0 && (
-      <p style={{ padding: 40, color: "#888", textAlign: "center" }}>La carta todavía no está publicada.</p>
-    )}
+    <div className="dv-body">
+      {menu === null && <p className="dv-empty">Cargando la carta…</p>}
+      {menu !== null && menu.length === 0 && <p className="dv-empty">La carta todavía no está publicada.</p>}
 
-    {menu !== null && menu.length > 0 && <>
-      <div style={{ display: "flex", gap: 8, padding: "14px 20px", overflowX: "auto" }}>
-        {cats.map((c) => (
-          <button key={c} onClick={() => setCat(c)} style={{
-            ...S.chip, background: cat === c ? "#6366f1" : "#1e2130", color: cat === c ? "#fff" : "#888",
-          }}>{c}</button>
-        ))}
-      </div>
+      {menu !== null && menu.length > 0 && <>
+        <div className="dv-cats">
+          {cats.map((c) => (
+            <button key={c} className={`dv-cat${cat === c ? " on" : ""}`} onClick={() => setCat(c)}>{c}</button>
+          ))}
+        </div>
 
-      <div style={{ display: "grid", gap: 12, padding: "0 20px" }}>
-        {visible.map((d) => (
-          <div key={d.id} style={S.dish}>
-            {d.image_url
-              ? <img src={d.image_url} alt="" style={S.photo} />
-              : <div style={{ ...S.photo, display: "grid", placeItems: "center", fontSize: 24, fontWeight: 900, color: "#6366f1" }}>{(d.name || "?")[0]}</div>}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700 }}>{d.name}</div>
-              {d.subtitle && <div style={{ color: "#888", fontSize: 12, marginTop: 3, lineHeight: 1.4 }}>{d.subtitle}</div>}
-              <div style={{ color: "#6366f1", fontWeight: 900, marginTop: 6 }}>{money(d.price)}</div>
+        <div className="dv-grid">
+          {visible.map((d) => (
+            <div key={d.id} className="dv-card">
+              <div className="dv-card-photo">
+                {d.image_url ? <img src={d.image_url} alt="" /> : (d.name || "?")[0]}
+              </div>
+              <div className="dv-card-body">
+                <h3>{d.name}</h3>
+                {d.subtitle && <p>{d.subtitle}</p>}
+                <div className="dv-card-foot">
+                  <span className="dv-price">{money(d.price)}</span>
+                  {cart[d.id] ? (
+                    <div className="dv-qty">
+                      <button onClick={() => sub(d.id)} aria-label={`Quitar ${d.name}`}>−</button>
+                      <span>{cart[d.id]}</span>
+                      <button onClick={() => add(d.id)} aria-label={`Agregar ${d.name}`}>+</button>
+                    </div>
+                  ) : (
+                    <button className="dv-add" onClick={() => add(d.id)} aria-label={`Agregar ${d.name}`}>+</button>
+                  )}
+                </div>
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {cart[d.id] ? <>
-                <button style={S.qty} onClick={() => sub(d.id)} aria-label={`Quitar ${d.name}`}>−</button>
-                <span style={{ minWidth: 18, textAlign: "center", fontWeight: 800 }}>{cart[d.id]}</span>
-              </> : null}
-              <button style={S.qty} onClick={() => add(d.id)} aria-label={`Agregar ${d.name}`}>+</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>}
+          ))}
+        </div>
+      </>}
+    </div>
 
     {count > 0 && (
-      <div style={S.bar}>
+      <div className="dv-bar">
         {belowMin
-          ? <span style={{ fontWeight: 700 }}>Faltan {money(minOrder - subtotal)} para el mínimo</span>
+          ? <span>Faltan {money(minOrder - subtotal)} para el mínimo</span>
           : <>
             <span>{count} item{count > 1 ? "s" : ""} · {money(total)}</span>
-            <button style={{ ...S.btnPrimary, width: "auto", padding: "12px 22px" }} onClick={() => { setErr(""); setStep("datos"); }}>Continuar</button>
+            <button onClick={() => { setErr(""); setStep("datos"); }}>Continuar</button>
           </>}
       </div>
     )}
@@ -342,12 +396,12 @@ const Shell = ({ children }) => <div style={S.screen}><div style={{ display: "fl
 const Card = ({ children, wide }) => <div style={{ ...S.card, maxWidth: wide ? 460 : 380 }}>{children}</div>;
 const Line = ({ label, value, strong }) => (
   <div style={{ display: "flex", justifyContent: "space-between", margin: "7px 0", fontSize: strong ? 17 : 14, fontWeight: strong ? 900 : 400 }}>
-    <span style={{ color: strong ? "#fff" : "#888" }}>{label}</span><span>{value}</span>
+    <span style={{ color: strong ? "#fff7ed" : "#8a7c6d" }}>{label}</span><span>{value}</span>
   </div>
 );
 const Field = ({ label, value, onChange, placeholder, type = "text" }) => (
   <label style={{ display: "block" }}>
-    <span style={{ display: "block", color: "#888", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{label}</span>
+    <span style={{ display: "block", color: "#8a7c6d", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{label}</span>
     <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={S.input} />
   </label>
 );
@@ -407,23 +461,18 @@ function AddressField({ value, onChange, onPlace, placeholder }) {
 
   return (
     <label style={{ display: "block" }}>
-      <span style={{ display: "block", color: "#888", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Dirección</span>
+      <span style={{ display: "block", color: "#8a7c6d", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Dirección</span>
       <input ref={inputRef} type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={S.input} autoComplete="off" />
     </label>
   );
 }
 
 const S = {
-  screen: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f1117", color: "#fff", padding: 20 },
-  card: { width: "100%", background: "#1e2130", padding: 32, borderRadius: 24, textAlign: "center" },
-  h2: { margin: "0 0 8px", fontSize: 23, fontWeight: 900 },
-  muted: { color: "#888", margin: 0, fontSize: 14, lineHeight: 1.6 },
-  btnPrimary: { flex: 1, background: "#6366f1", color: "#fff", border: "none", padding: "14px 20px", borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: "pointer" },
-  btnGhost: { flex: 1, background: "#0f1117", color: "#fff", border: "1px solid #333", padding: "14px 20px", borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: "pointer" },
-  chip: { border: "none", padding: "10px 18px", borderRadius: 20, fontWeight: 700, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap" },
-  dish: { display: "flex", gap: 12, alignItems: "center", background: "#1e2130", borderRadius: 16, padding: 12 },
-  photo: { width: 64, height: 64, borderRadius: 14, objectFit: "cover", background: "#0f1117", border: "1px solid #2a2d3d", flexShrink: 0 },
-  qty: { width: 44, height: 44, borderRadius: 12, border: "1px solid #333", background: "#0f1117", color: "#fff", fontSize: 20, cursor: "pointer", display: "grid", placeItems: "center" },
-  bar: { position: "fixed", left: 16, right: 16, bottom: 16, maxWidth: 560, margin: "0 auto", background: "#6366f1", borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontWeight: 800, boxShadow: "0 16px 40px rgba(99,102,241,.35)" },
-  input: { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #333", background: "#0f1117", color: "#fff", fontSize: 16, boxSizing: "border-box" },
+  screen: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080705", color: "#fff7ed", padding: 20, fontFamily: "Inter,system-ui,sans-serif" },
+  card: { width: "100%", background: "#15120f", border: "1px solid rgba(255,255,255,.08)", padding: 32, borderRadius: 24, textAlign: "center" },
+  h2: { margin: "0 0 8px", fontSize: 23, fontWeight: 900, fontFamily: "'Playfair Display',serif" },
+  muted: { color: "#8a7c6d", margin: 0, fontSize: 14, lineHeight: 1.6 },
+  btnPrimary: { flex: 1, background: "linear-gradient(135deg,#d9a441,#f7d37b)", color: "#171006", border: "none", padding: "14px 20px", borderRadius: 12, fontWeight: 900, fontSize: 15, cursor: "pointer" },
+  btnGhost: { flex: 1, background: "rgba(255,255,255,.05)", color: "#fff7ed", border: "1px solid rgba(255,255,255,.12)", padding: "14px 20px", borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: "pointer" },
+  input: { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.05)", color: "#fff7ed", fontSize: 16, boxSizing: "border-box" },
 };
