@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOLU DELIVERY — PEDIDOS A DOMICILIO
@@ -20,6 +20,7 @@ const getEnv = (key, fallback = "") => {
 const N8N_BASE = getEnv("VITE_N8N_WEBHOOK_BASE", "");
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc1NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
+const GOOGLE_MAPS_API_KEY = getEnv("VITE_GOOGLE_MAPS_API_KEY", "");
 
 const webhookUrl = (path) => {
   const base = N8N_BASE.replace(/\/+$/, "");
@@ -141,7 +142,7 @@ function Ordering() {
   const [cat, setCat] = useState("");
   const [cart, setCart] = useState({});
   const [step, setStep] = useState("menu");      // menu | datos | enviando
-  const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "", lat: null, lng: null });
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -193,6 +194,9 @@ function Ordering() {
     if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
       return setErr("Necesitamos tu nombre, teléfono y dirección.");
     }
+    if (GOOGLE_MAPS_API_KEY && (form.lat == null || form.lng == null)) {
+      return setErr("Elige tu dirección de la lista de sugerencias para que podamos confirmar que estás dentro de la zona de reparto.");
+    }
     setStep("enviando"); setErr("");
     try {
       const res = await fetch(webhookUrl("delivery-checkout"), {
@@ -204,6 +208,8 @@ function Ordering() {
           phone: form.phone.trim(),
           address: form.address.trim(),
           address_notes: form.notes.trim() || null,
+          lat: form.lat,
+          lng: form.lng,
           // Only ids and quantities travel: the price is looked up server-side
           // so an edited page cannot buy a $20.000 dish for $1.
           items: items.map((i) => ({ menu_item_id: i.id, qty: i.qty })),
@@ -242,7 +248,12 @@ function Ordering() {
       <div style={{ display: "grid", gap: 12, textAlign: "left" }}>
         <Field label="Nombre" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Tu nombre" />
         <Field label="Teléfono" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="+56 9 1234 5678" type="tel" />
-        <Field label="Dirección" value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} placeholder="Calle, número, depto" />
+        <AddressField
+          value={form.address}
+          onChange={(v) => setForm((f) => ({ ...f, address: v, lat: null, lng: null }))}
+          onPlace={({ address, lat, lng }) => setForm((f) => ({ ...f, address, lat, lng }))}
+          placeholder="Calle, número, depto"
+        />
         <Field label="Referencias (opcional)" value={form.notes} onChange={(v) => setForm((f) => ({ ...f, notes: v }))} placeholder="Portón, timbre, piso…" />
       </div>
 
@@ -340,6 +351,67 @@ const Field = ({ label, value, onChange, placeholder, type = "text" }) => (
     <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={S.input} />
   </label>
 );
+
+// Loaded once, on demand: a bad or missing key just means the address field
+// stays a plain text input instead of the page breaking.
+let GOOGLE_MAPS_PROMISE = null;
+function loadGoogleMaps() {
+  if (!GOOGLE_MAPS_API_KEY) return Promise.reject(new Error("no api key"));
+  if (GOOGLE_MAPS_PROMISE) return GOOGLE_MAPS_PROMISE;
+  GOOGLE_MAPS_PROMISE = new Promise((resolve, reject) => {
+    if (window.google?.maps?.places) return resolve(window.google);
+    const existing = document.getElementById("google-maps-script");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.google));
+      existing.addEventListener("error", reject);
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&libraries=places&language=es&region=CL`;
+    script.async = true;
+    script.onload = () => resolve(window.google);
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return GOOGLE_MAPS_PROMISE;
+}
+
+// onPlace only fires once a suggestion is actually picked — typing alone
+// never yields coordinates, which is what makes the radius check on the
+// server trustworthy instead of decorative.
+function AddressField({ value, onChange, onPlace, placeholder }) {
+  const inputRef = useRef(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadGoogleMaps().then(() => { if (!cancelled) setReady(true); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !inputRef.current || !window.google) return;
+    const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
+      componentRestrictions: { country: "cl" },
+      fields: ["formatted_address", "geometry"],
+    });
+    const listener = ac.addListener("place_changed", () => {
+      const place = ac.getPlace();
+      const loc = place.geometry?.location;
+      if (!loc) return;
+      onPlace({ address: place.formatted_address || inputRef.current.value, lat: loc.lat(), lng: loc.lng() });
+    });
+    return () => { window.google.maps.event.removeListener(listener); };
+  }, [ready]);
+
+  return (
+    <label style={{ display: "block" }}>
+      <span style={{ display: "block", color: "#888", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Dirección</span>
+      <input ref={inputRef} type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={S.input} autoComplete="off" />
+    </label>
+  );
+}
 
 const S = {
   screen: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f1117", color: "#fff", padding: 20 },
