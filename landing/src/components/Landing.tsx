@@ -11,6 +11,9 @@ const Icons = {
   gift: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>,
   message: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   success: <svg width="52" height="52" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" stroke="currentColor" strokeOpacity="0.2" strokeWidth="2"/><path d="M15 26l8 8 14-14" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  delivery: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>,
+  telegram: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
+  server: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/></svg>,
 };
 
 const socialProof = [
@@ -114,42 +117,80 @@ const TIERS = [
       "Seguimiento del pedido en vivo para el cliente",
     ],
   },
-  {
-    key: "full",
-    name: "Full — con Agente IA",
-    monthly: 49,
-    annual: 412,
-    tag: "Todo incluido",
-    blurb: "Todo conectado, más un agente que vende solo por WhatsApp.",
-    features: [
-      "Todo lo del plan Delivery",
-      "Agente de WhatsApp que toma pedidos por chat",
-      "Kiosco de autoservicio — de regalo",
-    ],
-    gift: true,
-  },
 ];
+
+// El plan a medida no tiene precio de lista a propósito: es un servidor
+// dedicado por restaurante, se cotiza según lo que cada uno necesita.
+const ENTERPRISE = {
+  name: "A Medida — Servidor Dedicado",
+  tag: "Personalizado",
+  blurb: "Tu propio servidor, dedicado solo a tu restaurante, con dos agentes de IA trabajando para vos las 24 horas.",
+  agents: [
+    {
+      name: "Agente de WhatsApp",
+      icon: "message",
+      color: "#25d366",
+      desc: "Responde, arma el pedido conversando con el cliente y lo cobra — vendiendo directo por chat, sin que nadie del equipo tenga que escribir.",
+    },
+    {
+      name: "Agente de Telegram",
+      icon: "telegram",
+      color: "#60a5fa",
+      desc: "Tu mano derecha con toda la información del restaurante: ventas del día, alertas de inventario, reportes — lo que necesites, con solo preguntarle.",
+    },
+  ],
+  includes: [
+    "Todo lo del plan Full: Admin, Mesa, Delivery y Kiosco",
+    "Servidor dedicado, solo para tu restaurante — no compartido",
+    "Los dos agentes configurados con el tono y los datos de tu negocio",
+  ],
+};
 
 // Cada extensión se conecta al mismo Admin gratuito — no son sistemas
 // aparte, ni instalaciones aparte, ni cartas aparte.
-const extensions = [
+const salesChannels = [
   {
+    key: "mesa",
     name: "Mesa QR",
     tagline: "Pedidos desde la mesa",
     desc: "El cliente escanea el código de su mesa, ve la carta y pide desde su teléfono. Menos errores, menos espera, camareros libres para atender mejor.",
     color: "#f0d48d",
+    icon: "phone",
   },
   {
+    key: "kiosco",
     name: "Kiosco",
     tagline: "Autoservicio en barra",
     desc: "Una pantalla en barra o mostrador para pedidos rápidos en horas de más movimiento, sin filas ni esperar atención.",
     color: "#a78bfa",
+    icon: "monitor",
   },
   {
+    key: "delivery",
     name: "Delivery",
     tagline: "Tu propia página de pedidos",
     desc: "Vendé a domicilio directo desde tu marca, sin pagarle un 25-30% de comisión a Rappi o Uber Eats por cada pedido.",
     color: "#34d399",
+    icon: "delivery",
+  },
+];
+
+const teamRoles = [
+  {
+    key: "camarero",
+    name: "Camarero",
+    tagline: "Su propio perfil",
+    desc: "Cada camarero entra con su PIN y ve solo sus mesas, sus llamados y sus pedidos activos — nadie comparte una sola pantalla para todo el salón.",
+    color: "#60a5fa",
+    icon: "users",
+  },
+  {
+    key: "cocina",
+    name: "Cocina",
+    tagline: "Pantalla propia",
+    desc: "Los pedidos entran organizados por prioridad, sin papel ni gritar la comanda — cada plato se marca listo desde la pantalla de cocina.",
+    color: "#fb923c",
+    icon: "chef",
   },
 ];
 
@@ -326,27 +367,49 @@ a{color:inherit;text-decoration:none}
 .flow-content b{display:block;font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:5px}
 .flow-content span{display:block;color:var(--muted);font-size:14px;line-height:1.6}
 
-/* HUB — Admin gratis + extensiones conectadas */
-.hub{display:flex;flex-direction:column;align-items:center;margin-top:12px}
-.hub-core{max-width:460px;width:100%;text-align:center;border-radius:28px;padding:34px 30px;background:linear-gradient(160deg,rgba(52,211,153,.14),rgba(255,255,255,.03));border:1px solid rgba(52,211,153,.32);box-shadow:0 26px 74px rgba(52,211,153,.14)}
-.hub-badge{display:inline-block;background:rgba(52,211,153,.16);color:var(--green);border-radius:999px;padding:6px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+/* HUB — Admin gratis + todo lo que se le conecta (v2, sistema vivo) */
+.hub-wrap{position:relative}
+.hub-wrap::before{content:'';position:absolute;inset:-20px -40px auto;height:520px;background-image:radial-gradient(rgba(255,255,255,.055) 1px,transparent 1px);background-size:24px 24px;-webkit-mask-image:radial-gradient(ellipse 60% 55% at 50% 12%,#000,transparent 72%);mask-image:radial-gradient(ellipse 60% 55% at 50% 12%,#000,transparent 72%);pointer-events:none}
+.hub{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:16px}
+.hub-core-wrap{position:relative}
+.hub-core-wrap::before,.hub-core-wrap::after{content:'';position:absolute;inset:0;border-radius:28px;border:1px solid rgba(52,211,153,.45);animation:hubPulse 2.8s ease-out infinite;pointer-events:none}
+.hub-core-wrap::after{animation-delay:1.4s}
+@keyframes hubPulse{0%{transform:scale(1);opacity:.85}100%{transform:scale(1.18);opacity:0}}
+.hub-core{position:relative;max-width:460px;width:100%;text-align:center;border-radius:28px;padding:34px 30px;background:linear-gradient(160deg,rgba(52,211,153,.16),rgba(255,255,255,.03));border:1px solid rgba(52,211,153,.4);box-shadow:0 26px 74px rgba(52,211,153,.18)}
+.hub-badge{display:inline-block;background:rgba(52,211,153,.18);color:var(--green);border-radius:999px;padding:6px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .hub-core h3{font-size:27px;margin:14px 0 8px;font-weight:700;letter-spacing:-.03em}
 .hub-core p{color:var(--muted);font-size:14.5px;line-height:1.65;margin:0}
-.hub-line{width:2px;height:46px;background:linear-gradient(180deg,rgba(52,211,153,.55),rgba(240,212,141,.55))}
-.hub-spokes{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;width:100%;position:relative}
-.hub-spokes::before{content:'';position:absolute;top:0;left:16.6%;right:16.6%;height:2px;background:linear-gradient(90deg,transparent,rgba(240,212,141,.45),rgba(240,212,141,.45),transparent)}
+
+.hub-flow{position:relative;width:2px;height:42px;overflow:hidden;background:rgba(255,255,255,.09)}
+.hub-flow::after{content:'';position:absolute;left:0;top:-100%;width:100%;height:200%;background:linear-gradient(180deg,transparent 0%,rgba(52,211,153,.95) 45%,rgba(240,212,141,.95) 55%,transparent 100%);animation:hubFlowDown 1.7s linear infinite}
+@keyframes hubFlowDown{from{transform:translateY(0)}to{transform:translateY(50%)}}
+
+.hub-group{width:100%;margin-top:6px}
+.hub-group-label{display:flex;align-items:center;gap:10px;justify-content:center;color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:18px}
+.hub-group-label::before,.hub-group-label::after{content:'';height:1px;width:36px;background:rgba(255,255,255,.14)}
+
+.hub-row{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;width:100%;position:relative}
+.hub-row.hub-row-2{grid-template-columns:repeat(2,1fr);max-width:620px;margin:0 auto}
+.hub-row::before{content:'';position:absolute;top:0;left:16.6%;right:16.6%;height:1px;background:rgba(255,255,255,.1)}
+.hub-row.hub-row-2::before{left:25%;right:25%}
+.hub-row::after{content:'';position:absolute;top:-1px;left:16.6%;right:16.6%;height:2px;background:linear-gradient(90deg,transparent,rgba(240,212,141,.9),transparent);background-size:55% 100%;background-repeat:no-repeat;animation:hubFlowRight 2.6s linear infinite}
+.hub-row.hub-row-2::after{left:25%;right:25%}
+@keyframes hubFlowRight{0%{background-position:-55% 0}100%{background-position:155% 0}}
+
 .hub-spoke{display:flex;flex-direction:column;align-items:center}
-.hub-spoke-line{width:2px;height:26px;background:rgba(240,212,141,.45)}
-.hub-card{width:100%;border-radius:22px;padding:24px 20px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);text-align:center;transition:.2s ease}
-.hub-card:hover{transform:translateY(-2px)}
-.hub-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);background:rgba(240,212,141,.12);border-radius:999px;padding:5px 11px;margin-bottom:10px}
-.hub-card h4{margin:0 0 8px;font-size:19px;font-weight:700;letter-spacing:-.02em}
-.hub-card p{color:var(--muted);font-size:13.5px;line-height:1.6;margin:0}
-.hub-foot{text-align:center;color:var(--dim);font-size:13px;margin-top:26px;max-width:520px}
+.hub-spoke-line{width:1px;height:22px;background:rgba(255,255,255,.14)}
+.hub-card{width:100%;border-radius:22px;padding:22px 18px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line);text-align:center;transition:.25s ease}
+.hub-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(0,0,0,.34)}
+.hub-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;margin:0 auto 12px}
+.hub-tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:999px;padding:4px 10px;margin-bottom:8px}
+.hub-card h4{margin:0 0 6px;font-size:17px;font-weight:700;letter-spacing:-.02em}
+.hub-card p{color:var(--muted);font-size:12.5px;line-height:1.55;margin:0}
+.hub-foot{text-align:center;color:var(--dim);font-size:13px;margin-top:32px;max-width:560px}
 @media(max-width:900px){
-  .hub-spokes{grid-template-columns:1fr;gap:30px}
-  .hub-spokes::before{display:none}
+  .hub-row,.hub-row.hub-row-2{grid-template-columns:1fr;gap:26px;max-width:320px;margin:0 auto}
+  .hub-row::before,.hub-row::after{display:none}
 }
+@media(prefers-reduced-motion:reduce){.hub-core-wrap::before,.hub-core-wrap::after,.hub-flow::after,.hub-row::after{animation:none}}
 
 /* PLANS */
 .plan.highlight{border-color:rgba(240,212,141,.32);background:linear-gradient(145deg,rgba(200,169,107,.1),rgba(255,255,255,.03))}
@@ -355,8 +418,8 @@ a{color:inherit;text-decoration:none}
 .features{display:grid;gap:8px;margin:16px 0}
 .features div{color:var(--muted);font-size:14px;line-height:1.4}
 
-/* TIER GRID — tres niveles de precio */
-.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch}
+/* TIER GRID — dos niveles fijos + el plan a medida aparte */
+.tier-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:stretch;max-width:760px;margin:0 auto}
 .tier-card{position:relative;display:flex;flex-direction:column;border-radius:24px;padding:26px 24px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line)}
 .tier-card.tier-full{border-color:rgba(240,212,141,.4);background:linear-gradient(160deg,rgba(200,169,107,.14),rgba(255,255,255,.03));box-shadow:0 22px 60px rgba(200,169,107,.14)}
 .tier-name{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:6px 0 6px}
@@ -366,7 +429,28 @@ a{color:inherit;text-decoration:none}
 .tier-annual-note{color:var(--green);font-size:12px;font-weight:600;margin:0 0 14px}
 .tier-features{display:grid;gap:8px;margin:14px 0 20px;flex:1}
 .tier-features div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13.5px;line-height:1.5}
-@media(max-width:960px){.tier-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.tier-grid{grid-template-columns:1fr}}
+
+/* ENTERPRISE — plan a medida, sin precio de lista */
+.enterprise{position:relative;overflow:hidden;margin:28px auto 0;max-width:920px;border-radius:28px;padding:36px 32px;background:linear-gradient(160deg,rgba(96,165,250,.1),rgba(37,211,102,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.14)}
+.enterprise::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 12% -10%,rgba(96,165,250,.16),transparent 42%),radial-gradient(circle at 90% 110%,rgba(37,211,102,.14),transparent 42%);pointer-events:none}
+.enterprise-head{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+.enterprise-title{font-size:25px;font-weight:700;letter-spacing:-.03em;margin:10px 0 8px}
+.enterprise-blurb{color:var(--muted);font-size:14.5px;line-height:1.65;max-width:440px;margin:0}
+.enterprise-cta{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.enterprise-price{color:var(--dim);font-size:12.5px;font-weight:600}
+.enterprise-agents{position:relative;display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:22px}
+.enterprise-agent{border-radius:20px;padding:20px;background:rgba(255,255,255,.045);border:1px solid var(--line)}
+.enterprise-agent-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;margin-bottom:12px}
+.enterprise-agent h4{margin:0 0 6px;font-size:16px;font-weight:700}
+.enterprise-agent p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.enterprise-includes{position:relative;display:grid;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:18px}
+.enterprise-includes div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5}
+@media(max-width:760px){
+  .enterprise{padding:28px 22px}
+  .enterprise-agents{grid-template-columns:1fr}
+  .enterprise-head{flex-direction:column}
+}
 
 /* REGISTER FORM */
 .register-section{padding:80px 0;background:radial-gradient(circle at 50% 50%,rgba(200,169,107,.06),transparent 60%)}
@@ -577,31 +661,57 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       </header>
 
       <section id="conectado" className="section">
-        <div className="container">
+        <div className="container hub-wrap">
           <div className="section-head">
-            <h2>Un sistema. Tres formas de vender más.</h2>
-            <p>HOLU Admin no tiene costo ni fecha de vencimiento. Mesa, Kiosco y Delivery son extensiones que se conectan directo — misma carta, misma cocina, misma caja.</p>
+            <h2>Un sistema. Todo conectado en vivo.</h2>
+            <p>HOLU Admin no tiene costo ni fecha de vencimiento. Los canales de venta y el equipo entero trabajan sobre el mismo cerebro — misma carta, misma cocina, misma caja, en tiempo real.</p>
           </div>
           <div className="hub">
-            <div className="hub-core">
-              <span className="hub-badge">Gratis para siempre</span>
-              <h3>HOLU Admin</h3>
-              <p>Carta, cocina, caja, empleados, inventario, propinas, reportes y auditoría — el sistema completo, sin costo, sin límite de tiempo.</p>
+            <div className="hub-core-wrap">
+              <div className="hub-core">
+                <span className="hub-badge">Gratis para siempre</span>
+                <h3>HOLU Admin</h3>
+                <p>Carta, cocina, caja, empleados, inventario, propinas, reportes y auditoría — el sistema completo, sin costo, sin límite de tiempo.</p>
+              </div>
             </div>
-            <div className="hub-line" />
-            <div className="hub-spokes">
-              {extensions.map((e) => (
-                <div className="hub-spoke" key={e.name}>
-                  <div className="hub-spoke-line" />
-                  <div className="hub-card" style={{ borderColor: `${e.color}28` }}>
-                    <span className="hub-tag" style={{ color: e.color, background: `${e.color}14` }}>{e.tagline}</span>
-                    <h4>{e.name}</h4>
-                    <p>{e.desc}</p>
+
+            <div className="hub-flow" />
+            <div className="hub-group">
+              <div className="hub-group-label">Canales de venta</div>
+              <div className="hub-row">
+                {salesChannels.map((e) => (
+                  <div className="hub-spoke" key={e.key}>
+                    <div className="hub-spoke-line" />
+                    <div className="hub-card" style={{ borderColor: `${e.color}30` }}>
+                      <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color }}>{Icons[e.icon as keyof typeof Icons]}</span>
+                      <span className="hub-tag" style={{ color: e.color, background: `${e.color}16` }}>{e.tagline}</span>
+                      <h4>{e.name}</h4>
+                      <p>{e.desc}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-            <p className="hub-foot">Ninguna corre por su cuenta: apenas la conectas, sus pedidos ya están en la cocina, en la caja y en los reportes de tu Admin.</p>
+
+            <div className="hub-flow" style={{ marginTop: 30 }} />
+            <div className="hub-group">
+              <div className="hub-group-label">Tu equipo, conectado</div>
+              <div className="hub-row hub-row-2">
+                {teamRoles.map((e) => (
+                  <div className="hub-spoke" key={e.key}>
+                    <div className="hub-spoke-line" />
+                    <div className="hub-card" style={{ borderColor: `${e.color}30` }}>
+                      <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color }}>{Icons[e.icon as keyof typeof Icons]}</span>
+                      <span className="hub-tag" style={{ color: e.color, background: `${e.color}16` }}>{e.tagline}</span>
+                      <h4>{e.name}</h4>
+                      <p>{e.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p className="hub-foot">Nada corre por su cuenta: un pedido de mesa, un plato listo en cocina o un llamado del cliente se actualizan al instante en toda la cadena — de la mesa a la cocina, de la cocina a la caja, de la caja a tus reportes.</p>
           </div>
         </div>
       </section>
@@ -769,7 +879,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         <div className="container">
           <div className="section-head">
             <h2>El Admin es gratis. Elige hasta dónde quieres conectarlo.</h2>
-            <p>Cada nivel incluye todo el anterior — Admin y Mesa nunca dejan de estar, solo le sumas canales de venta.</p>
+            <p>Cada nivel incluye todo el anterior — Admin y Mesa nunca dejan de estar, solo le sumas canales de venta. ¿Necesitas algo hecho a tu medida? Bajá un poco más.</p>
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
@@ -779,7 +889,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           </div>
           <div className="tier-grid">
             {TIERS.map((t) => (
-              <article className={`tier-card${t.key === "full" ? " tier-full" : ""}`} key={t.key}>
+              <article className="tier-card" key={t.key}>
                 {t.tag && <span className="tag" style={{ position: "static", alignSelf: "flex-start", marginBottom: 8 }}>{t.tag}</span>}
                 <h3 className="tier-name">{t.name}</h3>
                 <p className="tier-blurb">{t.blurb}</p>
@@ -792,21 +902,46 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                   <p className="tier-annual-note">Equivale a USD ${(t.annual / 12).toFixed(2)}/mes</p>
                 )}
                 <div className="tier-features">
-                  {t.features.map((f) => {
-                    const isGift = f.includes("de regalo");
-                    return (
-                      <div key={f} style={{ color: isGift ? "var(--gold2)" : "var(--muted)", fontWeight: isGift ? 600 : 400 }}>
-                        <span style={{ color: isGift ? "var(--gold2)" : "var(--green)", flex: "0 0 auto", marginTop: 2 }}>{isGift ? Icons.gift : Icons.check}</span>
-                        <span>{f}</span>
-                      </div>
-                    );
-                  })}
+                  {t.features.map((f) => (
+                    <div key={f} style={{ color: "var(--muted)" }}>
+                      <span style={{ color: "var(--green)", flex: "0 0 auto", marginTop: 2 }}>{Icons.check}</span>
+                      <span>{f}</span>
+                    </div>
+                  ))}
                 </div>
                 <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU - Plan: ${t.name} (${billing === "annual" ? `anual USD $${t.annual}` : `mensual USD $${t.monthly}`})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", fontSize: 14, padding: "13px 18px" }}>{Icons.message} Activar por WhatsApp</a>
               </article>
             ))}
           </div>
-          <p style={{ textAlign: "center", color: "var(--dim)", fontSize: 13, marginTop: 20 }}>{Icons.check} Demo abierta, sin registro ni tarjeta, para probar el sistema completo antes de elegir.</p>
+          <p style={{ textAlign: "center", color: "var(--dim)", fontSize: 13, margin: "20px 0 0" }}>{Icons.check} Demo abierta, sin registro ni tarjeta, para probar el sistema completo antes de elegir.</p>
+
+          <div className="enterprise">
+            <div className="enterprise-head">
+              <div>
+                <span className="tag" style={{ position: "static", background: "rgba(96,165,250,.16)", color: "#93c5fd" }}>{ENTERPRISE.tag}</span>
+                <h3 className="enterprise-title">{ENTERPRISE.name}</h3>
+                <p className="enterprise-blurb">{ENTERPRISE.blurb}</p>
+              </div>
+              <div className="enterprise-cta">
+                <span className="enterprise-price">Precio a medida — se cotiza según tu operación</span>
+                <a className="btn wa" href={`${WA}?text=${encodeURIComponent("Hola, quiero cotizar el plan A Medida de HOLU (servidor dedicado + agentes de WhatsApp y Telegram)")}`} target="_blank" rel="noopener noreferrer">{Icons.message} Cotizar este plan</a>
+              </div>
+            </div>
+            <div className="enterprise-agents">
+              {ENTERPRISE.agents.map((a) => (
+                <div className="enterprise-agent" key={a.name}>
+                  <span className="enterprise-agent-icon" style={{ background: `${a.color}1c`, color: a.color }}>{Icons[a.icon as keyof typeof Icons]}</span>
+                  <h4>{a.name}</h4>
+                  <p>{a.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="enterprise-includes">
+              {ENTERPRISE.includes.map((f) => (
+                <div key={f}><span style={{ color: "var(--green)", flex: "0 0 auto", marginTop: 2 }}>{Icons.check}</span><span>{f}</span></div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
