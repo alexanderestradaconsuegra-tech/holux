@@ -120,32 +120,18 @@ const TIERS = [
   },
 ];
 
-const deliveryFlow = [
-  ["1", "Tu propia página", "El cliente entra a tu página de delivery y ve tu carta con fotos, precios y disponibilidad en vivo."],
-  ["2", "Arma el pedido y su dirección", "Agrega los platos al carrito y escribe dónde entregar, con validación de zona de cobertura."],
-  ["3", "Paga online", "Paga con MercadoPago directo a tu cuenta — el dinero llega a ti, sin comisión de terceros."],
-  ["4", "Sigue el pedido en vivo", "Ve el estado en tiempo real: confirmado, en cocina, en camino, entregado."],
-];
-
-const kioscoFlow = [
-  ["1", "Toca para empezar", "El cliente se acerca a la pantalla en barra o mostrador y toca para ver la carta."],
-  ["2", "Arma su pedido", "Selecciona platos, extras y cantidad directo en pantalla, sin fila ni esperar atención."],
-  ["3", "Confirma y paga", "Confirma el pedido y paga en el mismo punto."],
-  ["4", "Llega directo a cocina", "El pedido aparece al instante en la pantalla de cocina, ya organizado."],
-];
-
-// Mini demos interactivas dentro de la sección de precios — no llaman al
+// Mini pantallas interactivas dentro de la sección de precios — no llaman al
 // backend, solo muestran cómo se siente pedir en kiosco y en delivery.
 const KIOSCO_ITEMS = [
-  { id: "k1", name: "Hamburguesa", price: 6500 },
-  { id: "k2", name: "Papas fritas", price: 3000 },
-  { id: "k3", name: "Limonada", price: 2500 },
-  { id: "k4", name: "Helado", price: 3500 },
+  { id: "k1", name: "Hamburguesa", price: 6500, img: "🍔", bg: "linear-gradient(160deg,rgba(240,212,141,.32),rgba(200,169,107,.12))" },
+  { id: "k2", name: "Papas fritas", price: 3000, img: "🍟", bg: "linear-gradient(160deg,rgba(251,191,36,.32),rgba(240,212,141,.12))" },
+  { id: "k3", name: "Limonada", price: 2500, img: "🍋", bg: "linear-gradient(160deg,rgba(163,230,53,.32),rgba(52,211,153,.12))" },
+  { id: "k4", name: "Helado", price: 3500, img: "🍦", bg: "linear-gradient(160deg,rgba(96,165,250,.32),rgba(167,139,250,.12))" },
 ];
 
 const DELIVERY_ITEMS = [
-  { id: "d1", name: "Pizza familiar", price: 12000 },
-  { id: "d2", name: "Gaseosa 1.5L", price: 2500 },
+  { id: "d1", name: "Pizza familiar", price: 12000, img: "🍕", bg: "linear-gradient(160deg,rgba(251,146,60,.32),rgba(240,212,141,.12))" },
+  { id: "d2", name: "Gaseosa 1.5L", price: 2500, img: "🥤", bg: "linear-gradient(160deg,rgba(96,165,250,.32),rgba(52,211,153,.12))" },
 ];
 
 function clp(n: number) {
@@ -478,35 +464,48 @@ a{color:inherit;text-decoration:none}
 .tier-features div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13.5px;line-height:1.5}
 @media(max-width:760px){.tier-grid{grid-template-columns:1fr}}
 
-/* CHANNEL FLOWS — cómo funciona Kiosco y Delivery paso a paso */
-.channel-flows{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:0 0 40px}
-.channel-flow{border-radius:24px;padding:26px 24px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line)}
-.channel-flow-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
-.channel-flow-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto}
-.channel-flow-head h4{margin:0;font-size:17px;font-weight:700;letter-spacing:-.02em}
-.channel-flow-head span{display:block;color:var(--dim);font-size:12px;margin-top:2px}
-.channel-flow-steps{display:grid;gap:12px}
-.channel-flow-step{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:flex-start}
-.channel-flow-num{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
-.channel-flow-step b{display:block;font-size:13.5px;font-weight:600;margin-bottom:2px}
-.channel-flow-step span{display:block;color:var(--muted);font-size:12.5px;line-height:1.5}
-@media(max-width:760px){.channel-flows{grid-template-columns:1fr}}
+/* DEMO SCREENS — kiosco y delivery de verdad, como si fueran la pantalla real */
+.demo-screens{display:flex;justify-content:center;align-items:flex-start;gap:44px;flex-wrap:wrap;margin:0 0 44px}
+.demo-col{display:flex;flex-direction:column;align-items:center;text-align:center;width:280px}
+.demo-col-label{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.demo-col-title{font-size:16.5px;font-weight:700;letter-spacing:-.02em;margin:0 0 18px;line-height:1.3}
 
-/* MINI DEMO — kiosco y delivery de ejemplo, jugables, dentro de la misma tarjeta */
-.mini-demo{margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)}
-.mini-demo-label{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
-.mini-items{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
-.mini-item-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;font-family:inherit;text-align:left;transition:.15s ease}
-.mini-item-btn:hover{background:rgba(255,255,255,.08)}
-.mini-item-btn b{font-size:12.5px;font-weight:600}
-.mini-item-btn span{font-size:11px;color:var(--muted)}
-.mini-summary{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:12.5px;margin-bottom:10px}
-.mini-summary b{color:var(--gold2)}
-.mini-addr{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 11px;color:var(--text);font-size:12.5px;font-family:inherit;margin-bottom:10px;outline:none}
-.mini-addr::placeholder{color:var(--dim)}
-.mini-cta{width:100%;border:0;border-radius:12px;padding:11px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s ease}
-.mini-cta:disabled{opacity:.4;cursor:not-allowed}
-.mini-done{display:flex;align-items:center;gap:8px;justify-content:center;padding:11px 12px;border-radius:12px;font-size:12.5px;font-weight:600}
+.device-frame{position:relative;border-radius:32px;padding:14px 11px 18px;background:linear-gradient(165deg,#54545a 0%,#26262a 45%,#1a1a1c 100%);box-shadow:0 0 0 1px rgba(255,255,255,.09),inset 0 1px 0 rgba(255,255,255,.15),inset 0 -1px 0 rgba(0,0,0,.5),0 40px 90px rgba(0,0,0,.6)}
+.device-cam{width:7px;height:7px;border-radius:50%;background:#0a0a0c;margin:0 auto 10px;box-shadow:0 0 0 1.5px rgba(255,255,255,.08)}
+.device-notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:64px;height:15px;border-radius:9px;background:#0a0a0c;z-index:2}
+.device-screen{border-radius:20px;background:#0a0a10;overflow:hidden;border:1px solid rgba(0,0,0,.65)}
+.device-topbar{padding:12px 14px 10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center}
+.device-topbar.centered{flex-direction:column;gap:2px;padding-top:22px}
+.device-topbar b{font-size:12.5px;font-weight:700}
+.device-topbar span{font-size:9px;color:#8ff0c5;background:rgba(52,211,153,.14);border-radius:999px;padding:3px 8px;font-weight:700;white-space:nowrap}
+.device-topbar.centered span{background:none;padding:0;color:#6ee7b7}
+
+.device-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px}
+.device-tile{position:relative;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);padding:8px;cursor:pointer;text-align:left;font-family:inherit;color:inherit;transition:.15s ease}
+.device-tile:hover{background:rgba(255,255,255,.08)}
+.device-tile-img{width:100%;aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font-size:26px;margin-bottom:6px}
+.device-tile b{display:block;font-size:11px;font-weight:600}
+.device-tile span{display:block;font-size:10px;color:var(--muted)}
+.device-tile-qty{position:absolute;top:6px;right:6px;background:#a78bfa;color:#160f02;font-size:10px;font-weight:800;border-radius:999px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px}
+
+.device-list{padding:10px 12px;display:grid;gap:8px}
+.device-item{display:flex;align-items:center;gap:9px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);padding:7px;cursor:pointer;text-align:left;font-family:inherit;color:inherit;transition:.15s ease;width:100%}
+.device-item.sel{border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.1)}
+.device-item-img{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:16px;flex:0 0 auto}
+.device-item-info{flex:1;min-width:0}
+.device-item-info b{display:block;font-size:11.5px;font-weight:600}
+.device-item-info span{display:block;font-size:10px;color:var(--muted)}
+.device-item-check{width:16px;height:16px;border-radius:5px;border:1px solid rgba(255,255,255,.22);display:grid;place-items:center;flex:0 0 auto;color:transparent}
+
+.device-addr{margin:0 12px 8px;width:calc(100% - 24px);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:7px 10px;color:var(--text);font-size:11px;font-family:inherit;outline:none}
+.device-addr::placeholder{color:var(--dim)}
+
+.device-bar{padding:10px 14px 14px;border-top:1px solid rgba(255,255,255,.06)}
+.device-bar-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:8px}
+.device-bar-row b{color:var(--gold2);font-size:13px}
+.device-cta{width:100%;border:0;border-radius:12px;padding:10px;font-weight:700;font-size:12.5px;cursor:pointer;transition:.2s ease}
+.device-cta:disabled{opacity:.4;cursor:not-allowed}
+.device-done{display:flex;align-items:center;gap:6px;justify-content:center;padding:9px;border-radius:10px;font-size:11px;font-weight:600}
 
 /* CHAT MOCK — conversación real de los agentes IA, sin teléfono grande */
 .chat-head{display:flex;align-items:center;gap:8px;margin-top:16px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
@@ -1010,90 +1009,79 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <span className="eyebrow">Lo que se suma en el plan +$25</span>
             <h3 style={{ fontSize: "clamp(24px,3vw,32px)", fontWeight: 700, letterSpacing: "-.03em", margin: "10px 0 0" }}>Así funcionan Kiosco y Delivery.</h3>
           </div>
-          <div className="channel-flows">
-            <div className="channel-flow" style={{ borderColor: "rgba(52,211,153,.22)" }}>
-              <div className="channel-flow-head">
-                <span className="channel-flow-icon" style={{ background: "rgba(52,211,153,.14)", color: "#34d399" }}>{Icons.delivery}</span>
-                <div>
-                  <h4>Delivery</h4>
-                  <span>Tu propia página de pedidos a domicilio</span>
-                </div>
-              </div>
-              <div className="channel-flow-steps">
-                {deliveryFlow.map(([n, t, d]) => (
-                  <div className="channel-flow-step" key={n}>
-                    <span className="channel-flow-num" style={{ color: "#34d399" }}>{n}</span>
-                    <div><b>{t}</b><span>{d}</span></div>
+          <div className="demo-screens">
+            <div className="demo-col">
+              <div className="demo-col-label">Kiosco</div>
+              <div className="demo-col-title">Autoservicio en pantalla, sin filas</div>
+              <div className="device-frame" style={{ width: 232 }}>
+                <div className="device-cam" />
+                <div className="device-screen">
+                  <div className="device-topbar">
+                    <b>HOLU Kiosco</b>
+                    <span>● Toca para pedir</span>
                   </div>
-                ))}
-              </div>
-              <div className="mini-demo">
-                <div className="mini-demo-label">Pruébalo — delivery de ejemplo</div>
-                <div className="mini-items">
-                  {DELIVERY_ITEMS.map((it) => (
-                    <button
-                      type="button"
-                      key={it.id}
-                      className="mini-item-btn"
-                      onClick={() => toggleDeliveryItem(it.id)}
-                      style={deliverySel[it.id] ? { borderColor: "rgba(52,211,153,.5)", background: "rgba(52,211,153,.1)" } : undefined}
-                    >
-                      <b>{deliverySel[it.id] ? "✓ " : ""}{it.name}</b>
-                      <span>{clp(it.price)}</span>
-                    </button>
-                  ))}
+                  <div className="device-grid">
+                    {KIOSCO_ITEMS.map((it) => (
+                      <button type="button" key={it.id} className="device-tile" onClick={() => addKiosco(it.id)}>
+                        {kioscoCart[it.id] ? <span className="device-tile-qty">{kioscoCart[it.id]}</span> : null}
+                        <span className="device-tile-img" style={{ background: it.bg }}>{it.img}</span>
+                        <b>{it.name}</b>
+                        <span>{clp(it.price)}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="device-bar">
+                    <div className="device-bar-row">
+                      <span>{kioscoCount} {kioscoCount === 1 ? "producto" : "productos"}</span>
+                      <b>{clp(kioscoTotal)}</b>
+                    </div>
+                    {kioscoSent ? (
+                      <div className="device-done" style={{ background: "rgba(167,139,250,.16)", color: "#c4b5fd" }}>{Icons.check} Enviado a cocina</div>
+                    ) : (
+                      <button type="button" className="device-cta" style={{ background: "linear-gradient(135deg,#a78bfa,#c4b5fd)", color: "#160f02" }} onClick={confirmKiosco} disabled={kioscoCount === 0}>
+                        Confirmar pedido →
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <input className="mini-addr" placeholder="Tu dirección de entrega" value={deliveryAddr} onChange={(e) => setDeliveryAddr(e.target.value)} />
-                <div className="mini-summary">
-                  <span>Total</span>
-                  <b>{clp(deliveryTotal)}</b>
-                </div>
-                {deliveryPaid ? (
-                  <div className="mini-done" style={{ background: "rgba(52,211,153,.16)", color: "#6ee7b7" }}>{Icons.check} Pago confirmado — en camino</div>
-                ) : (
-                  <button type="button" className="mini-cta" style={{ background: "linear-gradient(135deg,#25d366,#128c48)", color: "#fff" }} onClick={payDelivery} disabled={deliveryTotal === 0}>
-                    Pagar con MercadoPago →
-                  </button>
-                )}
               </div>
             </div>
-            <div className="channel-flow" style={{ borderColor: "rgba(167,139,250,.22)" }}>
-              <div className="channel-flow-head">
-                <span className="channel-flow-icon" style={{ background: "rgba(167,139,250,.14)", color: "#a78bfa" }}>{Icons.monitor}</span>
-                <div>
-                  <h4>Kiosco</h4>
-                  <span>Autoservicio en pantalla, sin filas</span>
-                </div>
-              </div>
-              <div className="channel-flow-steps">
-                {kioscoFlow.map(([n, t, d]) => (
-                  <div className="channel-flow-step" key={n}>
-                    <span className="channel-flow-num" style={{ color: "#a78bfa" }}>{n}</span>
-                    <div><b>{t}</b><span>{d}</span></div>
+
+            <div className="demo-col">
+              <div className="demo-col-label">Delivery</div>
+              <div className="demo-col-title">Tu carta, tu carrito, tu pago</div>
+              <div className="device-frame" style={{ width: 210 }}>
+                <div className="device-notch" />
+                <div className="device-cam" style={{ visibility: "hidden" }} />
+                <div className="device-screen">
+                  <div className="device-topbar centered">
+                    <b>Delivery</b>
+                    <span>● Pedido en línea</span>
                   </div>
-                ))}
-              </div>
-              <div className="mini-demo">
-                <div className="mini-demo-label">Pruébalo — kiosco de ejemplo</div>
-                <div className="mini-items">
-                  {KIOSCO_ITEMS.map((it) => (
-                    <button type="button" key={it.id} className="mini-item-btn" onClick={() => addKiosco(it.id)}>
-                      <b>{it.name}{kioscoCart[it.id] ? ` ×${kioscoCart[it.id]}` : ""}</b>
-                      <span>{clp(it.price)}</span>
-                    </button>
-                  ))}
+                  <div className="device-list">
+                    {DELIVERY_ITEMS.map((it) => (
+                      <button type="button" key={it.id} className={`device-item${deliverySel[it.id] ? " sel" : ""}`} onClick={() => toggleDeliveryItem(it.id)}>
+                        <span className="device-item-img" style={{ background: it.bg }}>{it.img}</span>
+                        <span className="device-item-info"><b>{it.name}</b><span>{clp(it.price)}</span></span>
+                        <span className="device-item-check" style={deliverySel[it.id] ? { background: "#34d399", borderColor: "#34d399", color: "#053323" } : undefined}>{deliverySel[it.id] ? Icons.check : null}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <input className="device-addr" placeholder="Tu dirección de entrega" value={deliveryAddr} onChange={(e) => setDeliveryAddr(e.target.value)} />
+                  <div className="device-bar">
+                    <div className="device-bar-row">
+                      <span>Total</span>
+                      <b>{clp(deliveryTotal)}</b>
+                    </div>
+                    {deliveryPaid ? (
+                      <div className="device-done" style={{ background: "rgba(52,211,153,.16)", color: "#6ee7b7" }}>{Icons.check} Pago confirmado</div>
+                    ) : (
+                      <button type="button" className="device-cta" style={{ background: "linear-gradient(135deg,#25d366,#128c48)", color: "#fff" }} onClick={payDelivery} disabled={deliveryTotal === 0}>
+                        Pagar con MercadoPago →
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="mini-summary">
-                  <span>{kioscoCount} {kioscoCount === 1 ? "producto" : "productos"}</span>
-                  <b>{clp(kioscoTotal)}</b>
-                </div>
-                {kioscoSent ? (
-                  <div className="mini-done" style={{ background: "rgba(167,139,250,.16)", color: "#c4b5fd" }}>{Icons.check} Pedido enviado a cocina</div>
-                ) : (
-                  <button type="button" className="mini-cta" style={{ background: "linear-gradient(135deg,#a78bfa,#c4b5fd)", color: "#160f02" }} onClick={confirmKiosco} disabled={kioscoCount === 0}>
-                    Confirmar pedido →
-                  </button>
-                )}
               </div>
             </div>
           </div>
