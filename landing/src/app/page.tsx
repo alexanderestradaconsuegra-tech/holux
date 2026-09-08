@@ -86,7 +86,7 @@ const jsonLd = {
     "Pantalla de cocina",
     "Caja y turnos",
     "Propinas y reseñas",
-    "Analítica de ventas",
+    "Delivery propio",
     "Tótem de autoservicio",
   ],
 };

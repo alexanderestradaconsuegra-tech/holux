@@ -52,10 +52,10 @@ const showcase = [
   },
   {
     icon: "monitor",
-    eyebrow: "Barra · Tótem",
-    title: "Autoservicio inteligente",
-    desc: "Clientes hacen pedidos rápidos desde una pantalla en barra o autoservicio sin hacer filas ni esperar atención.",
-    features: ["Pedidos autónomos sin camarero", "Conectado a cocina y caja en tiempo real", "Incluido de regalo con tu plan"],
+    eyebrow: "Kiosco · Delivery",
+    title: "Kiosco y Delivery",
+    desc: "Dos formas más de vender, conectadas a la misma cocina y caja: una pantalla de autoservicio en barra, y tu propia página de pedidos a domicilio.",
+    features: ["Kiosco: pedidos sin fila ni camarero", "Delivery: carta, pago y seguimiento en línea", "Todo llega organizado a la misma cocina"],
     color: "#a78bfa",
   },
 ];
@@ -66,7 +66,7 @@ const modules = [
   { name: "HOLU Cocina",         eyebrow: "Pantalla de cocina",  desc: "Pedidos organizados por estado para acelerar el servicio, reducir errores y mantener al equipo coordinado." },
   { name: "HOLU Administración", eyebrow: "Control total",       desc: "Ventas, empleados, carta, QR de mesas, inventario, propinas, caja, turnos, boletas, reportes y auditoría." },
   { name: "HOLU Autoservicio",   eyebrow: "Tótem de barra",      desc: "Clientes hacen pedidos solos desde una pantalla en barra o mostrador, sin filas, sin esperar atención." },
-  { name: "HOLU Analítica",      eyebrow: "Decisiones claras",   desc: "Métricas de ventas, platos más vendidos, propinas, rendimiento por camarero, tiempos de cocina y comportamiento por mesa." },
+  { name: "HOLU Delivery",       eyebrow: "Pedidos a domicilio", desc: "Página de pedidos a domicilio con tu carta, carrito, dirección, pago en línea y seguimiento del pedido en tiempo real." },
 ];
 
 const metrics = [
@@ -121,9 +121,9 @@ const TIERS = [
 ];
 
 const deliveryFlow = [
-  ["1", "Tu carta, tu marca", "El cliente entra a tu propia página de delivery y ve tu carta con fotos y precios, tal como en tu app."],
+  ["1", "Tu propia página", "El cliente entra a tu página de delivery y ve tu carta con fotos, precios y disponibilidad en vivo."],
   ["2", "Arma el pedido y su dirección", "Agrega los platos al carrito y escribe dónde entregar, con validación de zona de cobertura."],
-  ["3", "Paga online", "Paga con MercadoPago directo a tu cuenta — el dinero llega a vos, sin comisión de terceros."],
+  ["3", "Paga online", "Paga con MercadoPago directo a tu cuenta — el dinero llega a ti, sin comisión de terceros."],
   ["4", "Sigue el pedido en vivo", "Ve el estado en tiempo real: confirmado, en cocina, en camino, entregado."],
 ];
 
@@ -134,12 +134,30 @@ const kioscoFlow = [
   ["4", "Llega directo a cocina", "El pedido aparece al instante en la pantalla de cocina, ya organizado."],
 ];
 
+// Mini demos interactivas dentro de la sección de precios — no llaman al
+// backend, solo muestran cómo se siente pedir en kiosco y en delivery.
+const KIOSCO_ITEMS = [
+  { id: "k1", name: "Hamburguesa", price: 6500 },
+  { id: "k2", name: "Papas fritas", price: 3000 },
+  { id: "k3", name: "Limonada", price: 2500 },
+  { id: "k4", name: "Helado", price: 3500 },
+];
+
+const DELIVERY_ITEMS = [
+  { id: "d1", name: "Pizza familiar", price: 12000 },
+  { id: "d2", name: "Gaseosa 1.5L", price: 2500 },
+];
+
+function clp(n: number) {
+  return `$${n.toLocaleString("es-CL")}`;
+}
+
 // El plan a medida no tiene precio de lista a propósito: es un servidor
 // dedicado por restaurante, se cotiza según lo que cada uno necesita.
 const ENTERPRISE = {
   name: "A Medida — Servidor Dedicado",
   tag: "Personalizado",
-  blurb: "Tu propio servidor, con tu marca — colores, logo y nombre propios en toda la experiencia — y dos agentes de IA trabajando para vos las 24 horas.",
+  blurb: "Tu propio servidor, con tu marca — colores, logo y nombre propios en toda la experiencia — y dos agentes de IA trabajando para ti las 24 horas.",
   agents: [
     {
       name: "Agente de WhatsApp",
@@ -169,7 +187,7 @@ const ENTERPRISE = {
   ],
   includes: [
     "Todo el sistema: Admin, Mesa, Camareros, Cocina, Caja, Kiosco y Delivery",
-    "Servidor dedicado, solo para tu restaurante — no compartido",
+    "Servidor con capacidad dedicada, exclusiva para tu restaurante",
     "Colores, logo y nombre propios en toda la experiencia del cliente",
     "Los dos agentes configurados con el tono y los datos de tu negocio",
   ],
@@ -198,7 +216,7 @@ const salesChannels = [
     key: "delivery",
     name: "Delivery",
     tagline: "Tu propia página de pedidos",
-    desc: "Vendé a domicilio directo desde tu marca, sin pagarle una comisión del 25-30% a las apps de delivery por cada pedido.",
+    desc: "Vende a domicilio directo, sin pagarle una comisión del 25-30% a las apps de delivery por cada pedido.",
     color: "#34d399",
     icon: "delivery",
   },
@@ -227,17 +245,17 @@ const stats = [
   ["4 roles",   "Mesas, camareros, cocina y caja"],
   ["1 QR",      "Toda la experiencia desde la mesa"],
   ["En vivo",   "Todo sincronizado en tiempo real"],
-  ["Regalo",    "Tótem de autoservicio para barra"],
+  ["+2 canales", "Suma kiosco y delivery cuando quieras"],
   ["Cloud",     "Accede desde cualquier dispositivo"],
 ];
 
 const faqs = [
-  { q: "¿Qué incluye el plan base?", a: "El plan Sistema Completo ($15/mes) incluye todo lo esencial: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja y administración completa. Si además querés kiosco de autoservicio y tu propia página de delivery, subís al siguiente plan por $25/mes." },
+  { q: "¿Qué incluye el plan base?", a: "El plan Sistema Completo ($15/mes) incluye todo lo esencial: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja y administración completa. Si además quieres kiosco de autoservicio y tu propia página de delivery, subes al siguiente plan por $25/mes." },
   { q: "¿HOLU reemplaza al camarero?",         a: "No. HOLU ayuda al equipo a trabajar mejor. El camarero sigue siendo clave para la atención, la experiencia humana y el cobro presencial cuando corresponde." },
   { q: "¿Funciona con QR por mesa?",           a: "Sí. Cada mesa tiene un QR único. El cliente entra directamente a la experiencia de su mesa y todo queda conectado con pedidos, cocina, camareros y administración." },
   { q: "¿Puedo agregar o editar platos?",       a: "Sí. Desde administración puedes crear platos, cambiar precios, subir imágenes, activar o desactivar disponibilidad y decidir qué ve el cliente." },
   { q: "¿El sistema incluye propinas y caja?",  a: "Sí. HOLU permite registrar propinas aceptadas o rechazadas, abrir caja, cerrar caja, cambiar turnos, imprimir cierres y revisar reportes." },
-  { q: "¿Qué es el tótem de autoservicio?",    a: "Es una pantalla en barra o mostrador desde donde los clientes hacen sus propios pedidos sin esperar atención. Está conectada en tiempo real con cocina, caja y administración, y viene de regalo con tu plan." },
+  { q: "¿Qué es el tótem de autoservicio?",    a: "Es una pantalla en barra o mostrador desde donde los clientes hacen sus propios pedidos sin esperar atención. Está conectada en tiempo real con cocina, caja y administración, e incluye también tu página de delivery en el mismo plan." },
   { q: "¿Sirve para comida rápida o cafés?",   a: "Sí. El tótem de autoservicio de barra es ideal para cafés, comida rápida y cualquier negocio con flujo alto de pedidos. Todo queda conectado a la misma carta, cocina y caja." },
 ];
 
@@ -474,6 +492,22 @@ a{color:inherit;text-decoration:none}
 .channel-flow-step span{display:block;color:var(--muted);font-size:12.5px;line-height:1.5}
 @media(max-width:760px){.channel-flows{grid-template-columns:1fr}}
 
+/* MINI DEMO — kiosco y delivery de ejemplo, jugables, dentro de la misma tarjeta */
+.mini-demo{margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)}
+.mini-demo-label{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.mini-items{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.mini-item-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;font-family:inherit;text-align:left;transition:.15s ease}
+.mini-item-btn:hover{background:rgba(255,255,255,.08)}
+.mini-item-btn b{font-size:12.5px;font-weight:600}
+.mini-item-btn span{font-size:11px;color:var(--muted)}
+.mini-summary{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:12.5px;margin-bottom:10px}
+.mini-summary b{color:var(--gold2)}
+.mini-addr{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 11px;color:var(--text);font-size:12.5px;font-family:inherit;margin-bottom:10px;outline:none}
+.mini-addr::placeholder{color:var(--dim)}
+.mini-cta{width:100%;border:0;border-radius:12px;padding:11px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s ease}
+.mini-cta:disabled{opacity:.4;cursor:not-allowed}
+.mini-done{display:flex;align-items:center;gap:8px;justify-content:center;padding:11px 12px;border-radius:12px;font-size:12.5px;font-weight:600}
+
 /* CHAT MOCK — conversación real de los agentes IA, sin teléfono grande */
 .chat-head{display:flex;align-items:center;gap:8px;margin-top:16px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
 .chat-head-dot{width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.06);flex:0 0 auto}
@@ -540,6 +574,10 @@ a{color:inherit;text-decoration:none}
 
 .footer{border-top:1px solid var(--line);padding:26px 0;color:var(--dim);font-size:13px}
 .footer-in{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.footer-legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);color:var(--dim);font-size:12px}
+.footer-legal-links{display:flex;gap:16px}
+.footer-legal-links a{color:var(--dim)}
+.footer-legal-links a:hover{color:var(--muted)}
 
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.82;transform:scale(1.03)}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -579,6 +617,30 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
   const [formState, setFormState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [formError, setFormError] = useState("");
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
+
+  const [kioscoCart, setKioscoCart] = useState<Record<string, number>>({});
+  const [kioscoSent, setKioscoSent] = useState(false);
+  const kioscoCount = Object.values(kioscoCart).reduce((a, b) => a + b, 0);
+  const kioscoTotal = KIOSCO_ITEMS.reduce((sum, it) => sum + (kioscoCart[it.id] || 0) * it.price, 0);
+  function addKiosco(id: string) {
+    setKioscoCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
+  }
+  function confirmKiosco() {
+    setKioscoSent(true);
+    setTimeout(() => { setKioscoSent(false); setKioscoCart({}); }, 2200);
+  }
+
+  const [deliverySel, setDeliverySel] = useState<Record<string, boolean>>({ d1: true, d2: false });
+  const [deliveryAddr, setDeliveryAddr] = useState("");
+  const [deliveryPaid, setDeliveryPaid] = useState(false);
+  const deliveryTotal = DELIVERY_ITEMS.reduce((sum, it) => sum + (deliverySel[it.id] ? it.price : 0), 0);
+  function toggleDeliveryItem(id: string) {
+    setDeliverySel((s) => ({ ...s, [id]: !s[id] }));
+  }
+  function payDelivery() {
+    setDeliveryPaid(true);
+    setTimeout(() => setDeliveryPaid(false), 2200);
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _ = adminUrl;
@@ -630,7 +692,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           <div>
             <div className="eyebrow">Mesa · Camareros · Cocina · Caja · Administración</div>
             <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
-            <p>HOLU conecta la mesa, los camareros, la cocina, la caja y la administración de tu restaurante en un solo sistema en tiempo real. Sumás kiosco y delivery cuando quieras vender más.</p>
+            <p>HOLU conecta la mesa, los camareros, la cocina, la caja y la administración de tu restaurante en un solo sistema en tiempo real. Suma kiosco y delivery cuando quieras vender más.</p>
             <div className="cta-row">
               <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
               <a className="btn ghost" href="#conectado">Ver cómo se conecta</a>
@@ -965,6 +1027,35 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                   </div>
                 ))}
               </div>
+              <div className="mini-demo">
+                <div className="mini-demo-label">Pruébalo — delivery de ejemplo</div>
+                <div className="mini-items">
+                  {DELIVERY_ITEMS.map((it) => (
+                    <button
+                      type="button"
+                      key={it.id}
+                      className="mini-item-btn"
+                      onClick={() => toggleDeliveryItem(it.id)}
+                      style={deliverySel[it.id] ? { borderColor: "rgba(52,211,153,.5)", background: "rgba(52,211,153,.1)" } : undefined}
+                    >
+                      <b>{deliverySel[it.id] ? "✓ " : ""}{it.name}</b>
+                      <span>{clp(it.price)}</span>
+                    </button>
+                  ))}
+                </div>
+                <input className="mini-addr" placeholder="Tu dirección de entrega" value={deliveryAddr} onChange={(e) => setDeliveryAddr(e.target.value)} />
+                <div className="mini-summary">
+                  <span>Total</span>
+                  <b>{clp(deliveryTotal)}</b>
+                </div>
+                {deliveryPaid ? (
+                  <div className="mini-done" style={{ background: "rgba(52,211,153,.16)", color: "#6ee7b7" }}>{Icons.check} Pago confirmado — en camino</div>
+                ) : (
+                  <button type="button" className="mini-cta" style={{ background: "linear-gradient(135deg,#25d366,#128c48)", color: "#fff" }} onClick={payDelivery} disabled={deliveryTotal === 0}>
+                    Pagar con MercadoPago →
+                  </button>
+                )}
+              </div>
             </div>
             <div className="channel-flow" style={{ borderColor: "rgba(167,139,250,.22)" }}>
               <div className="channel-flow-head">
@@ -981,6 +1072,28 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                     <div><b>{t}</b><span>{d}</span></div>
                   </div>
                 ))}
+              </div>
+              <div className="mini-demo">
+                <div className="mini-demo-label">Pruébalo — kiosco de ejemplo</div>
+                <div className="mini-items">
+                  {KIOSCO_ITEMS.map((it) => (
+                    <button type="button" key={it.id} className="mini-item-btn" onClick={() => addKiosco(it.id)}>
+                      <b>{it.name}{kioscoCart[it.id] ? ` ×${kioscoCart[it.id]}` : ""}</b>
+                      <span>{clp(it.price)}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mini-summary">
+                  <span>{kioscoCount} {kioscoCount === 1 ? "producto" : "productos"}</span>
+                  <b>{clp(kioscoTotal)}</b>
+                </div>
+                {kioscoSent ? (
+                  <div className="mini-done" style={{ background: "rgba(167,139,250,.16)", color: "#c4b5fd" }}>{Icons.check} Pedido enviado a cocina</div>
+                ) : (
+                  <button type="button" className="mini-cta" style={{ background: "linear-gradient(135deg,#a78bfa,#c4b5fd)", color: "#160f02" }} onClick={confirmKiosco} disabled={kioscoCount === 0}>
+                    Confirmar pedido →
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1058,7 +1171,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           <div className="final-box">
             <div className="eyebrow">Todo tu restaurante, en un solo sistema</div>
             <h2>El restaurante moderno funciona con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h2>
-            <p>Mesa, camareros, cocina, caja y administración desde $15/mes. Sumá kiosco y delivery cuando quieras vender más.</p>
+            <p>Mesa, camareros, cocina, caja y administración desde $15/mes. Suma kiosco y delivery cuando quieras vender más.</p>
             <div className="final-btns">
               <a className="btn primary" href="#precios">Quiero mi cuenta</a>
               <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">{Icons.message} Hablar por WhatsApp</a>
@@ -1070,7 +1183,14 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <footer className="footer">
         <div className="container footer-in">
           <span>© {new Date().getFullYear()} <span style={{ color: "var(--gold2)" }}>HOLU</span> fluye en tiempo real.</span>
-          <span>Mesas · Camareros · Cocina · Administración · Autoservicio · Analítica</span>
+          <span>Mesas · Camareros · Cocina · Administración · Autoservicio · Delivery</span>
+        </div>
+        <div className="container footer-legal">
+          <span>Servicio operado desde Chile · Ley N° 21.719 de Protección de Datos Personales</span>
+          <span className="footer-legal-links">
+            <a href="/terminos">Términos y condiciones</a>
+            <a href="/privacidad">Privacidad y uso de IA</a>
+          </span>
         </div>
       </footer>
     </div>
