@@ -91,32 +91,47 @@ const benefits = [
 const TIERS = [
   {
     key: "mesa",
-    name: "Admin + Mesa",
+    name: "Sistema Completo",
     monthly: 15,
     annual: 126,
     tag: null,
-    blurb: "Tu sistema completo, más pedidos desde la mesa por QR.",
+    blurb: "Mesa, camareros, cocina, caja y administración — todo en un solo sistema.",
     features: [
-      "HOLU Admin completo — gratis para siempre",
+      "Administración completa: carta, inventario, reportes y empleados",
       "Mesas con QR y carta digital premium",
-      "Panel de camareros en tiempo real",
-      "Pantalla de cocina organizada",
-      "Caja, turnos, boletas e inventario",
+      "Camareros con su propio perfil y sus mesas asignadas",
+      "Pantalla de cocina organizada, sin papel",
+      "Caja, turnos, boletas y propinas",
     ],
   },
   {
     key: "delivery",
-    name: "Admin + Mesa + Delivery",
-    monthly: 20,
-    annual: 168,
+    name: "Completo + Kiosco + Delivery",
+    monthly: 25,
+    annual: 210,
     tag: "Más elegido",
-    blurb: "Todo lo anterior, más tu propia página de pedidos a domicilio.",
+    blurb: "Todo lo anterior, más tu kiosco de autoservicio y tu propia página de delivery.",
     features: [
-      "Todo lo del plan Admin + Mesa",
-      "Delivery propio, sin comisión de apps externas",
+      "Todo lo del plan Sistema Completo",
+      "Kiosco de autoservicio en pantalla, sin filas",
+      "Delivery propio: carta, pedido, dirección y pago — sin comisión de apps externas",
       "Seguimiento del pedido en vivo para el cliente",
     ],
   },
+];
+
+const deliveryFlow = [
+  ["1", "Tu carta, tu marca", "El cliente entra a tu propia página de delivery y ve tu carta con fotos y precios, tal como en tu app."],
+  ["2", "Arma el pedido y su dirección", "Agrega los platos al carrito y escribe dónde entregar, con validación de zona de cobertura."],
+  ["3", "Paga online", "Paga con MercadoPago directo a tu cuenta — el dinero llega a vos, sin comisión de terceros."],
+  ["4", "Sigue el pedido en vivo", "Ve el estado en tiempo real: confirmado, en cocina, en camino, entregado."],
+];
+
+const kioscoFlow = [
+  ["1", "Toca para empezar", "El cliente se acerca a la pantalla en barra o mostrador y toca para ver la carta."],
+  ["2", "Arma su pedido", "Selecciona platos, extras y cantidad directo en pantalla, sin fila ni esperar atención."],
+  ["3", "Confirma y paga", "Confirma el pedido y paga en el mismo punto."],
+  ["4", "Llega directo a cocina", "El pedido aparece al instante en la pantalla de cocina, ya organizado."],
 ];
 
 // El plan a medida no tiene precio de lista a propósito: es un servidor
@@ -124,24 +139,38 @@ const TIERS = [
 const ENTERPRISE = {
   name: "A Medida — Servidor Dedicado",
   tag: "Personalizado",
-  blurb: "Tu propio servidor, dedicado solo a tu restaurante, con dos agentes de IA trabajando para vos las 24 horas.",
+  blurb: "Tu propio servidor, con tu marca — colores, logo y nombre propios en toda la experiencia — y dos agentes de IA trabajando para vos las 24 horas.",
   agents: [
     {
       name: "Agente de WhatsApp",
       icon: "message",
       color: "#25d366",
       desc: "Responde, arma el pedido conversando con el cliente y lo cobra — vendiendo directo por chat, sin que nadie del equipo tenga que escribir.",
+      chat: [
+        { who: "in", text: "Hola! Quiero pedir 2 hamburguesas y una limonada" },
+        { who: "out", text: "¡Buenas! Anoté 2 Hamburguesas Clásicas y 1 Limonada 🍔 ¿Retiras o te lo llevamos?" },
+        { who: "in", text: "Delivery, mi dirección es Av. Principal 482" },
+        { who: "out", text: "El total es $18.500. Te mando el link para pagar 👇" },
+        { who: "out", text: "✅ Pago recibido — tu pedido ya está en cocina" },
+      ],
     },
     {
       name: "Agente de Telegram",
       icon: "telegram",
       color: "#60a5fa",
       desc: "Tu mano derecha con toda la información del restaurante: ventas del día, alertas de inventario, reportes — lo que necesites, con solo preguntarle.",
+      chat: [
+        { who: "in", text: "¿Cómo van las ventas hoy?" },
+        { who: "out", text: "Vas en $184.500 con 12 pedidos. El más vendido: Hamburguesa Clásica (9 veces) 📈" },
+        { who: "in", text: "¿Por qué se demoró el pedido de la mesa 5?" },
+        { who: "out", text: "Estuvo 14 min en cocina, 4 más que el promedio — hubo 3 pedidos a la vez a las 20:15" },
+      ],
     },
   ],
   includes: [
-    "Todo lo del plan Full: Admin, Mesa, Delivery y Kiosco",
+    "Todo el sistema: Admin, Mesa, Camareros, Cocina, Caja, Kiosco y Delivery",
     "Servidor dedicado, solo para tu restaurante — no compartido",
+    "Colores, logo y nombre propios en toda la experiencia del cliente",
     "Los dos agentes configurados con el tono y los datos de tu negocio",
   ],
 };
@@ -169,7 +198,7 @@ const salesChannels = [
     key: "delivery",
     name: "Delivery",
     tagline: "Tu propia página de pedidos",
-    desc: "Vendé a domicilio directo desde tu marca, sin pagarle un 25-30% de comisión a Rappi o Uber Eats por cada pedido.",
+    desc: "Vendé a domicilio directo desde tu marca, sin pagarle una comisión del 25-30% a las apps de delivery por cada pedido.",
     color: "#34d399",
     icon: "delivery",
   },
@@ -203,7 +232,7 @@ const stats = [
 ];
 
 const faqs = [
-  { q: "¿El panel de administración tiene costo?", a: "No. HOLU Admin —carta, cocina, caja, empleados, inventario y reportes— es gratis para siempre, sin límite de tiempo. Pagas solo cuando decides conectarle un canal de venta nuevo: Mesa QR, Kiosco o Delivery." },
+  { q: "¿Qué incluye el plan base?", a: "El plan Sistema Completo ($15/mes) incluye todo lo esencial: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja y administración completa. Si además querés kiosco de autoservicio y tu propia página de delivery, subís al siguiente plan por $25/mes." },
   { q: "¿HOLU reemplaza al camarero?",         a: "No. HOLU ayuda al equipo a trabajar mejor. El camarero sigue siendo clave para la atención, la experiencia humana y el cobro presencial cuando corresponde." },
   { q: "¿Funciona con QR por mesa?",           a: "Sí. Cada mesa tiene un QR único. El cliente entra directamente a la experiencia de su mesa y todo queda conectado con pedidos, cocina, camareros y administración." },
   { q: "¿Puedo agregar o editar platos?",       a: "Sí. Desde administración puedes crear platos, cambiar precios, subir imágenes, activar o desactivar disponibilidad y decidir qué ve el cliente." },
@@ -367,7 +396,7 @@ a{color:inherit;text-decoration:none}
 .flow-content b{display:block;font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:5px}
 .flow-content span{display:block;color:var(--muted);font-size:14px;line-height:1.6}
 
-/* HUB — Admin gratis + todo lo que se le conecta (v2, sistema vivo) */
+/* HUB — Admin como núcleo + todo lo que se le conecta (v2, sistema vivo) */
 .hub-wrap{position:relative}
 .hub-wrap::before{content:'';position:absolute;inset:-20px -40px auto;height:520px;background-image:radial-gradient(rgba(255,255,255,.055) 1px,transparent 1px);background-size:24px 24px;-webkit-mask-image:radial-gradient(ellipse 60% 55% at 50% 12%,#000,transparent 72%);mask-image:radial-gradient(ellipse 60% 55% at 50% 12%,#000,transparent 72%);pointer-events:none}
 .hub{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:16px}
@@ -430,6 +459,31 @@ a{color:inherit;text-decoration:none}
 .tier-features{display:grid;gap:8px;margin:14px 0 20px;flex:1}
 .tier-features div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13.5px;line-height:1.5}
 @media(max-width:760px){.tier-grid{grid-template-columns:1fr}}
+
+/* CHANNEL FLOWS — cómo funciona Kiosco y Delivery paso a paso */
+.channel-flows{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:0 0 40px}
+.channel-flow{border-radius:24px;padding:26px 24px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line)}
+.channel-flow-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.channel-flow-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto}
+.channel-flow-head h4{margin:0;font-size:17px;font-weight:700;letter-spacing:-.02em}
+.channel-flow-head span{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.channel-flow-steps{display:grid;gap:12px}
+.channel-flow-step{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:flex-start}
+.channel-flow-num{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.channel-flow-step b{display:block;font-size:13.5px;font-weight:600;margin-bottom:2px}
+.channel-flow-step span{display:block;color:var(--muted);font-size:12.5px;line-height:1.5}
+@media(max-width:760px){.channel-flows{grid-template-columns:1fr}}
+
+/* CHAT MOCK — conversación real de los agentes IA, sin teléfono grande */
+.chat-head{display:flex;align-items:center;gap:8px;margin-top:16px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.chat-head-dot{width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.06);flex:0 0 auto}
+.chat-head span{font-size:11px;color:var(--dim);font-weight:600;letter-spacing:.02em}
+.chat-mock{display:grid;gap:8px;margin-top:12px}
+.chat-bubble{max-width:88%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.5;opacity:0;transform:translateY(6px);animation:chatIn .5s ease forwards}
+.chat-bubble.in{justify-self:end;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.1);border-bottom-right-radius:4px;color:#e8e0d4}
+.chat-bubble.out{justify-self:start;border-bottom-left-radius:4px;color:#f2fbf6}
+@keyframes chatIn{to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.chat-bubble{animation:none;opacity:1;transform:none}}
 
 /* ENTERPRISE — plan a medida, sin precio de lista */
 .enterprise{position:relative;overflow:hidden;margin:28px auto 0;max-width:920px;border-radius:28px;padding:36px 32px;background:linear-gradient(160deg,rgba(96,165,250,.1),rgba(37,211,102,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.14)}
@@ -519,14 +573,6 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 
 const DEMO_URL = "https://app.holu.pro/?demo=1";
 
-// Shown only. The amount actually charged is decided server-side from the plan
-// key, so editing this page cannot change the price.
-const PLANS = [
-  { key: "basico", name: "Básico", price: "$29.990", blurb: "Carta QR, pedidos y cocina" },
-  { key: "pro",    name: "Pro",    price: "$49.990", blurb: "Todo + caja, inventario y reseñas" },
-  { key: "ia",     name: "Con IA", price: "$79.990", blurb: "Todo + agente de WhatsApp" },
-];
-
 export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: string }) {
   const [openFaq, setOpenFaq] = useState(0);
   const [form, setForm] = useState({ name: "", restaurant: "", email: "", phone: "", plan: "pro" });
@@ -582,17 +628,17 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <header id="top" className="hero">
         <div className="container hero-grid">
           <div>
-            <div className="eyebrow">El sistema es gratis · Pagas solo lo que conectas</div>
+            <div className="eyebrow">Mesa · Camareros · Cocina · Caja · Administración</div>
             <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
-            <p>HOLU Admin —carta, cocina, caja, inventario, reportes— es gratis para siempre. Cuando quieras vender más, conectas Mesa, Kiosco o Delivery al mismo sistema.</p>
+            <p>HOLU conecta la mesa, los camareros, la cocina, la caja y la administración de tu restaurante en un solo sistema en tiempo real. Sumás kiosco y delivery cuando quieras vender más.</p>
             <div className="cta-row">
               <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
               <a className="btn ghost" href="#conectado">Ver cómo se conecta</a>
             </div>
             <div className="trust">
-              <span><i className="dot" />Admin 100% gratis, sin límite de tiempo</span>
+              <span><i className="dot" />Sistema completo desde el primer día</span>
               <span><i className="dot" />Demo abierta · sin registro</span>
-              <span><i className="dot" />Extensiones que se conectan al instante</span>
+              <span><i className="dot" />Kiosco y delivery se conectan al instante</span>
             </div>
             <div className="logos">{socialProof.map(item => <div className="logo-pill" key={item}>{item}</div>)}</div>
             <div className="metrics">{metrics.map(([value, label]) => <div className="metric" key={value}><b>{value}</b><span>{label}</span></div>)}</div>
@@ -664,14 +710,14 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         <div className="container hub-wrap">
           <div className="section-head">
             <h2>Un sistema. Todo conectado en vivo.</h2>
-            <p>HOLU Admin no tiene costo ni fecha de vencimiento. Los canales de venta y el equipo entero trabajan sobre el mismo cerebro — misma carta, misma cocina, misma caja, en tiempo real.</p>
+            <p>Mesa, camareros, cocina, caja y kiosco o delivery trabajan sobre el mismo cerebro — misma carta, misma cocina, misma caja, en tiempo real.</p>
           </div>
           <div className="hub">
             <div className="hub-core-wrap">
               <div className="hub-core">
-                <span className="hub-badge">Gratis para siempre</span>
+                <span className="hub-badge">Núcleo del sistema</span>
                 <h3>HOLU Admin</h3>
-                <p>Carta, cocina, caja, empleados, inventario, propinas, reportes y auditoría — el sistema completo, sin costo, sin límite de tiempo.</p>
+                <p>Carta, cocina, caja, empleados, inventario, propinas, reportes y auditoría — el corazón de tu restaurante, siempre conectado con cada canal de venta y cada rol de tu equipo.</p>
               </div>
             </div>
 
@@ -830,24 +876,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             ) : (
               <form onSubmit={handleRegister}>
                 <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", margin: "0 0 6px" }}>Quiero mi cuenta</h3>
-                <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", lineHeight: 1.6 }}>Elige tu plan y paga con MercadoPago. Al confirmarse el cobro te llegan tus claves por correo y ya puedes entrar.</p>
-                <div className="form-field">
-                  <label>Plan</label>
-                  <div style={{ display: "grid", gap: 8 }}>
-                    {PLANS.map(p => (
-                      <button type="button" key={p.key} onClick={() => setForm(f => ({ ...f, plan: p.key }))}
-                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                                 background: form.plan === p.key ? "rgba(247,211,123,.12)" : "rgba(255,255,255,.04)",
-                                 border: `1px solid ${form.plan === p.key ? "rgba(247,211,123,.5)" : "rgba(255,255,255,.1)"}`, color: "inherit" }}>
-                        <span>
-                          <strong style={{ display: "block", fontSize: 14 }}>{p.name}</strong>
-                          <small style={{ color: "var(--muted)", fontSize: 11.5, lineHeight: 1.4 }}>{p.blurb}</small>
-                        </span>
-                        <span style={{ whiteSpace: "nowrap", fontWeight: 800, color: "var(--gold2)" }}>{p.price}<small style={{ color: "var(--muted)", fontWeight: 500 }}>/mes</small></span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", lineHeight: 1.6 }}>Completa tus datos y te llevamos a MercadoPago para confirmar el pago. Al confirmarse el cobro te llegan tus claves por correo y ya puedes entrar.</p>
                 <div className="form-field">
                   <label>Nombre del restaurante</label>
                   <input type="text" placeholder="Ej: La Trattoria" required value={form.restaurant} onChange={e => setForm(f => ({ ...f, restaurant: e.target.value }))} />
@@ -878,8 +907,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section id="precios" className="section">
         <div className="container">
           <div className="section-head">
-            <h2>El Admin es gratis. Elige hasta dónde quieres conectarlo.</h2>
-            <p>Cada nivel incluye todo el anterior — Admin y Mesa nunca dejan de estar, solo le sumas canales de venta. ¿Necesitas algo hecho a tu medida? Bajá un poco más.</p>
+            <h2>Un plan para cada etapa de tu restaurante.</h2>
+            <p>Empieza con el sistema completo — mesa, camareros, cocina, caja y administración — y sumale kiosco y delivery cuando quieras vender más. ¿Necesitas algo hecho a tu medida? Bajá un poco más.</p>
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
@@ -915,6 +944,47 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           </div>
           <p style={{ textAlign: "center", color: "var(--dim)", fontSize: 13, margin: "20px 0 0" }}>{Icons.check} Demo abierta, sin registro ni tarjeta, para probar el sistema completo antes de elegir.</p>
 
+          <div style={{ marginTop: 56, marginBottom: 24, textAlign: "center" }}>
+            <span className="eyebrow">Lo que se suma en el plan +$25</span>
+            <h3 style={{ fontSize: "clamp(24px,3vw,32px)", fontWeight: 700, letterSpacing: "-.03em", margin: "10px 0 0" }}>Así funcionan Kiosco y Delivery.</h3>
+          </div>
+          <div className="channel-flows">
+            <div className="channel-flow" style={{ borderColor: "rgba(52,211,153,.22)" }}>
+              <div className="channel-flow-head">
+                <span className="channel-flow-icon" style={{ background: "rgba(52,211,153,.14)", color: "#34d399" }}>{Icons.delivery}</span>
+                <div>
+                  <h4>Delivery</h4>
+                  <span>Tu propia página de pedidos a domicilio</span>
+                </div>
+              </div>
+              <div className="channel-flow-steps">
+                {deliveryFlow.map(([n, t, d]) => (
+                  <div className="channel-flow-step" key={n}>
+                    <span className="channel-flow-num" style={{ color: "#34d399" }}>{n}</span>
+                    <div><b>{t}</b><span>{d}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="channel-flow" style={{ borderColor: "rgba(167,139,250,.22)" }}>
+              <div className="channel-flow-head">
+                <span className="channel-flow-icon" style={{ background: "rgba(167,139,250,.14)", color: "#a78bfa" }}>{Icons.monitor}</span>
+                <div>
+                  <h4>Kiosco</h4>
+                  <span>Autoservicio en pantalla, sin filas</span>
+                </div>
+              </div>
+              <div className="channel-flow-steps">
+                {kioscoFlow.map(([n, t, d]) => (
+                  <div className="channel-flow-step" key={n}>
+                    <span className="channel-flow-num" style={{ color: "#a78bfa" }}>{n}</span>
+                    <div><b>{t}</b><span>{d}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="enterprise">
             <div className="enterprise-head">
               <div>
@@ -933,6 +1003,24 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                   <span className="enterprise-agent-icon" style={{ background: `${a.color}1c`, color: a.color }}>{Icons[a.icon as keyof typeof Icons]}</span>
                   <h4>{a.name}</h4>
                   <p>{a.desc}</p>
+                  <div className="chat-head">
+                    <span className="chat-head-dot" style={{ background: a.color }} />
+                    <span>{a.name} · en línea</span>
+                  </div>
+                  <div className="chat-mock">
+                    {a.chat.map((m, i) => (
+                      <div
+                        key={i}
+                        className={`chat-bubble ${m.who}`}
+                        style={{
+                          animationDelay: `${i * 0.7 + 0.3}s`,
+                          ...(m.who === "out" ? { background: `${a.color}22`, border: `1px solid ${a.color}40` } : {}),
+                        }}
+                      >
+                        {m.text}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -968,11 +1056,11 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section className="final">
         <div className="container">
           <div className="final-box">
-            <div className="eyebrow">El sistema es gratis. El resto, cuando quieras</div>
+            <div className="eyebrow">Todo tu restaurante, en un solo sistema</div>
             <h2>El restaurante moderno funciona con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h2>
-            <p>Empieza gratis con tu Admin completo. Conecta Mesa, Kiosco o Delivery el día que quieras abrir un canal de venta nuevo.</p>
+            <p>Mesa, camareros, cocina, caja y administración desde $15/mes. Sumá kiosco y delivery cuando quieras vender más.</p>
             <div className="final-btns">
-              <a className="btn primary" href="#registro">Quiero mi cuenta</a>
+              <a className="btn primary" href="#precios">Quiero mi cuenta</a>
               <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">{Icons.message} Hablar por WhatsApp</a>
             </div>
           </div>
