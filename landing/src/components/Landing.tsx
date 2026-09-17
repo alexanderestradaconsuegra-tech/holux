@@ -447,9 +447,12 @@ a{color:inherit;text-decoration:none}
 
 .hub-spoke{display:flex;flex-direction:column;align-items:center}
 .hub-spoke-line{width:1px;height:22px;background:rgba(255,255,255,.14)}
-.hub-card{width:100%;border-radius:22px;padding:22px 18px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line);text-align:center;transition:.25s ease}
-.hub-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(0,0,0,.34)}
-.hub-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;margin:0 auto 12px}
+.hub-card{position:relative;overflow:hidden;width:100%;border-radius:22px;padding:22px 18px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--line);text-align:center;transition:.25s ease}
+.hub-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% -12%,var(--accent,transparent),transparent 65%);opacity:.18;pointer-events:none;transition:opacity .25s ease}
+.hub-card>*{position:relative;z-index:1}
+.hub-card:hover{transform:translateY(-4px);box-shadow:0 22px 48px -14px var(--accent,rgba(0,0,0,.4)),0 10px 26px rgba(0,0,0,.28)}
+.hub-card:hover::before{opacity:.28}
+.hub-icon{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;margin:0 auto 14px}
 .hub-tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:999px;padding:4px 10px;margin-bottom:8px}
 .hub-card h4{margin:0 0 6px;font-size:17px;font-weight:700;letter-spacing:-.02em}
 .hub-card p{color:var(--muted);font-size:12.5px;line-height:1.55;margin:0}
@@ -817,8 +820,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                 {salesChannels.map((e) => (
                   <div className="hub-spoke" key={e.key}>
                     <div className="hub-spoke-line" />
-                    <div className="hub-card" style={{ borderColor: `${e.color}30` }}>
-                      <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color }}>{Icons[e.icon as keyof typeof Icons]}</span>
+                    <div className="hub-card" style={{ borderColor: `${e.color}30`, ["--accent" as string]: `${e.color}59` }}>
+                      <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color, boxShadow: `0 0 0 6px ${e.color}12` }}>{Icons[e.icon as keyof typeof Icons]}</span>
                       <span className="hub-tag" style={{ color: e.color, background: `${e.color}16` }}>{e.tagline}</span>
                       <h4>{e.name}</h4>
                       <p>{e.desc}</p>
@@ -835,8 +838,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                 {teamRoles.map((e) => (
                   <div className="hub-spoke" key={e.key}>
                     <div className="hub-spoke-line" />
-                    <div className="hub-card" style={{ borderColor: `${e.color}30` }}>
-                      <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color }}>{Icons[e.icon as keyof typeof Icons]}</span>
+                    <div className="hub-card" style={{ borderColor: `${e.color}30`, ["--accent" as string]: `${e.color}59` }}>
+                      <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color, boxShadow: `0 0 0 6px ${e.color}12` }}>{Icons[e.icon as keyof typeof Icons]}</span>
                       <span className="hub-tag" style={{ color: e.color, background: `${e.color}16` }}>{e.tagline}</span>
                       <h4>{e.name}</h4>
                       <p>{e.desc}</p>
