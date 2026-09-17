@@ -11,3 +11,8 @@ node_modules
 landing/.next
 *.tsbuildinfo
 landing/next-env.d.ts
+
+# Binario compilado de impeccable (16MB, específico de plataforma — cada
+# máquina lo trae solo corriendo "npx impeccable install", no se versiona)
+.claude/skills/impeccable/scripts/bin/
+.impeccable/
