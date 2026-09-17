@@ -83,17 +83,13 @@ suscripción venció, vía `subscription-resubscribe`.
 dejando `trial_ends_at` en su valor por defecto de 30 días — eso ahora es
 correcto, no hay que tocarlo.
 
-## 4. Planes
+## 4. Precio
 
-Los precios viven en el nodo `Prepare Signup` y en las constantes `PLANS` de
-`admin.jsx` y `landing/src/components/Landing.tsx`. Si cambias uno, cambia los
-tres: el de n8n es el que cobra, los otros dos solo se muestran.
-
-| Plan | CLP/mes |
-|---|---|
-| `basico` | 29.990 |
-| `pro` | 49.990 |
-| `ia` | 79.990 |
+Un solo plan, un solo precio: **$19.990 CLP/mes** (anual: $199.900 CLP, dos
+meses gratis). Vive hardcodeado en `Prepare Signup` y `Prepare Resubscription`
+de este workflow — ahí es donde se cobra de verdad — y se muestra (no cobra)
+en `admin.jsx` (`PLAN_PRICE`) y `landing/src/components/Landing.tsx` (`PLAN`).
+Si cambias el precio, cambia los tres lugares.
 
 ## 5. Probar sin cobrar de verdad
 

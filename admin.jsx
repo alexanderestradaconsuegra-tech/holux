@@ -3078,20 +3078,17 @@ function PinGate({ onAuth, onBack }) {
   );
 }
 
-// Prices live here only to be shown. The amount actually charged is decided by
-// the n8n workflow from the plan key, so a tampered page cannot subscribe a
-// restaurant for one peso.
-const PLANS = [
-  { key: "basico", name: "Básico", price: 29990, blurb: "Carta QR, pedidos y cocina" },
-  { key: "pro",    name: "Pro",    price: 49990, blurb: "Todo lo anterior + caja, inventario y reseñas" },
-  { key: "ia",     name: "Con IA", price: 79990, blurb: "Todo + agente de WhatsApp" },
-];
+// El precio vive acá solo para mostrarse. El monto que se cobra de verdad lo
+// decide el nodo "Prepare Resubscription" en n8n, así que una página alterada
+// no puede suscribir un restaurante por un peso.
+const PLAN_PRICE = 19990;
+const PLAN_BLURB = "Todo incluido: mesa, camareros, cocina, caja, kiosco y delivery.";
 
 function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscriptionStatus }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [plan, setPlan] = useState("pro");
+  const plan = "pro";
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
 
@@ -3136,7 +3133,7 @@ function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscripti
           <div style={{ fontSize:18, fontWeight:700, marginBottom:6 }}>Período de prueba terminado</div>
           <div style={{ color:"var(--muted)", fontSize:13, lineHeight:1.6 }}>
             Los 30 días gratuitos de <strong>{restaurantName || "tu restaurante"}</strong> han vencido.<br />
-            Elige un plan y sigue usando HOLU hoy mismo.
+            Activa tu cuenta y sigue usando HOLU hoy mismo.
           </div>
         </div>
 
@@ -3146,19 +3143,12 @@ function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscripti
           </div>
         )}
 
-        <div style={{ display:"grid", gap:8, textAlign:"left" }}>
-          {PLANS.map((p) => (
-            <button key={p.key} onClick={() => setPlan(p.key)} type="button"
-              style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12, cursor:"pointer",
-                       background: plan === p.key ? "rgba(247,211,123,.12)" : "rgba(var(--surface-rgb),.04)",
-                       border: `1px solid ${plan === p.key ? "rgba(247,211,123,.5)" : "rgba(var(--surface-rgb),.1)"}`, color:"var(--text)" }}>
-              <span>
-                <strong style={{ display:"block", fontSize:14 }}>{p.name}</strong>
-                <small style={{ color:"var(--muted)", fontSize:11.5, lineHeight:1.4 }}>{p.blurb}</small>
-              </span>
-              <span style={{ whiteSpace:"nowrap", fontWeight:900, color:"var(--gold2)" }}>{money(p.price)}<small style={{ color:"var(--muted)", fontWeight:600 }}>/mes</small></span>
-            </button>
-          ))}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, padding:"14px 16px", borderRadius:12, textAlign:"left", background:"rgba(247,211,123,.12)", border:"1px solid rgba(247,211,123,.5)", color:"var(--text)" }}>
+          <span>
+            <strong style={{ display:"block", fontSize:14 }}>HOLU Completo</strong>
+            <small style={{ color:"var(--muted)", fontSize:11.5, lineHeight:1.4 }}>{PLAN_BLURB}</small>
+          </span>
+          <span style={{ whiteSpace:"nowrap", fontWeight:900, color:"var(--gold2)" }}>{money(PLAN_PRICE)}<small style={{ color:"var(--muted)", fontWeight:600 }}>/mes</small></span>
         </div>
 
         {payError && <div style={{ color:"var(--red2)", fontSize:13 }}>{payError}</div>}

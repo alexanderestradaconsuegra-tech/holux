@@ -69,8 +69,8 @@ const jsonLd = {
   url: "https://holu.pro",
   offers: {
     "@type": "Offer",
-    price: "15",
-    priceCurrency: "USD",
+    price: "19990",
+    priceCurrency: "CLP",
     availability: "https://schema.org/InStock",
     description: "Plan completo con 30 días gratis al registrarte",
   },

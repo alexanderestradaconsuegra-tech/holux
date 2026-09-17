@@ -84,41 +84,27 @@ const benefits = [
   "Entrega una imagen premium y diferente frente a otros restaurantes.",
 ];
 
-// Precios de la sección "#precios" (activación manual por WhatsApp). El
-// formulario de "Quiero mi cuenta" más abajo cobra automático vía
-// MercadoPago con sus propios montos en CLP definidos en n8n — son dos
-// cosas distintas a propósito, no las mezcles al editar precios acá.
-const TIERS = [
-  {
-    key: "mesa",
-    name: "Sistema Completo",
-    monthly: 15,
-    annual: 126,
-    tag: null,
-    blurb: "Mesa, camareros, cocina, caja y administración — todo en un solo sistema.",
-    features: [
-      "Administración completa: carta, inventario, reportes y empleados",
-      "Mesas con QR y carta digital premium",
-      "Camareros con su propio perfil y sus mesas asignadas",
-      "Pantalla de cocina organizada, sin papel",
-      "Caja, turnos, boletas y propinas",
-    ],
-  },
-  {
-    key: "delivery",
-    name: "Completo + Kiosco + Delivery",
-    monthly: 25,
-    annual: 210,
-    tag: "Más elegido",
-    blurb: "Todo lo anterior, más tu kiosco de autoservicio y tu propia página de delivery.",
-    features: [
-      "Todo lo del plan Sistema Completo",
-      "Kiosco de autoservicio en pantalla, sin filas",
-      "Delivery propio: carta, pedido, dirección y pago — sin comisión de apps externas",
-      "Seguimiento del pedido en vivo para el cliente",
-    ],
-  },
-];
+// Precio único de la sección "#precios" (activación manual por WhatsApp).
+// Es el MISMO monto que cobra n8n de verdad al reactivar una cuenta vencida
+// (nodo "Prepare Resubscription") — en CLP, sin convertir, para que coincida
+// con lo que se ve al pagar. Si cambias este número, cambia también el de
+// n8n y el de admin.jsx (PLAN_PRICE).
+const PLAN = {
+  name: "HOLU Completo",
+  monthly: 19990,
+  annual: 199900, // 10 meses de 12 = "2 meses gratis"
+  blurb: "Todo tu restaurante en un solo sistema: mesa, camareros, cocina, caja, kiosco y delivery.",
+  features: [
+    "Administración completa: carta, inventario, reportes y empleados",
+    "Mesas con QR y carta digital premium",
+    "Camareros con su propio perfil y sus mesas asignadas",
+    "Pantalla de cocina organizada, sin papel",
+    "Caja, turnos, boletas y propinas",
+    "Kiosco de autoservicio en pantalla, sin filas",
+    "Delivery propio: carta, pedido, dirección y pago — sin comisión de apps externas",
+    "Seguimiento del pedido en vivo para el cliente",
+  ],
+};
 
 // Mini pantallas interactivas dentro de la sección de precios — no llaman al
 // backend, solo muestran cómo se siente pedir en kiosco y en delivery.
@@ -236,7 +222,7 @@ const stats = [
 ];
 
 const faqs = [
-  { q: "¿Qué incluye el plan base?", a: "El plan Sistema Completo ($15/mes) incluye todo lo esencial: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja y administración completa. Si además quieres kiosco de autoservicio y tu propia página de delivery, subes al siguiente plan por $25/mes." },
+  { q: "¿Qué incluye el plan?", a: "HOLU Completo ($19.990/mes) incluye todo: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja, kiosco de autoservicio y tu propia página de delivery. Un solo precio, sin niveles — y 30 días gratis para probarlo antes de pagar nada." },
   { q: "¿HOLU reemplaza al camarero?",         a: "No. HOLU ayuda al equipo a trabajar mejor. El camarero sigue siendo clave para la atención, la experiencia humana y el cobro presencial cuando corresponde." },
   { q: "¿Funciona con QR por mesa?",           a: "Sí. Cada mesa tiene un QR único. El cliente entra directamente a la experiencia de su mesa y todo queda conectado con pedidos, cocina, camareros y administración." },
   { q: "¿Puedo agregar o editar platos?",       a: "Sí. Desde administración puedes crear platos, cambiar precios, subir imágenes, activar o desactivar disponibilidad y decidir qué ve el cliente." },
@@ -470,18 +456,17 @@ a{color:inherit;text-decoration:none}
 .features{display:grid;gap:8px;margin:16px 0}
 .features div{color:var(--muted);font-size:14px;line-height:1.4}
 
-/* TIER GRID — dos niveles fijos + el plan a medida aparte */
-.tier-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:stretch;max-width:760px;margin:0 auto}
-.tier-card{position:relative;display:flex;flex-direction:column;border-radius:24px;padding:26px 24px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line)}
-.tier-card.tier-full{border-color:rgba(240,212,141,.4);background:linear-gradient(160deg,rgba(200,169,107,.14),rgba(255,255,255,.03));box-shadow:0 22px 60px rgba(200,169,107,.14)}
+/* TIER GRID — un solo plan, centrado, + el plan a medida aparte */
+.tier-grid{display:flex;justify-content:center;max-width:760px;margin:0 auto}
+.tier-card{position:relative;display:flex;flex-direction:column;width:min(440px,100%);border-radius:24px;padding:30px 28px;background:linear-gradient(160deg,rgba(200,169,107,.14),rgba(255,255,255,.03));border:1px solid rgba(240,212,141,.4);box-shadow:0 22px 60px rgba(200,169,107,.14)}
 .tier-name{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:6px 0 6px}
-.tier-blurb{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 14px;min-height:40px}
+.tier-blurb{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 14px}
 .tier-price{font-size:38px;font-weight:700;color:var(--gold2);line-height:1;margin-bottom:2px}
 .tier-price small{font-size:13px;color:var(--muted);font-weight:500}
 .tier-annual-note{color:var(--green);font-size:12px;font-weight:600;margin:0 0 14px}
 .tier-features{display:grid;gap:8px;margin:14px 0 20px;flex:1}
 .tier-features div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13.5px;line-height:1.5}
-@media(max-width:760px){.tier-grid{grid-template-columns:1fr}}
+.tier-roi{color:var(--muted);font-size:12.5px;line-height:1.55;margin:0 0 16px;padding:11px 13px;border-radius:12px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.18)}
 
 /* DEMO SCREENS — kiosco y delivery de verdad, como si fueran la pantalla real */
 .demo-screens{display:flex;justify-content:center;align-items:flex-start;gap:44px;flex-wrap:wrap;margin:0 0 44px}
@@ -1000,45 +985,44 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section id="precios" className="section">
         <div className="container">
           <div className="section-head">
-            <h2>Un plan para cada etapa de tu restaurante.</h2>
-            <p>Empieza con el sistema completo — mesa, camareros, cocina, caja y administración — y sumale kiosco y delivery cuando quieras vender más. ¿Necesitas algo hecho a tu medida? Bajá un poco más.</p>
+            <h2>Un precio. Todo incluido.</h2>
+            <p>Mesa, camareros, cocina, caja, kiosco y delivery, sin niveles ni letra chica. 30 días gratis antes de pagar nada. ¿Necesitas algo hecho a tu medida? Bajá un poco más.</p>
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
               <button type="button" onClick={() => setBilling("monthly")} style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease", background: billing === "monthly" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent", color: billing === "monthly" ? "#160f02" : "var(--muted)" }}>Mensual</button>
-              <button type="button" onClick={() => setBilling("annual")} style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease", background: billing === "annual" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent", color: billing === "annual" ? "#160f02" : "var(--muted)" }}>Anual&nbsp;<span style={{ fontSize: 12, fontWeight: 700, color: billing === "annual" ? "#064" : "var(--green)" }}>−30%</span></button>
+              <button type="button" onClick={() => setBilling("annual")} style={{ padding: "10px 24px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 14, transition: ".2s ease", background: billing === "annual" ? "linear-gradient(135deg,var(--gold),var(--gold2))" : "transparent", color: billing === "annual" ? "#160f02" : "var(--muted)" }}>Anual&nbsp;<span style={{ fontSize: 12, fontWeight: 700, color: billing === "annual" ? "#064" : "var(--green)" }}>2 meses gratis</span></button>
             </div>
           </div>
           <div className="tier-grid">
-            {TIERS.map((t) => (
-              <article className="tier-card" key={t.key}>
-                {t.tag && <span className="tag" style={{ position: "static", alignSelf: "flex-start", marginBottom: 8 }}>{t.tag}</span>}
-                <h3 className="tier-name">{t.name}</h3>
-                <p className="tier-blurb">{t.blurb}</p>
-                <div className="tier-price">
-                  {billing === "monthly"
-                    ? <>USD ${t.monthly}<small> / mes</small></>
-                    : <>USD ${t.annual}<small> / año</small></>}
-                </div>
-                {billing === "annual" && (
-                  <p className="tier-annual-note">Equivale a USD ${(t.annual / 12).toFixed(2)}/mes</p>
-                )}
-                <div className="tier-features">
-                  {t.features.map((f) => (
-                    <div key={f} style={{ color: "var(--muted)" }}>
-                      <span style={{ color: "var(--green)", flex: "0 0 auto", marginTop: 2 }}>{Icons.check}</span>
-                      <span>{f}</span>
-                    </div>
-                  ))}
-                </div>
-                <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU - Plan: ${t.name} (${billing === "annual" ? `anual USD $${t.annual}` : `mensual USD $${t.monthly}`})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", fontSize: 14, padding: "13px 18px" }}>{Icons.message} Activar por WhatsApp</a>
-              </article>
-            ))}
+            <article className="tier-card">
+              <span className="tag" style={{ position: "static", alignSelf: "flex-start", marginBottom: 8, background: "rgba(52,211,153,.16)", color: "var(--green)" }}>30 días gratis, sin tarjeta</span>
+              <h3 className="tier-name">{PLAN.name}</h3>
+              <p className="tier-blurb">{PLAN.blurb}</p>
+              <div className="tier-price">
+                {billing === "monthly"
+                  ? <>{clp(PLAN.monthly)}<small> / mes</small></>
+                  : <>{clp(PLAN.annual)}<small> / año</small></>}
+              </div>
+              {billing === "annual" && (
+                <p className="tier-annual-note">Equivale a {clp(Math.round(PLAN.annual / 12))}/mes</p>
+              )}
+              <div className="tier-features">
+                {PLAN.features.map((f) => (
+                  <div key={f} style={{ color: "var(--muted)" }}>
+                    <span style={{ color: "var(--green)", flex: "0 0 auto", marginTop: 2 }}>{Icons.check}</span>
+                    <span>{f}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="tier-roi">Ejemplo: si vendés {clp(300000)} al mes en delivery, hoy perdés cerca de {clp(75000)}–{clp(90000)} en comisión de apps — HOLU te sale {clp(PLAN.monthly)}.</p>
+              <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (${billing === "annual" ? `anual ${clp(PLAN.annual)}` : `mensual ${clp(PLAN.monthly)}`})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", fontSize: 14, padding: "13px 18px" }}>{Icons.message} Activar por WhatsApp</a>
+            </article>
           </div>
           <p style={{ textAlign: "center", color: "var(--dim)", fontSize: 13, margin: "20px 0 0" }}>{Icons.check} Demo abierta, sin registro ni tarjeta, para probar el sistema completo antes de elegir.</p>
 
           <div style={{ marginTop: 56, marginBottom: 24, textAlign: "center" }}>
-            <span className="eyebrow">Lo que se suma en el plan +$25</span>
+            <span className="eyebrow">Incluidos en tu plan</span>
             <h3 style={{ fontSize: "clamp(24px,3vw,32px)", fontWeight: 700, letterSpacing: "-.03em", margin: "10px 0 0" }}>Así funcionan Kiosco y Delivery.</h3>
           </div>
           <div className="demo-screens">
@@ -1191,7 +1175,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           <div className="final-box">
             <div className="eyebrow">Todo tu restaurante, en un solo sistema</div>
             <h2>El restaurante moderno funciona con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h2>
-            <p>Mesa, camareros, cocina, caja y administración desde $15/mes. Suma kiosco y delivery cuando quieras vender más.</p>
+            <p>Mesa, camareros, cocina, caja, kiosco y delivery — todo por $19.990/mes, con 30 días gratis para probarlo.</p>
             <div className="final-btns">
               <a className="btn primary" href="#precios">Quiero mi cuenta</a>
               <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">{Icons.message} Hablar por WhatsApp</a>
