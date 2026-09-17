@@ -50,10 +50,10 @@ const supaRpc = async (fn, args) => {
 // The same gold-on-black identity as mesa.jsx and admin.jsx, so a diner who
 // ordered from the table QR recognizes the brand when they order delivery too.
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
 *{box-sizing:border-box}
 body{margin:0}
-.dv{min-height:100dvh;background:#080705;color:#fff7ed;font-family:Inter,system-ui,sans-serif}
+.dv{min-height:100dvh;background:#080705;color:#fff7ed;font-family:Manrope,system-ui,sans-serif}
 .dv a,.dv button{font-family:inherit}
 .dv-hero{position:relative;padding:20px 20px 26px;display:flex;flex-direction:column;justify-content:flex-end;min-height:200px;background-size:cover;background-position:center}
 .dv-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,7,5,.55),rgba(8,7,5,.92)),radial-gradient(circle at 15% 0%,rgba(217,164,65,.22),transparent 55%)}
@@ -501,7 +501,7 @@ function AddressField({ value, onChange, onPlace, placeholder }) {
 }
 
 const S = {
-  screen: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080705", color: "#fff7ed", padding: 20, fontFamily: "Inter,system-ui,sans-serif" },
+  screen: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080705", color: "#fff7ed", padding: 20, fontFamily: "Manrope,system-ui,sans-serif" },
   card: { width: "100%", background: "#15120f", border: "1px solid rgba(255,255,255,.08)", padding: 32, borderRadius: 24, textAlign: "center" },
   h2: { margin: "0 0 8px", fontSize: 23, fontWeight: 900, fontFamily: "'Playfair Display',serif" },
   muted: { color: "#8a7c6d", margin: 0, fontSize: 14, lineHeight: 1.6 },

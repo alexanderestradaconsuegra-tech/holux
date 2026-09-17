@@ -1,8 +1,8 @@
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 :root{--bg:#060605;--line:rgba(255,255,255,.1);--text:#fff8ed;--muted:#b0a396;--dim:#6a6058;--gold:#c8a96b;--gold2:#f0d48d}
 *{box-sizing:border-box}
-body{margin:0;background:#050504;color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:16px;line-height:1.6}
+body{margin:0;background:#050504;color:var(--text);font-family:Manrope,system-ui,sans-serif;font-size:16px;line-height:1.6}
 a{color:var(--gold2);text-decoration:none}
 a:hover{text-decoration:underline}
 .legal-nav{position:sticky;top:0;z-index:10;background:rgba(6,6,5,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}

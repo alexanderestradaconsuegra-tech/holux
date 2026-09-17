@@ -273,10 +273,10 @@ const TABLES = [
 const WA = "https://wa.me/56992103974";
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 :root{--bg:#060605;--line:rgba(255,255,255,.1);--text:#fff8ed;--muted:#b0a396;--dim:#6a6058;--gold:#c8a96b;--gold2:#f0d48d;--green:#34d399;--shadow:0 28px 90px rgba(0,0,0,.48)}
 *{box-sizing:border-box}
-body{margin:0;background:radial-gradient(circle at 12% -8%,rgba(200,169,107,.18),transparent 32%),radial-gradient(circle at 100% 18%,rgba(255,255,255,.05),transparent 28%),#050504;color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:16px;line-height:1.5}
+body{margin:0;background:radial-gradient(circle at 12% -8%,rgba(200,169,107,.18),transparent 32%),radial-gradient(circle at 100% 18%,rgba(255,255,255,.05),transparent 28%),#050504;color:var(--text);font-family:Manrope,system-ui,sans-serif;font-size:16px;line-height:1.5}
 a{color:inherit;text-decoration:none}
 .page{overflow:hidden}
 .container{width:min(1160px,calc(100% - 40px));margin:auto}
