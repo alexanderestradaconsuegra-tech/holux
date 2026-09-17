@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const Icons = {
   phone: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>,
@@ -253,21 +253,30 @@ const flow = [
 ];
 
 const ORDERS = [
-  { id: "ORD-0042", mesa: "Mesa 5", items: "2 hamburguesas · 1 limonada", status: "Preparando", c: "#f0d48d" },
-  { id: "ORD-0041", mesa: "Mesa 2", items: "1 pasta · 2 aguas",           status: "Listo ✓",    c: "#34d399" },
-  { id: "ORD-0040", mesa: "Mesa 7", items: "3 tacos · 1 cerveza",         status: "Entregando",  c: "#60a5fa" },
-  { id: "ORD-0039", mesa: "Mesa 1", items: "1 salmón · 1 vino tinto",     status: "Cobrado",     c: "#6b7280" },
+  { id: "ORD-0042", mesa: "Mesa 5", items: "2 hamburguesas · 1 limonada", status: "Preparando", c: "#b3781c" },
+  { id: "ORD-0041", mesa: "Mesa 2", items: "1 pasta · 2 aguas",           status: "Listo ✓",    c: "#0f9d63" },
+  { id: "ORD-0040", mesa: "Mesa 7", items: "3 tacos · 1 cerveza",         status: "Entregando",  c: "#2f6fe0" },
+  { id: "ORD-0039", mesa: "Mesa 1", items: "1 salmón · 1 vino tinto",     status: "Cobrado",     c: "#6b5c47" },
+];
+
+// Ciclo de vida del primer pedido en el mockup del hero: se anima solo,
+// mostrando cómo entra un pedido y cómo termina cobrado.
+const HERO_DEMO_STEPS = [
+  { status: "Nuevo pedido", c: "#2f6fe0" },
+  { status: "Preparando",   c: "#b3781c" },
+  { status: "Listo ✓",      c: "#0f9d63" },
+  { status: "Cobrado ✓",    c: "#6b5c47" },
 ];
 
 const TABLES = [
-  { n: 1, s: "Libre",   bg: "rgba(255,255,255,.04)", tc: "#6b7280" },
-  { n: 2, s: "Activa",  bg: "rgba(200,169,107,.09)", tc: "#f0d48d" },
-  { n: 3, s: "Libre",   bg: "rgba(255,255,255,.04)", tc: "#6b7280" },
-  { n: 4, s: "Cuenta",  bg: "rgba(52,211,153,.07)",  tc: "#34d399" },
-  { n: 5, s: "Activa",  bg: "rgba(200,169,107,.09)", tc: "#f0d48d" },
-  { n: 6, s: "Libre",   bg: "rgba(255,255,255,.04)", tc: "#6b7280" },
-  { n: 7, s: "Activa",  bg: "rgba(200,169,107,.09)", tc: "#f0d48d" },
-  { n: 8, s: "Libre",   bg: "rgba(255,255,255,.04)", tc: "#6b7280" },
+  { n: 1, s: "Libre",   bg: "rgba(36,26,12,.035)",  tc: "#8a7a63" },
+  { n: 2, s: "Activa",  bg: "rgba(179,120,28,.1)",  tc: "#b3781c" },
+  { n: 3, s: "Libre",   bg: "rgba(36,26,12,.035)",  tc: "#8a7a63" },
+  { n: 4, s: "Cuenta",  bg: "rgba(15,157,99,.09)",  tc: "#0f9d63" },
+  { n: 5, s: "Activa",  bg: "rgba(179,120,28,.1)",  tc: "#b3781c" },
+  { n: 6, s: "Libre",   bg: "rgba(36,26,12,.035)",  tc: "#8a7a63" },
+  { n: 7, s: "Activa",  bg: "rgba(179,120,28,.1)",  tc: "#b3781c" },
+  { n: 8, s: "Libre",   bg: "rgba(36,26,12,.035)",  tc: "#8a7a63" },
 ];
 
 const WA = "https://wa.me/56992103974";
@@ -329,31 +338,38 @@ a{color:inherit;text-decoration:none}
 }
 .tablet-camera{width:9px;height:9px;border-radius:50%;background:#0a0a0c;box-shadow:0 0 0 1.5px rgba(255,255,255,.08),inset 0 0 4px rgba(80,160,255,.35);margin:0 auto 10px}
 .tablet-home{width:72px;height:4px;border-radius:4px;background:rgba(255,255,255,.16);margin:10px auto 0}
-.tablet-screen{border-radius:24px;background:#08080f;overflow:hidden;border:1px solid rgba(0,0,0,.7)}
+.tablet-screen{
+  --ts-bg:#f8f2e4;--ts-panel:rgba(36,26,12,.04);--ts-line:rgba(36,26,12,.09);
+  --ts-text:#241a0c;--ts-muted:#6b5c47;--ts-dim:#8a7a63;--ts-gold:#b3781c;--ts-gold2:#8a5a12;
+  border-radius:24px;background:var(--ts-bg);color:var(--ts-text);overflow:hidden;border:1px solid rgba(0,0,0,.12)
+}
 .tablet-btn-right{position:absolute;right:-3px;top:110px;width:3px;height:52px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#3a3a3c,#2a2a2c);box-shadow:2px 0 4px rgba(0,0,0,.4)}
 .tablet-btn-vol1{position:absolute;left:-3px;top:100px;width:3px;height:38px;border-radius:3px 0 0 3px;background:linear-gradient(180deg,#3a3a3c,#2a2a2c);box-shadow:-2px 0 4px rgba(0,0,0,.4)}
 .tablet-btn-vol2{position:absolute;left:-3px;top:148px;width:3px;height:38px;border-radius:3px 0 0 3px;background:linear-gradient(180deg,#3a3a3c,#2a2a2c);box-shadow:-2px 0 4px rgba(0,0,0,.4)}
-.tab-topbar{background:linear-gradient(135deg,#0d0c14,#130f07);padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+.tab-topbar{background:linear-gradient(135deg,#fffaf0,#f1e1bd);padding:14px 16px 12px;border-bottom:1px solid var(--ts-line)}
 .tab-topbar-row{display:flex;justify-content:space-between;align-items:center}
-.tab-brand{font-size:15px;font-weight:700;letter-spacing:-.04em}
-.tab-live{font-size:10px;color:#8ff0c5;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.22);border-radius:999px;padding:4px 9px;font-weight:600;animation:pulse 2.4s infinite}
+.tab-brand{font-size:15px;font-weight:700;letter-spacing:-.04em;color:var(--ts-text)}
+.tab-live{font-size:10px;color:#0a7a4c;background:rgba(15,157,99,.12);border:1px solid rgba(15,157,99,.24);border-radius:999px;padding:4px 9px;font-weight:600;animation:pulse 2.4s infinite}
 .tab-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
-.tab-stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:8px 10px}
-.tab-stat b{display:block;font-size:15px;font-weight:700;color:#f0d48d;line-height:1}
-.tab-stat span{display:block;font-size:10px;color:#6a6058;margin-top:3px}
+.tab-stat{background:var(--ts-panel);border:1px solid var(--ts-line);border-radius:10px;padding:8px 10px}
+.tab-stat b{display:block;font-size:15px;font-weight:700;color:var(--ts-gold2);line-height:1}
+.tab-stat span{display:block;font-size:10px;color:var(--ts-muted);margin-top:3px}
 .tab-section{padding:12px 14px}
-.tab-label{font-size:10px;color:#c8a96b;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:8px}
-.tab-order{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.034);border:1px solid rgba(255,255,255,.055);margin-bottom:5px}
-.tab-order-info b{font-size:12px;font-weight:600;display:block}
-.tab-order-info span{font-size:10px;color:#6a6058;display:block;margin-top:2px}
+.tab-label{font-size:10px;color:var(--ts-gold);letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:8px}
+.tab-order{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:10px;background:var(--ts-panel);border:1px solid var(--ts-line);margin-bottom:5px}
+.tab-order-info b{font-size:12px;font-weight:600;display:block;color:var(--ts-text)}
+.tab-order-info span{font-size:10px;color:var(--ts-muted);display:block;margin-top:2px}
 .tab-badge{font-size:10px;border-radius:999px;padding:3px 8px;font-weight:600;white-space:nowrap}
 .tab-tables{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
-.tab-table{border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:7px 4px;text-align:center}
-.tab-table b{display:block;font-size:13px;font-weight:700;line-height:1}
+.tab-table{border:1px solid var(--ts-line);border-radius:9px;padding:7px 4px;text-align:center}
+.tab-table b{display:block;font-size:13px;font-weight:700;line-height:1;color:var(--ts-text)}
 .tab-table span{display:block;font-size:9px;margin-top:3px}
-.tab-footer{padding:10px 14px;border-top:1px solid rgba(255,255,255,.05);display:flex;gap:6px}
-.tab-footbtn{flex:1;border-radius:10px;padding:9px 6px;font-size:11px;font-weight:600;text-align:center;cursor:pointer;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--muted)}
-.tab-footbtn.active{background:linear-gradient(135deg,rgba(200,169,107,.18),rgba(255,255,255,.04));border-color:rgba(240,212,141,.24);color:var(--gold2)}
+.tab-footer{padding:10px 14px;border-top:1px solid var(--ts-line);display:flex;gap:6px}
+.tab-footbtn{flex:1;border-radius:10px;padding:9px 6px;font-size:11px;font-weight:600;text-align:center;cursor:pointer;border:1px solid var(--ts-line);background:var(--ts-panel);color:var(--ts-muted)}
+.tab-footbtn.active{background:linear-gradient(135deg,rgba(179,120,28,.2),rgba(255,255,255,.5));border-color:rgba(179,120,28,.32);color:var(--ts-gold2)}
+.tab-order.demo-live{animation:tabOrderIn .45s ease,tabOrderFlash 1.4s ease}
+@keyframes tabOrderIn{0%{opacity:0;transform:translateY(-5px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes tabOrderFlash{0%{background:rgba(179,120,28,.22)}100%{background:var(--ts-panel)}}
 
 /* STATS */
 .stats-shell{margin-top:32px}
@@ -617,6 +633,13 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
   const [formError, setFormError] = useState("");
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
+  const [demoStep, setDemoStep] = useState(0);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setDemoStep((s) => (s + 1) % HERO_DEMO_STEPS.length), 2400);
+    return () => clearInterval(t);
+  }, []);
+
   const [kioscoCart, setKioscoCart] = useState<Record<string, number>>({});
   const [kioscoSent, setKioscoSent] = useState(false);
   const kioscoCount = Object.values(kioscoCart).reduce((a, b) => a + b, 0);
@@ -725,15 +748,20 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                 </div>
                 <div className="tab-section">
                   <div className="tab-label">Pedidos activos</div>
-                  {ORDERS.map(o => (
-                    <div className="tab-order" key={o.id}>
-                      <div className="tab-order-info">
-                        <b>{o.id} · {o.mesa}</b>
-                        <span>{o.items}</span>
+                  {ORDERS.map((o, i) => {
+                    const live = i === 0 ? HERO_DEMO_STEPS[demoStep] : null;
+                    const status = live?.status ?? o.status;
+                    const color = live?.c ?? o.c;
+                    return (
+                      <div className={`tab-order${live ? " demo-live" : ""}`} key={live ? `${o.id}-${demoStep}` : o.id}>
+                        <div className="tab-order-info">
+                          <b>{o.id} · {o.mesa}</b>
+                          <span>{o.items}</span>
+                        </div>
+                        <span className="tab-badge" style={{ color, background: `${color}18`, border: `1px solid ${color}30` }}>{status}</span>
                       </div>
-                      <span className="tab-badge" style={{ color: o.c, background: `${o.c}18`, border: `1px solid ${o.c}30` }}>{o.status}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="tab-section" style={{ paddingTop: 0 }}>
                   <div className="tab-label">Mesas</div>
