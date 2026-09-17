@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Registration is now an intent to subscribe, not an account. This hands the
-// details to n8n, which records the signup and asks MercadoPago for a checkout
-// link; the restaurant is only built once MercadoPago confirms the payment.
-//
-// The plan key travels, never the price: the amount is looked up server-side so
-// a tampered page cannot subscribe a restaurant for one peso.
+// Registration creates the account right away: n8n's signup-free webhook
+// calls restaurant-onboard, which builds the restaurant, the login and the
+// tables, and starts a real 30-day trial (trial_ends_at defaults on that
+// table). No MercadoPago step here — that only comes back in if the trial
+// expires and the owner activates or resubscribes from the panel.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const n8nBase = process.env.N8N_WEBHOOK_BASE_URL;
 
   if (!n8nBase) {
-    return NextResponse.json({ error: "billing_unavailable" }, { status: 503 });
+    return NextResponse.json({ error: "signup_unavailable" }, { status: 503 });
   }
 
   const email = String(body?.email || "").trim().toLowerCase();
@@ -23,7 +22,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${n8nBase}/webhook/subscription-start`, {
+    const res = await fetch(`${n8nBase}/webhook/signup-free`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -36,11 +35,11 @@ export async function POST(req: NextRequest) {
     });
 
     const data = await res.json().catch(() => null);
-    if (!res.ok || !data?.init_point) {
-      return NextResponse.json({ error: "checkout_unavailable" }, { status: 502 });
+    if (!res.ok || !data?.ok) {
+      return NextResponse.json({ error: "signup_failed" }, { status: 502 });
     }
-    return NextResponse.json({ ok: true, init_point: data.init_point });
+    return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "checkout_unavailable" }, { status: 502 });
+    return NextResponse.json({ error: "signup_failed" }, { status: 502 });
   }
 }

@@ -33,16 +33,18 @@ MercadoPago → Tus integraciones → tu aplicación → **Webhooks**.
 
 ## 3. Cómo funciona
 
-**El registro ya no crea la cuenta.** Antes, llenar el formulario de la landing
-creaba el restaurante, el usuario y las mesas al instante: cualquiera obtenía un
-sistema funcionando sin pagar. Ahora el orden es al revés.
+**Esto ya no es lo que usa el registro nuevo de la landing** — ese ahora es
+gratis, con 30 días de trial, y llama a `signup-free`
+(`holu-registro-gratis.json`). Lo de acá sigue existiendo para reactivar una
+cuenta cuyo trial ya venció, o si en algún momento se conecta un cobro
+automático.
 
-**Alta.** La landing llama a `POST /webhook/subscription-start` con
+**Alta manual/reactivación.** Se llama a `POST /webhook/subscription-start` con
 `{ restaurant_name, owner_name, owner_email, phone, plan }`. El workflow calcula
 el precio a partir del plan — el navegador nunca manda el monto — guarda el
 registro en `signups` con estado `pending`, crea el *preapproval* en MercadoPago
-y devuelve el `init_point`. La landing redirige ahí. **Todavía no existe ninguna
-cuenta.**
+y devuelve el `init_point`. Quien lo llama redirige ahí. **Todavía no existe
+ninguna cuenta.**
 
 **Confirmación.** MercadoPago avisa a `POST /webhook/mp-webhook`. El workflow
 consulta `GET /preapproval/{id}` para leer el estado desde la fuente — nunca
@@ -67,12 +69,19 @@ en `subscriptions` con `start_resubscription()`, que borra cualquier intento
 anterior sin confirmar antes de crear el nuevo, para que un doble clic no
 choque con la restricción de una sola suscripción viva por restaurante.
 
-### Un detalle a corregir en `restaurant-onboard`
+### El registro nuevo ya no pasa por acá
 
-Ese workflow todavía responde *"Trial de 30 días activo"* y deja que la columna
-`trial_ends_at` tome su valor por defecto de 30 días. Ya no hay trial: conviene
-cambiar ese texto y mandar `"trial_ends_at": null` al crear el restaurante, para
-que el acceso dependa solo de la suscripción.
+Desde que existe `holu-registro-gratis.json`, el formulario de la landing
+llama a `POST /webhook/signup-free` en vez de `subscription-start` — el
+registro es gratis, con 30 días de trial reales (ver
+`README-registro-gratis.md`). Este workflow (`subscription-start` /
+`mp-webhook`) queda para dos cosas: pagar automático si en algún momento se
+conecta ese camino, y **reactivar** una cuenta ya existente cuyo trial o
+suscripción venció, vía `subscription-resubscribe`.
+
+`restaurant-onboard` sigue respondiendo *"Trial de 30 días activo"* y
+dejando `trial_ends_at` en su valor por defecto de 30 días — eso ahora es
+correcto, no hay que tocarlo.
 
 ## 4. Planes
 

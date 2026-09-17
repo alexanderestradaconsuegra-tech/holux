@@ -670,9 +670,10 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _ = adminUrl;
 
-  // Registering no longer creates the account. It records the intent and hands
-  // the visitor to MercadoPago; the restaurant, its login and its tables are
-  // built when MercadoPago confirms the first payment.
+  // Registering creates the restaurant right away — no payment step. The
+  // account gets a real 30-day trial (trial_ends_at defaults on signup);
+  // MercadoPago only re-enters if that trial expires and the owner
+  // reactivates from the panel.
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setFormState("loading");
@@ -684,10 +685,10 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         body: JSON.stringify(form),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.init_point) throw new Error("sin enlace de pago");
-      window.location.href = data.init_point;
+      if (!res.ok || !data?.ok) throw new Error("sin cuenta creada");
+      setFormState("done");
     } catch {
-      setFormError("No pudimos abrir el pago. Revisa los datos e inténtalo de nuevo.");
+      setFormError("No pudimos crear tu cuenta. Revisa los datos e inténtalo de nuevo.");
       setFormState("idle");
     }
   }
@@ -943,9 +944,9 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <div className="register-benefits">
               {[
                 "La demo es HOLU completo, con datos de ejemplo",
-                "Tu cuenta se crea sola apenas confirmamos el pago",
+                "Tu cuenta se crea sola, gratis, sin tarjeta",
                 "Sin instalación — funciona desde el navegador",
-                "Cancelas cuando quieras desde MercadoPago",
+                "30 días para probarlo en tu propio restaurante",
               ].map(b => (
                 <div className="reg-benefit" key={b}>
                   <span className="reg-check">{Icons.check}</span>
@@ -959,8 +960,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             {formState === "done" ? (
               <div className="form-success">
                 <div className="success-icon" style={{ color: "var(--gold2)" }}>{Icons.success}</div>
-                <h4>Pago confirmado</h4>
-                <p>Te enviamos tu correo y contraseña a la dirección que registraste. Con eso entras a <span style={{ color: "var(--gold2)" }}>app.holu.pro</span> y tu restaurante ya está creado.</p>
+                <h4>Cuenta creada</h4>
+                <p>Te enviamos tu usuario y contraseña a la dirección que registraste. Con eso entras a <span style={{ color: "var(--gold2)" }}>app.holu.pro</span> — tu restaurante ya está creado, con 30 días gratis para probarlo.</p>
                 <div style={{ marginTop: 20 }}>
                   <a className="btn primary" href="https://app.holu.pro" target="_blank" rel="noopener noreferrer" style={{ width: "100%", justifyContent: "center" }}>Entrar a mi cuenta →</a>
                 </div>
@@ -968,7 +969,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             ) : (
               <form onSubmit={handleRegister}>
                 <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", margin: "0 0 6px" }}>Quiero mi cuenta</h3>
-                <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", lineHeight: 1.6 }}>Completa tus datos y te llevamos a MercadoPago para confirmar el pago. Al confirmarse el cobro te llegan tus claves por correo y ya puedes entrar.</p>
+                <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", lineHeight: 1.6 }}>Completa tus datos y activa tu cuenta gratis por 30 días, sin tarjeta. Te llegan tus claves por correo y ya puedes entrar.</p>
                 <div className="form-field">
                   <label>Nombre del restaurante</label>
                   <input type="text" placeholder="Ej: La Trattoria" required value={form.restaurant} onChange={e => setForm(f => ({ ...f, restaurant: e.target.value }))} />
@@ -987,9 +988,9 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                 </div>
                 {formError && <p style={{ color: "#fca5a5", fontSize: 13, textAlign: "center", margin: "0 0 10px", lineHeight: 1.5 }}>{formError}</p>}
                 <button type="submit" className="btn primary" style={{ width: "100%", marginTop: 4, fontSize: 15, padding: "14px 20px", justifyContent: "center" }} disabled={formState === "loading"}>
-                  {formState === "loading" ? <><span className="spinner" />Abriendo MercadoPago...</> : "Ir a pagar →"}
+                  {formState === "loading" ? <><span className="spinner" />Creando tu cuenta...</> : "Crear mi cuenta gratis →"}
                 </button>
-                <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", marginTop: 12 }}>Cobro mensual · Cancelas cuando quieras</p>
+                <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", marginTop: 12 }}>30 días gratis · Sin tarjeta de crédito</p>
               </form>
             )}
           </div>

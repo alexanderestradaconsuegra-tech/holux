@@ -1,0 +1,75 @@
+{
+  "name": "HOLU - Registro gratis (30 días)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "signup-free",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f1e2d3c4-0001-4000-8000-000000000001",
+      "name": "Webhook - Signup Free",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "signup-free"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Validate & Prepare ──────────────────────────────────────────\nconst b = $input.first().json.body ?? $input.first().json;\n\nfor (const f of ['restaurant_name', 'owner_name', 'owner_email']) {\n  if (!b[f] || String(b[f]).trim() === '') throw new Error(`Missing required field: ${f}`);\n}\nif (!/^[^@]+@[^@]+\\.[^@]+$/.test(b.owner_email)) throw new Error('Invalid email address');\n\n// Solo para saber qué plan mostrarle más adelante en el panel — el registro\n// en sí no cobra nada, restaurant-onboard le da el trial de 30 días por\n// defecto (columna trial_ends_at).\nconst PLANS = ['basico', 'pro', 'ia'];\nconst plan = PLANS.includes(b.plan) ? b.plan : 'pro';\n\nconst chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';\nlet password = '';\nfor (let i = 0; i < 12; i++) password += chars[Math.floor(Math.random() * chars.length)];\n\nreturn [{ json: {\n  restaurant_name: String(b.restaurant_name).trim(),\n  owner_name:      String(b.owner_name).trim(),\n  owner_email:     String(b.owner_email).trim().toLowerCase(),\n  phone:           b.phone ? String(b.phone).trim() : null,\n  plan,\n  password,\n}}];"
+      },
+      "id": "f1e2d3c4-0002-4000-8000-000000000002",
+      "name": "Prepare Free Signup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_PUBLIC_URL }}/webhook/restaurant-onboard",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"restaurantName\": \"{{ $json.restaurant_name }}\",\n  \"ownerName\":      \"{{ $json.owner_name }}\",\n  \"ownerEmail\":     \"{{ $json.owner_email }}\",\n  \"ownerPassword\":  \"{{ $json.password }}\",\n  \"phone\":          {{ $json.phone ? '\"' + $json.phone + '\"' : 'null' }},\n  \"plan\":           \"{{ $json.plan }}\"\n}",
+        "options": {}
+      },
+      "id": "f1e2d3c4-0003-4000-8000-000000000003",
+      "name": "Create Restaurant Account",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}"
+      },
+      "id": "f1e2d3c4-0004-4000-8000-000000000004",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "Webhook - Signup Free": {
+      "main": [[{ "node": "Prepare Free Signup", "type": "main", "index": 0 }]]
+    },
+    "Prepare Free Signup": {
+      "main": [[{ "node": "Create Restaurant Account", "type": "main", "index": 0 }]]
+    },
+    "Create Restaurant Account": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {},
+  "id": "holu-registro-gratis",
+  "tags": []
+}
