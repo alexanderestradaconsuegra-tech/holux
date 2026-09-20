@@ -586,6 +586,11 @@ a{color:inherit;text-decoration:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:18px;height:18px;border:2px solid rgba(0,0,0,.2);border-top-color:#160f02;border-radius:50%;animation:spin .7s linear infinite}
 
+/* SCROLL REVEAL — le da vida a toda la página al bajar, no solo al hero */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--d,0) * 70ms)}
+.reveal.in-view{opacity:1;transform:translateY(0)}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
 a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--gold2);outline-offset:3px;border-radius:6px}
 .nav-links a:not(.btn){min-height:44px;display:inline-flex;align-items:center;padding:0 6px}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -626,6 +631,31 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const t = setInterval(() => setDemoStep((s) => (s + 1) % HERO_DEMO_STEPS.length), 2400);
     return () => clearInterval(t);
+  }, []);
+
+  // Anima cada sección al entrar en pantalla mientras el usuario baja,
+  // en vez de que todo aparezca estático de una — le da vida al resto
+  // de la página, no solo al tablet animado del hero.
+  useEffect(() => {
+    const els = document.querySelectorAll<HTMLElement>(".reveal");
+    if (!els.length) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      els.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -60px 0px" }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
   }, []);
 
   const [kioscoCart, setKioscoCart] = useState<Record<string, number>>({});
@@ -786,12 +816,12 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
 
       <section id="conectado" className="section">
         <div className="container hub-wrap">
-          <div className="section-head">
+          <div className="section-head reveal">
             <h2>Un sistema. Todo conectado en vivo.</h2>
             <p>Mesa, camareros, cocina, caja y kiosco o delivery trabajan sobre el mismo cerebro — misma carta, misma cocina, misma caja, en tiempo real.</p>
           </div>
           <div className="hub">
-            <div className="hub-core-wrap">
+            <div className="hub-core-wrap reveal">
               <div className="hub-core">
                 <span className="hub-badge">Núcleo del sistema</span>
                 <h3>HOLU Admin</h3>
@@ -803,8 +833,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <div className="hub-group">
               <div className="hub-group-label">Canales de venta</div>
               <div className="hub-row">
-                {salesChannels.map((e) => (
-                  <div className="hub-spoke" key={e.key}>
+                {salesChannels.map((e, i) => (
+                  <div className="hub-spoke reveal" style={{ ["--d" as string]: i }} key={e.key}>
                     <div className="hub-spoke-line" />
                     <div className="hub-card" style={{ borderColor: `${e.color}30`, ["--accent" as string]: `${e.color}59` }}>
                       <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color, boxShadow: `0 0 0 6px ${e.color}12` }}>{Icons[e.icon as keyof typeof Icons]}</span>
@@ -821,8 +851,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <div className="hub-group">
               <div className="hub-group-label">Tu equipo, conectado</div>
               <div className="hub-row hub-row-2">
-                {teamRoles.map((e) => (
-                  <div className="hub-spoke" key={e.key}>
+                {teamRoles.map((e, i) => (
+                  <div className="hub-spoke reveal" style={{ ["--d" as string]: i }} key={e.key}>
                     <div className="hub-spoke-line" />
                     <div className="hub-card" style={{ borderColor: `${e.color}30`, ["--accent" as string]: `${e.color}59` }}>
                       <span className="hub-icon" style={{ background: `${e.color}18`, color: e.color, boxShadow: `0 0 0 6px ${e.color}12` }}>{Icons[e.icon as keyof typeof Icons]}</span>
@@ -842,25 +872,25 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
 
       <section id="modulos" className="section">
         <div className="container">
-          <div className="section-head">
+          <div className="section-head reveal">
             <h2>La experiencia moderna que transforma restaurantes.</h2>
             <p>HOLU une clientes, camareros, cocina, caja y administración en una experiencia visual, rápida y moderna.</p>
           </div>
           <div className="modules">
-            {modules.map(m => <article className="card" key={m.name}><span className="label">{m.eyebrow}</span><h3>{m.name}</h3><p>{m.desc}</p></article>)}
+            {modules.map((m, i) => <article className="card reveal" style={{ ["--d" as string]: i }} key={m.name}><span className="label">{m.eyebrow}</span><h3>{m.name}</h3><p>{m.desc}</p></article>)}
           </div>
         </div>
       </section>
 
       <section className="section">
         <div className="container">
-          <div className="section-head">
+          <div className="section-head reveal">
             <h2>Diseñado para sentirse moderno desde el primer segundo.</h2>
             <p>HOLU no parece un POS antiguo. Se siente como una app moderna diseñada para restaurantes que quieren una operación rápida, limpia y organizada.</p>
           </div>
           <div className="showcase-grid">
-            {showcase.map(item => (
-              <article className="info-card" key={item.title} style={{ borderColor: `${item.color}28` }}>
+            {showcase.map((item, i) => (
+              <article className="info-card reveal" key={item.title} style={{ borderColor: `${item.color}28`, ["--d" as string]: i }}>
                 <div className="info-card-header">
                   <span className="info-icon" style={{ background: `${item.color}14`, color: item.color }}>{Icons[item.icon as keyof typeof Icons]}</span>
                   <span className="eyebrow" style={{ color: item.color }}>{item.eyebrow}</span>
@@ -889,7 +919,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 15 }}>HOLU fue creado para que cualquier persona pueda operar el restaurante desde el primer día sin capacitación técnica.</p>
           </div>
           <div className="benefits">
-            {benefits.map(b => <div className="benefit" key={b}><span className="check">{Icons.check}</span><span>{b}</span></div>)}
+            {benefits.map((b, i) => <div className="benefit reveal" style={{ ["--d" as string]: i }} key={b}><span className="check">{Icons.check}</span><span>{b}</span></div>)}
           </div>
         </div>
       </section>
@@ -900,8 +930,8 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <div className="eyebrow">Flujo real</div>
             <h2 style={{ fontSize: "clamp(34px,4vw,48px)", letterSpacing: "-.05em", marginTop: 12 }}>De la mesa a la cocina. Sin caos.</h2>
             <div className="flow-track">
-              {flow.map(([number, title, text]) => (
-                <div className="flow-card" key={number}>
+              {flow.map(([number, title, text], i) => (
+                <div className="flow-card reveal" style={{ ["--d" as string]: i }} key={number}>
                   <div className="flow-number">{number}</div>
                   <div className="flow-content"><b>{title}</b><span>{text}</span></div>
                 </div>
@@ -941,7 +971,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             </div>
           </div>
 
-          <div className="register-form-box">
+          <div className="register-form-box reveal">
             {formState === "done" ? (
               <div className="form-success">
                 <div className="success-icon" style={{ color: "var(--gold2)" }}>{Icons.success}</div>
@@ -984,7 +1014,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
 
       <section id="precios" className="section">
         <div className="container">
-          <div className="section-head">
+          <div className="section-head reveal">
             <h2>Un precio. Todo incluido.</h2>
             <p>Mesa, camareros, cocina, caja, kiosco y delivery, sin niveles ni letra chica. 30 días gratis antes de pagar nada. ¿Necesitas algo hecho a tu medida? Bajá un poco más.</p>
           </div>
@@ -995,7 +1025,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             </div>
           </div>
           <div className="tier-grid">
-            <article className="tier-card">
+            <article className="tier-card reveal">
               <span className="tag" style={{ position: "static", alignSelf: "flex-start", marginBottom: 8, background: "rgba(52,211,153,.16)", color: "var(--green)" }}>30 días gratis, sin tarjeta</span>
               <h3 className="tier-name">{PLAN.name}</h3>
               <p className="tier-blurb">{PLAN.blurb}</p>
@@ -1152,13 +1182,13 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
 
       <section id="faq" className="section">
         <div className="container">
-          <div className="section-head">
+          <div className="section-head reveal">
             <h2>Todo lo que normalmente preguntan antes de usar HOLU.</h2>
             <p>Respondemos las preguntas más comunes sobre operación, instalación, QR, cocina y funcionamiento del sistema.</p>
           </div>
           <div className="faq-accordion">
             {faqs.map((faq, index) => (
-              <div className="faq-item" key={faq.q}>
+              <div className="faq-item reveal" style={{ ["--d" as string]: Math.min(index, 5) }} key={faq.q}>
                 <button className="faq-btn" type="button" onClick={() => setOpenFaq(openFaq === index ? -1 : index)}>
                   <span>{faq.q}</span>
                   <span className="faq-icon">{openFaq === index ? "−" : "+"}</span>
