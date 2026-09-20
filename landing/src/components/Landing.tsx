@@ -269,9 +269,9 @@ const WA = "https://wa.me/56992103974";
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
-:root{--bg:#060605;--line:rgba(255,255,255,.1);--text:#fff8ed;--muted:#b0a396;--dim:#6a6058;--gold:#c8a96b;--gold2:#f0d48d;--green:#34d399;--shadow:0 28px 90px rgba(0,0,0,.48)}
+:root{--bg:#060605;--line:rgba(255,255,255,.1);--text:#fff8ed;--muted:#b0a396;--dim:#6a6058;--gold:#c8a96b;--gold2:#f0d48d;--green:#34d399;--blurple:#5865f2;--shadow:0 28px 90px rgba(0,0,0,.48)}
 *{box-sizing:border-box}
-body{margin:0;background:radial-gradient(circle at 12% -8%,rgba(200,169,107,.18),transparent 32%),radial-gradient(circle at 100% 18%,rgba(255,255,255,.05),transparent 28%),#050504;color:var(--text);font-family:Manrope,system-ui,sans-serif;font-size:16px;line-height:1.5}
+body{margin:0;background:radial-gradient(circle at 12% -8%,rgba(88,101,242,.12),transparent 32%),radial-gradient(circle at 100% 18%,rgba(255,255,255,.05),transparent 28%),#050504;color:var(--text);font-family:Manrope,system-ui,sans-serif;font-size:16px;line-height:1.5}
 a{color:inherit;text-decoration:none}
 .page{overflow:hidden}
 .container{width:min(1160px,calc(100% - 40px));margin:auto}
@@ -282,8 +282,8 @@ a{color:inherit;text-decoration:none}
 .nav-links a:not(.btn):hover{color:var(--text)}
 
 .btn{border:0;border-radius:14px;padding:12px 20px;font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.2s ease}
-.btn.primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#160f02;box-shadow:0 12px 32px rgba(200,169,107,.2)}
-.btn.primary:hover{box-shadow:0 16px 44px rgba(200,169,107,.34);transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,#5865f2,#7289da);color:#fff;box-shadow:0 12px 32px rgba(88,101,242,.24)}
+.btn.primary:hover{box-shadow:0 16px 44px rgba(88,101,242,.38);transform:translateY(-1px)}
 .btn.ghost{background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--text)}
 .btn.ghost:hover{background:rgba(255,255,255,.11)}
 .btn.wa{background:linear-gradient(135deg,#25d366,#128c48);color:#fff;box-shadow:0 10px 28px rgba(37,211,102,.22)}
@@ -291,7 +291,7 @@ a{color:inherit;text-decoration:none}
 
 .hero{position:relative;padding:80px 0 52px}
 .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
-.eyebrow{color:var(--gold2);font-weight:600;letter-spacing:.12em;font-size:11px;text-transform:uppercase}
+.eyebrow{color:var(--blurple);font-weight:600;letter-spacing:.12em;font-size:11px;text-transform:uppercase}
 .hero h1{font-size:clamp(48px,6.5vw,84px);font-weight:700;line-height:.88;letter-spacing:-.06em;margin:14px 0 18px;color:#fff}
 .hero p{color:var(--muted);font-size:17px;line-height:1.75;max-width:520px}
 .cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
@@ -302,7 +302,7 @@ a{color:inherit;text-decoration:none}
 .logo-pill{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:#c8bba8;font-size:12px;font-weight:500}
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
 .metric{padding:16px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
-.metric b{display:block;font-size:28px;font-weight:700;color:var(--gold2);line-height:1}
+.metric b{display:block;font-size:28px;font-weight:700;color:var(--blurple);line-height:1}
 .metric span{display:block;color:var(--muted);margin-top:6px;line-height:1.4;font-size:13px}
 
 /* TABLET */
@@ -363,7 +363,7 @@ a{color:inherit;text-decoration:none}
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .stats::-webkit-scrollbar{display:none}
 .stat{border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.02));border:1px solid var(--line);padding:16px;min-width:160px}
-.stat b{font-size:22px;color:var(--gold2);display:block;font-weight:700;line-height:1}
+.stat b{font-size:22px;color:var(--blurple);display:block;font-weight:700;line-height:1}
 .stat span{display:block;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.4}
 
 .section{padding:72px 0}
@@ -398,7 +398,7 @@ a{color:inherit;text-decoration:none}
 .flow-track{display:grid;gap:12px;margin-top:22px;grid-template-columns:repeat(2,1fr)}
 .flow-card{display:grid;grid-template-columns:50px 1fr;gap:16px;align-items:flex-start;padding:0 0 16px;border-bottom:1px solid rgba(255,255,255,.06)}
 .flow-card:last-child{padding-bottom:0;border-bottom:0}
-.flow-number{width:50px;height:50px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);display:grid;place-items:center;font-size:17px;font-weight:700;color:var(--gold2);position:relative;top:2px}
+.flow-number{width:50px;height:50px;border-radius:16px;background:rgba(88,101,242,.1);border:1px solid rgba(88,101,242,.24);display:grid;place-items:center;font-size:17px;font-weight:700;color:var(--blurple);position:relative;top:2px}
 .flow-content b{display:block;font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:5px}
 .flow-content span{display:block;color:var(--muted);font-size:14px;line-height:1.6}
 
@@ -452,7 +452,7 @@ a{color:inherit;text-decoration:none}
 /* PLANS */
 .plan.highlight{border-color:rgba(240,212,141,.32);background:linear-gradient(145deg,rgba(200,169,107,.1),rgba(255,255,255,.03))}
 .tag{position:absolute;top:14px;right:14px;border-radius:999px;background:rgba(52,211,153,.12);color:var(--green);font-size:11px;padding:6px 10px;font-weight:600;letter-spacing:.04em}
-.price{font-size:30px;font-weight:700;color:var(--gold2);margin:12px 0}
+.price{font-size:30px;font-weight:700;color:var(--blurple);margin:12px 0}
 .features{display:grid;gap:8px;margin:16px 0}
 .features div{color:var(--muted);font-size:14px;line-height:1.4}
 
@@ -461,7 +461,7 @@ a{color:inherit;text-decoration:none}
 .tier-card{position:relative;display:flex;flex-direction:column;width:min(440px,100%);border-radius:24px;padding:30px 28px;background:linear-gradient(160deg,rgba(200,169,107,.14),rgba(255,255,255,.03));border:1px solid rgba(240,212,141,.4);box-shadow:0 22px 60px rgba(200,169,107,.14)}
 .tier-name{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:6px 0 6px}
 .tier-blurb{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 14px}
-.tier-price{font-size:38px;font-weight:700;color:var(--gold2);line-height:1;margin-bottom:2px}
+.tier-price{font-size:38px;font-weight:700;color:var(--blurple);line-height:1;margin-bottom:2px}
 .tier-price small{font-size:13px;color:var(--muted);font-weight:500}
 .tier-annual-note{color:var(--green);font-size:12px;font-weight:600;margin:0 0 14px}
 .tier-features{display:grid;gap:8px;margin:14px 0 20px;flex:1}
@@ -566,7 +566,7 @@ a{color:inherit;text-decoration:none}
 .faq-btn{width:100%;background:none;border:0;color:var(--text);display:flex;justify-content:space-between;align-items:center;padding:20px 22px;font-size:16px;font-weight:600;cursor:pointer;text-align:left;gap:16px}
 .faq-btn:hover{background:rgba(255,255,255,.03)}
 .faq-answer{padding:0 22px 20px;color:var(--muted);line-height:1.75;font-size:14px}
-.faq-icon{font-size:22px;color:var(--gold2);flex:0 0 auto;line-height:1}
+.faq-icon{font-size:22px;color:var(--blurple);flex:0 0 auto;line-height:1}
 
 .final{padding:80px 0 96px;text-align:center}
 .final-box{position:relative;overflow:hidden;border-radius:36px;background:radial-gradient(circle at 50% 0,rgba(200,169,107,.2),transparent 44%),linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid var(--line);padding:64px 24px;box-shadow:var(--shadow)}
@@ -702,7 +702,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         <div className="container hero-grid">
           <div>
             <div className="eyebrow">Mesa · Camareros · Cocina · Caja · Administración</div>
-            <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
+            <h1>El caos del restaurante termina con <span style={{ color: "var(--blurple)" }}>HOLU</span>.</h1>
             <p>HOLU conecta la mesa, los camareros, la cocina, la caja y la administración de tu restaurante en un solo sistema en tiempo real. Suma kiosco y delivery cuando quieras vender más.</p>
             <div className="cta-row">
               <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
