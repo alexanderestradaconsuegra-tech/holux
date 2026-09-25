@@ -371,12 +371,22 @@ a{color:inherit;text-decoration:none}
 .section h2{font-size:clamp(36px,5vw,58px);font-weight:700;line-height:.92;letter-spacing:-.05em;margin:0}
 .section-head p{color:var(--muted);max-width:440px;line-height:1.7;font-size:15px}
 
-.modules{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+/* Bento asimétrico: Administración es el núcleo (tarjeta grande), Delivery
+   cierra como banner ancho — rompe el grid de 3 columnas iguales sin tocar
+   la paleta. Las demás quedan chicas alrededor, como corresponde a módulos
+   que se conectan al núcleo en vez de competir con él en tamaño. */
+.modules{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:12px}
 .card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);padding:22px;transition:.2s ease}
 .card:hover{transform:translateY(-2px);border-color:rgba(240,212,141,.18)}
 .card .label{font-size:10px;color:var(--gold2);letter-spacing:.14em;text-transform:uppercase;font-weight:600}
 .card h3{font-size:19px;margin:10px 0 8px;font-weight:600;letter-spacing:-.03em}
 .card p{color:var(--muted);line-height:1.6;font-size:14px;margin:0}
+.modules .card:nth-child(4){grid-column:span 2;padding:28px 26px;background:linear-gradient(155deg,rgba(200,169,107,.16),rgba(255,255,255,.03));border-color:rgba(240,212,141,.3)}
+.modules .card:nth-child(4) h3{font-size:23px}
+.modules .card:nth-child(4) p{max-width:420px}
+.modules .card:nth-child(6){grid-column:span 3}
+.modules .card:nth-child(6) p{max-width:680px}
+@media(max-width:960px){.modules .card:nth-child(4),.modules .card:nth-child(6){grid-column:auto}}
 
 .showcase-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .info-card{border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);padding:28px;transition:.2s ease}
@@ -560,13 +570,14 @@ a{color:inherit;text-decoration:none}
 .reg-benefit{display:flex;gap:10px;align-items:flex-start;color:#c8bba8;font-size:15px;line-height:1.5}
 .reg-check{color:var(--green);font-size:16px;flex:0 0 auto;margin-top:1px}
 
-/* FAQ */
-.faq-accordion{display:grid;gap:10px}
-.faq-item{border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03);overflow:hidden}
-.faq-btn{width:100%;background:none;border:0;color:var(--text);display:flex;justify-content:space-between;align-items:center;padding:20px 22px;font-size:16px;font-weight:600;cursor:pointer;text-align:left;gap:16px}
-.faq-btn:hover{background:rgba(255,255,255,.03)}
-.faq-answer{padding:0 22px 20px;color:var(--muted);line-height:1.75;font-size:14px}
-.faq-icon{font-size:22px;color:var(--gold2);flex:0 0 auto;line-height:1}
+/* FAQ — lista editorial sin marco de tarjeta, para que no se sienta como
+   otra caja más repitiendo el mismo look que módulos, showcase y hub. */
+.faq-accordion{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.faq-item{border-bottom:1px solid var(--line)}
+.faq-btn{width:100%;background:none;border:0;color:var(--text);display:flex;justify-content:space-between;align-items:center;padding:22px 2px;font-size:16px;font-weight:600;cursor:pointer;text-align:left;gap:16px;transition:.2s ease}
+.faq-btn:hover{color:var(--gold2)}
+.faq-answer{padding:0 2px 22px;color:var(--muted);line-height:1.75;font-size:14px;max-width:680px}
+.faq-icon{font-size:20px;color:var(--gold2);flex:0 0 auto;line-height:1}
 
 .final{padding:80px 0 96px;text-align:center}
 .final-box{position:relative;overflow:hidden;border-radius:36px;background:radial-gradient(circle at 50% 0,rgba(200,169,107,.2),transparent 44%),linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid var(--line);padding:64px 24px;box-shadow:var(--shadow)}
