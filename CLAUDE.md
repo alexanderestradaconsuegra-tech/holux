@@ -31,6 +31,18 @@ propio (nunca un token global compartido) y aislamiento por `restaurant_id` vía
   del código, recordar al usuario subir el número de `cachebust` en el Dockerfile del
   servicio y redesplegar.
 
+## Seguridad
+
+- Hay una auditoría completa (nov. 2026) de n8n/Supabase/frontend en
+  `n8n/README-seguridad.md` — qué se corrigió ya en producción y qué queda
+  pendiente (cruce de `restaurant_id` con `qr_token`, autorización de
+  `subscription-resubscribe`, QR tokens de mesa poco aleatorios, etc.). Leela
+  antes de asumir que algo relacionado a multi-tenant o auth ya está resuelto.
+- `restaurant-onboard`, `staff-create` y `activate-restaurant` ahora exigen el
+  header `x-holu-internal-key` contra la variable de entorno
+  `HOLU_INTERNAL_SECRET` en el servicio de n8n — sin configurarla, esos tres
+  webhooks (incluida la creación de cuentas nuevas) rechazan todo.
+
 ## Git
 
 - Todo el trabajo va a la rama `claude/elegant-darwin-zcAa4`, nunca directo a `main`.

@@ -22,6 +22,14 @@ propósito, para minimizar lo que hay que cablear a mano en el editor.
 | `ANTHROPIC_API_KEY` | Tu API key de Anthropic |
 | `EVOLUTION_API_URL` | La URL de tu instancia de Evolution API, sin barra final |
 | `EVOLUTION_API_KEY` | La API key de esa instancia |
+| `HOLU_INTERNAL_SECRET` | Mismo secreto que usan `restaurant-onboard`/`staff-create`/`activate-restaurant` (ver `README-suscripciones.md`) |
+
+**Importante:** este webhook no tiene forma de verificar headers custom porque
+Evolution API no siempre los permite al configurar un webhook saliente. Por
+eso el secreto va en el **query string** de la URL que le das a Evolution, no
+en un header — ver el paso 5 más abajo. Sin esto, cualquiera que descubra la
+URL puede simular mensajes de WhatsApp y gastar tu cuota de Anthropic sin
+límite.
 
 ## 3. Cómo funciona
 
@@ -73,11 +81,12 @@ y el token de MercadoPago.
 En la configuración de la instancia de Evolution API, poné como webhook:
 
 ```
-https://n8n-n8n.fa2cjf.easypanel.host/webhook/whatsapp-agent
+https://n8n-n8n.fa2cjf.easypanel.host/webhook/whatsapp-agent?key=TU_HOLU_INTERNAL_SECRET
 ```
 
 Evento: mensajes entrantes (`messages.upsert` o el que use tu versión de
-Evolution API).
+Evolution API). El `?key=...` es obligatorio — sin él, el workflow descarta
+el mensaje silenciosamente (`skip: true, reason: 'unauthorized'`).
 
 ## 6. Probar
 

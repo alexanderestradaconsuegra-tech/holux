@@ -29,9 +29,16 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.N8N_PUBLIC_URL }}/webhook/restaurant-onboard",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-holu-internal-key", "value": "={{ $env.HOLU_INTERNAL_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"restaurantName\": \"{{ $json.restaurant_name }}\",\n  \"ownerName\":      \"{{ $json.owner_name }}\",\n  \"ownerEmail\":     \"{{ $json.owner_email }}\",\n  \"ownerPassword\":  \"{{ $json.password }}\",\n  \"phone\":          {{ $json.phone ? '\"' + $json.phone + '\"' : 'null' }},\n  \"plan\":           \"{{ $json.plan }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ restaurantName: $json.restaurant_name, ownerName: $json.owner_name, ownerEmail: $json.owner_email, ownerPassword: $json.password, phone: $json.phone || null, plan: $json.plan }) }}",
         "options": {}
       },
       "id": "f1e2d3c4-0003-4000-8000-000000000003",

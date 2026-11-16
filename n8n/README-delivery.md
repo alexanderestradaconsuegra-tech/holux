@@ -1,5 +1,18 @@
 # Delivery — puesta en marcha
 
+**Nota:** todo lo de acá (delivery, suscripciones, mesa, camareros, onboard)
+ya vive importado y activo en un único workflow combinado en producción
+("HOLU - Delivery (MercadoPago Checkout)"), separado nodo por nodo de como
+está repartido en estos archivos JSON locales — no hace falta volver a
+importar `holu-delivery-mercadopago.json` tal cual. Una auditoría de
+seguridad (nov. 2026) encontró que este archivo local quedó desactualizado
+respecto a producción: acá todavía dice `$env.MP_ACCESS_TOKEN` (token
+global) para cobrar el pedido, mientras que en producción eso ya se corrigió
+para leer `restaurants.mp_access_token` por restaurante (ver nodo "Fetch
+Restaurant Token" en el workflow real). Si en algún momento necesitás
+reimportar este flujo desde cero, usá el patrón real de producción como
+referencia, no este archivo.
+
 Importa `holu-delivery-mercadopago.json` en n8n. Trae dos webhooks.
 
 ## 1. Variables de entorno

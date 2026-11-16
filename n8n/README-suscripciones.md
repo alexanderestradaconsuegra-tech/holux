@@ -12,6 +12,7 @@ de los nodos, así no viajan en el JSON ni quedan en el historial de git:
 | `MP_ACCESS_TOKEN` | MercadoPago → Tus integraciones → tu aplicación → Credenciales de producción → Access Token |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` |
 | `N8N_PUBLIC_URL` | La URL de tu n8n, sin barra final: `https://n8n-n8n.fa2cjf.easypanel.host` |
+| `HOLU_INTERNAL_SECRET` | Un string aleatorio largo que generas vos (ej. `openssl rand -base64 32`) — protege `restaurant-onboard`, `staff-create` y `activate-restaurant`, que antes no tenían ninguna autenticación y permitían crear restaurantes/usuarios admin sin límite para cualquiera que descubriera la URL. Los únicos llamadores internos (el nodo "Create Restaurant Account" del flujo de suscripciones, y `holu-registro-gratis.json`) ya mandan este secreto. Hasta que configures esta variable, esos tres webhooks rechazan todo con "No autorizado" — incluida la creación de cuentas nuevas por suscripción o registro gratis.|
 
 En EasyPanel se agregan en el servicio de n8n, pestaña **Environment**. n8n
 necesita además `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` para que las expresiones
