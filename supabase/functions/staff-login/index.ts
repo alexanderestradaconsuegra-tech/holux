@@ -71,20 +71,38 @@ Deno.serve(async (req) => {
     return json({ error: "too_many_attempts", retry_after_minutes: WINDOW_MINUTES }, 429);
   }
 
-  const { data: staff } = await admin
-    .from("staff")
-    .select("id, name, role, shift, avatar_url, auth_user_id")
-    .eq("restaurant_id", restaurantId)
-    .eq("pin_hash", pin)
-    .eq("status", "Activo")
-    .neq("role", "admin")
-    .limit(1)
-    .maybeSingle();
+  // pin_hash is stored as crypt(p_pin, gen_salt('bf', 10)) (see set_staff_pin
+  // in supabase/migrations/20260825133745_fix_staff_pin_login_and_table_orders.sql),
+  // so it can never be matched with a plain `.eq("pin_hash", pin)` — that
+  // compares the bcrypt hash against the raw PIN and always fails. The
+  // staff_login() RPC in that same migration verifies it correctly with
+  // `pin_hash = crypt(p_pin, pin_hash)`, so use that instead of reimplementing
+  // the comparison here.
+  const { data: staffRows, error: staffLoginError } = await admin.rpc("staff_login", {
+    p_restaurant_id: restaurantId,
+    p_pin: pin,
+  });
+
+  if (staffLoginError) {
+    console.error("staff_login rpc failed", staffLoginError.message);
+  }
+
+  const staff = Array.isArray(staffRows) ? staffRows[0] : staffRows;
 
   if (!staff) {
     await admin.from("pin_attempts").insert({ restaurant_id: restaurantId, succeeded: false });
     return json({ error: "invalid_credentials" }, 401);
   }
+
+  // staff_login() only returns the columns the client is allowed to see, so
+  // auth_user_id (needed below to reuse/rotate the existing auth user instead
+  // of creating a duplicate one) is fetched separately with the service role,
+  // which bypasses RLS entirely.
+  const { data: staffAuthRow } = await admin
+    .from("staff")
+    .select("auth_user_id")
+    .eq("id", staff.id)
+    .maybeSingle();
 
   // The password is rotated on every login and never reaches the client, so it
   // is only ever a one-shot handle used to mint this session.
@@ -97,7 +115,7 @@ Deno.serve(async (req) => {
     name: staff.name,
   };
 
-  let authUserId = staff.auth_user_id as string | null;
+  let authUserId = staffAuthRow?.auth_user_id as string | null ?? null;
 
   if (authUserId) {
     const { error } = await admin.auth.admin.updateUserById(authUserId, {
