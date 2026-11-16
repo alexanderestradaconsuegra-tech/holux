@@ -6,6 +6,7 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+ARG CACHEBUST=2
 COPY . .
 RUN npm run build
 

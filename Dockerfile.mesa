@@ -6,8 +6,8 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+ARG CACHEBUST=22
 COPY . .
-ARG CACHEBUST=21
 RUN cp .env.mesa.production .env.production && npm run build
 
 FROM node:20-alpine AS runner
