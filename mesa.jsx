@@ -225,7 +225,9 @@ function useTableSession(qrContext, sessionId) {
   const submitOrder = async (note = "") => {
     const items = Object.values(cart); if (!items.length) return null;
     let realId = null;
-    const resp = await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })), total: items.reduce((s, i) => s + i.price * i.qty, 0) }, qrContext.restaurantId);
+    // Only ids and quantities travel: the price is looked up server-side
+    // so an edited page cannot buy a $20.000 dish for $1.
+    const resp = await postWebhook("order", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, session_id: sessionId, notes: note || null, items: items.map((i) => ({ menu_item_id: i.id, qty: i.qty })) }, qrContext.restaurantId);
     if (resp && typeof resp.json === "function") { try { const d = await resp.json(); realId = d?.orderId || null; } catch {} }
     const newOrder = { id: realId || `ORD-${Math.floor(1000 + Math.random() * 8999)}`, createdAt: Date.now(), eta: 18, status: "received", items };
     setOrders((o) => [newOrder, ...o]); setCart({});

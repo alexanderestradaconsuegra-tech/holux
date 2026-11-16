@@ -127,8 +127,9 @@ export default function HoluKiosco() {
           table_id: ctx.tableId,
           channel: "kiosco-barra",
           notes: name ? `Cliente: ${name}` : null,
-          items: cartItems.map((i) => ({ menu_item_id: i.id, dish_name: i.name, unit_price: i.price, qty: i.qty })),
-          total,
+          // Only ids and quantities travel: the price is looked up server-side
+          // so an edited page cannot buy a $20.000 dish for $1.
+          items: cartItems.map((i) => ({ menu_item_id: i.id, qty: i.qty })),
         }),
       });
       // A 2xx is the only thing that means the kitchen actually has the order.
