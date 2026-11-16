@@ -1039,7 +1039,7 @@ function useBackofficeState(authToken = null) {
   return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, payTablePart, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
 }
 
-function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restaurantName }) {
+function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restaurantName, deliveryEnabled }) {
   const found = getStaff(staffId);
   const currentStaff = (found && found.name !== "Sin asignar") ? found : (authed || found);
 
@@ -1061,7 +1061,9 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
     </div>
   );
 
-  const tabs = ROLE_TABS[role] || WAITER_TABS;
+  // Delivery is an "a medida" extra, not the base plan — hide the tab for
+  // restaurants that never configured it in Ajustes.
+  const tabs = (ROLE_TABS[role] || WAITER_TABS).filter(([id]) => id !== "delivery" || deliveryEnabled);
   return <div className="app">
     <style>{CSS}</style>
     <aside className="sidebar">
@@ -2786,7 +2788,7 @@ function ReceiptPreview({ receiptConfig, restaurant }) {
   return <div className="receipt-wrap"><div className="receipt"><h3>{restaurant.name}</h3><div className="center muted2">{restaurant.legalName}<br />RUT {restaurant.rut}<br />{restaurant.address}<br />{restaurant.phone} · {restaurant.website}</div><div className="dash" /><div className="center"><b>{receiptConfig.title}</b><br /><span className="muted2">Mesa 7 · {new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" />{RECEIPT_ITEMS.map((i)=><div className="receipt-row" key={i.name}><span>{i.qty}× {i.name}</span><b>{money(i.qty * i.price)}</b></div>)}<div className="dash" /><div className="receipt-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Servicio 10%</span><b>{money(service)}</b></div><div className="receipt-row"><span>{receiptConfig.taxLabel}</span><b>—</b></div><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div>{receiptConfig.showWaiter && <div className="receipt-row"><span>Atendió</span><b>Nombre del camarero</b></div>}{receiptConfig.showQr && <ReviewQr url={restaurant.googleReviewUrl} />}<div className="dash" /><div className="center muted2">{receiptConfig.footer}</div></div></div>;
 }
 
-function SettingsView({ state, onRestaurantNameChange }) {
+function SettingsView({ state, onRestaurantNameChange, onDeliveryEnabledChange }) {
   const authToken = state?.authToken;
   const [restaurant, setRestaurant] = useState({ ...RESTAURANT, concept: "", googleReviewUrl: "", logoUrl: "", coverUrl: "" });
   const [delivery, setDelivery] = useState({ enabled: false, fee: "", min_order: "", zones: "", eta_minutes: "", origin_address: "", origin_lat: null, origin_lng: null, radius_km: "" });
@@ -2916,6 +2918,7 @@ function SettingsView({ state, onRestaurantNameChange }) {
         googleReviewUrl: restaurant.googleReviewUrl || "",
       });
       if (onRestaurantNameChange && restaurant.name) onRestaurantNameChange(restaurant.name);
+      if (onDeliveryEnabledChange) onDeliveryEnabledChange(!!delivery.enabled);
     } catch (e) {
       console.error("[holu settings] save:", e.message);
       setSaveErr(`No se pudo guardar: ${e.message.slice(0, 140)}`);
@@ -3097,7 +3100,7 @@ function PinGate({ onAuth, onBack }) {
 // decide el nodo "Prepare Resubscription" en n8n, así que una página alterada
 // no puede suscribir un restaurante por un peso.
 const PLAN_PRICE = 19990;
-const PLAN_BLURB = "Todo incluido: mesa, camareros, cocina, caja, kiosco y delivery.";
+const PLAN_BLURB = "Todo incluido: mesa, camareros, cocina, caja y kiosco.";
 
 function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscriptionStatus }) {
   const [code, setCode] = useState("");
@@ -3234,6 +3237,11 @@ export default function HoluAdmin() {
   const [tab, setTab] = useState("dashboard");
   const [restaurantName, setRestaurantName] = useState("");
   const [trialInfo, setTrialInfo] = useState(null);
+  // Delivery is a paid "a medida" extra, not part of the base plan — the
+  // Delivery tab only shows up for restaurants that actually have it
+  // configured, so a base-plan restaurant doesn't see a feature it never
+  // bought sitting idle in its own sidebar.
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const state = useBackofficeState(session?.access_token || null);
 
   // Load restaurant name + trial status as soon as we have an auth token.
@@ -3241,11 +3249,12 @@ export default function HoluAdmin() {
   // screen gets the name from restaurant_public(), which exposes only branding.
   useEffect(() => {
     if (session?.access_token) {
-      supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,legal_name,rut,address,phone,website,google_review_url,trial_ends_at,activated_at&limit=1`, {}, session.access_token)
+      supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,legal_name,rut,address,phone,website,google_review_url,trial_ends_at,activated_at,settings&limit=1`, {}, session.access_token)
         .then((rows) => {
           const r = Array.isArray(rows) ? rows[0] : null;
           if (!r) return;
           if (r.name) setRestaurantName(r.name);
+          setDeliveryEnabled(!!r.settings?.delivery?.enabled);
           // Receipts and the cash-closing report read this, so it has to be the
           // restaurant's own legal identity, never a placeholder.
           setLiveRestaurant({
@@ -3293,7 +3302,11 @@ export default function HoluAdmin() {
 
   // Driven by the same ROLE_TABS table the sidebar renders from: a role can
   // only land on a tab it was actually given a button for.
-  const allowedTabIds = new Set((ROLE_TABS[role] || WAITER_TABS).map(([id]) => id));
+  const allowedTabIds = new Set(
+    (ROLE_TABS[role] || WAITER_TABS)
+      .filter(([id]) => id !== "delivery" || deliveryEnabled)
+      .map(([id]) => id)
+  );
   const safeTab = role === "cocina" ? "kitchen" : (allowedTabIds.has(tab) ? tab : (ROLE_HOME[role] || "dashboard"));
 
   // useMemo MUST be before any conditional return (Rules of Hooks)
@@ -3312,7 +3325,7 @@ export default function HoluAdmin() {
       case "menu": return <MenuView state={state} />;
       case "delivery": return <DeliveryView authToken={state.authToken} />;
       case "reviews": return <ReviewsView role={role} staffId={staffId} authToken={state.authToken} />;
-      case "settings": return <SettingsView state={state} onRestaurantNameChange={setRestaurantName} />;
+      case "settings": return <SettingsView state={state} onRestaurantNameChange={setRestaurantName} onDeliveryEnabledChange={setDeliveryEnabled} />;
       default: return <Dashboard role={role} staffId={staffId} state={state} onGoToCaja={() => setTab("sales")} />;
     }
   }, [safeTab, role, staffId, state]);
@@ -3376,7 +3389,7 @@ export default function HoluAdmin() {
       </div>
     : null;
 
-  return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout} authed={authed} restaurantName={restaurantName}>
+  return <Layout role={role} staffId={staffId} tab={safeTab} setTab={setTab} onLogout={handleLogout} authed={authed} restaurantName={restaurantName} deliveryEnabled={deliveryEnabled}>
     <Topbar role={role} staffId={staffId} authed={authed} restaurantName={restaurantName} />
     {trialBanner}
     {content}

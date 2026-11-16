@@ -1,9 +1,25 @@
 # HOLU — cómo trabajar en este repo
 
-SaaS para restaurantes (QR de mesa, admin/POS, cocina, kiosco, delivery, agente de WhatsApp)
-sobre Supabase + n8n (`https://n8n-n8n.fa2cjf.easypanel.host`) + MercadoPago, desplegado en
-EasyPanel/Docker. Multi-tenant: cada restaurante es una fila con su propio `mp_access_token`
-propio (nunca un token global compartido) y aislamiento por `restaurant_id` vía RLS.
+SaaS multi-tenant para restaurantes sobre Supabase + n8n
+(`https://n8n-n8n.fa2cjf.easypanel.host`) + MercadoPago, desplegado en EasyPanel/Docker.
+Multi-tenant: cada restaurante es una fila con su propio `mp_access_token` propio (nunca un
+token global compartido) y aislamiento por `restaurant_id` vía RLS.
+
+## Alcance del producto (nov. 2026)
+
+- **Plan básico** ($19.990/mes, el que se vende en `landing/` a cualquier restaurante):
+  Mesa QR, Camareros, Cocina, Caja/Administración y Kiosco de autoservicio. Nada de
+  delivery ni agente de WhatsApp en este plan — fue así a propósito, no es un olvido.
+- **Delivery y el agente de WhatsApp son exclusivos del plan "A Medida"** (servidor
+  dedicado, se cotiza por WhatsApp — ver `ENTERPRISE` en `Landing.tsx`). El código de
+  `delivery.jsx`, `Dockerfile.delivery` y los workflows de n8n de delivery siguen en el
+  repo y activos en producción — no se borraron, no se venden ni se muestran en la
+  landing/admin del plan básico. Si un cliente pide delivery, se le activa manualmente
+  desde su panel (`restaurants.settings.delivery.enabled`), eso ya hace aparecer el tab
+  "Delivery" en su admin solo.
+- Antes de agregar algo al plan básico, preguntate si de verdad es para **todos** los
+  restaurantes o si es algo que solo un cliente a medida pediría — si es lo segundo, va
+  en `ENTERPRISE`/Settings, no en `PLAN`/`modules`.
 
 ## Antes de construir algo nuevo
 
@@ -16,7 +32,7 @@ propio (nunca un token global compartido) y aislamiento por `restaurant_id` vía
 - Antes de escribir copy nuevo para `landing/`, revisar: español latino neutro (nada de
   voseo argentino — "tú", no "vos"), no nombrar marcas de la competencia, y que el precio
   mostrado coincida con lo que realmente cobra el n8n de suscripciones (son dos cosas
-  separadas a propósito, ver el comentario arriba de `TIERS` en `Landing.tsx`).
+  separadas a propósito, ver el comentario arriba de `PLAN` en `Landing.tsx`).
 
 ## Después de terminar un cambio
 

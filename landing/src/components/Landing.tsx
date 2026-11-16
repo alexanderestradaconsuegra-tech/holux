@@ -52,10 +52,10 @@ const showcase = [
   },
   {
     icon: "monitor",
-    eyebrow: "Kiosco · Delivery",
-    title: "Kiosco y Delivery",
-    desc: "Dos formas más de vender, conectadas a la misma cocina y caja: una pantalla de autoservicio en barra, y tu propia página de pedidos a domicilio.",
-    features: ["Kiosco: pedidos sin fila ni camarero", "Delivery: carta, pago y seguimiento en línea", "Todo llega organizado a la misma cocina"],
+    eyebrow: "Barra · Autoservicio",
+    title: "Kiosco de autoservicio",
+    desc: "Una pantalla en barra o mostrador para que el cliente pida solo, conectada a la misma cocina y caja que el resto del sistema.",
+    features: ["Pedidos sin fila ni camarero", "Pantalla pensada para horas de más movimiento", "Todo llega organizado a la misma cocina"],
     color: "#a78bfa",
   },
 ];
@@ -66,7 +66,6 @@ const modules = [
   { name: "HOLU Cocina",         eyebrow: "Pantalla de cocina",  desc: "Pedidos organizados por estado para acelerar el servicio, reducir errores y mantener al equipo coordinado." },
   { name: "HOLU Administración", eyebrow: "Control total",       desc: "Ventas, empleados, carta, QR de mesas, inventario, propinas, caja, turnos, boletas, reportes y auditoría." },
   { name: "HOLU Autoservicio",   eyebrow: "Tótem de barra",      desc: "Clientes hacen pedidos solos desde una pantalla en barra o mostrador, sin filas, sin esperar atención." },
-  { name: "HOLU Delivery",       eyebrow: "Pedidos a domicilio", desc: "Página de pedidos a domicilio con tu carta, carrito, dirección, pago en línea y seguimiento del pedido en tiempo real." },
 ];
 
 const metrics = [
@@ -93,7 +92,7 @@ const PLAN = {
   name: "HOLU Completo",
   monthly: 19990,
   annual: 199900, // 10 meses de 12 = "2 meses gratis"
-  blurb: "Todo tu restaurante en un solo sistema: mesa, camareros, cocina, caja, kiosco y delivery.",
+  blurb: "Todo tu restaurante en un solo sistema: mesa, camareros, cocina, caja y kiosco.",
   features: [
     "Administración completa: carta, inventario, reportes y empleados",
     "Mesas con QR y carta digital premium",
@@ -101,23 +100,17 @@ const PLAN = {
     "Pantalla de cocina organizada, sin papel",
     "Caja, turnos, boletas y propinas",
     "Kiosco de autoservicio en pantalla, sin filas",
-    "Delivery propio: carta, pedido, dirección y pago — sin comisión de apps externas",
     "Seguimiento del pedido en vivo para el cliente",
   ],
 };
 
-// Mini pantallas interactivas dentro de la sección de precios — no llaman al
-// backend, solo muestran cómo se siente pedir en kiosco y en delivery.
+// Mini pantalla interactiva dentro de la sección de precios — no llama al
+// backend, solo muestra cómo se siente pedir en el kiosco.
 const KIOSCO_ITEMS = [
   { id: "k1", name: "Hamburguesa", price: 6500, img: "🍔", bg: "linear-gradient(160deg,rgba(240,212,141,.32),rgba(200,169,107,.12))" },
   { id: "k2", name: "Papas fritas", price: 3000, img: "🍟", bg: "linear-gradient(160deg,rgba(251,191,36,.32),rgba(240,212,141,.12))" },
   { id: "k3", name: "Limonada", price: 2500, img: "🍋", bg: "linear-gradient(160deg,rgba(163,230,53,.32),rgba(52,211,153,.12))" },
   { id: "k4", name: "Helado", price: 3500, img: "🍦", bg: "linear-gradient(160deg,rgba(96,165,250,.32),rgba(167,139,250,.12))" },
-];
-
-const DELIVERY_ITEMS = [
-  { id: "d1", name: "Pizza familiar", price: 12000, img: "🍕", bg: "linear-gradient(160deg,rgba(251,146,60,.32),rgba(240,212,141,.12))" },
-  { id: "d2", name: "Gaseosa 1.5L", price: 2500, img: "🥤", bg: "linear-gradient(160deg,rgba(96,165,250,.32),rgba(52,211,153,.12))" },
 ];
 
 function clp(n: number) {
@@ -184,14 +177,6 @@ const salesChannels = [
     color: "#a78bfa",
     icon: "monitor",
   },
-  {
-    key: "delivery",
-    name: "Delivery",
-    tagline: "Tu propia página de pedidos",
-    desc: "Vende a domicilio directo, sin pagarle una comisión del 25-30% a las apps de delivery por cada pedido.",
-    color: "#34d399",
-    icon: "delivery",
-  },
 ];
 
 const teamRoles = [
@@ -217,18 +202,19 @@ const stats = [
   ["4 roles",   "Mesas, camareros, cocina y caja"],
   ["1 QR",      "Toda la experiencia desde la mesa"],
   ["En vivo",   "Todo sincronizado en tiempo real"],
-  ["+2 canales", "Suma kiosco y delivery cuando quieras"],
+  ["A medida", "Delivery propio y agente de WhatsApp, cuando lo necesites"],
   ["Cloud",     "Accede desde cualquier dispositivo"],
 ];
 
 const faqs = [
-  { q: "¿Qué incluye el plan?", a: "HOLU Completo ($19.990/mes) incluye todo: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja, kiosco de autoservicio y tu propia página de delivery. Un solo precio, sin niveles — y 30 días gratis para probarlo antes de pagar nada." },
+  { q: "¿Qué incluye el plan?", a: "HOLU Completo ($19.990/mes) incluye todo: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja y kiosco de autoservicio. Un solo precio, sin niveles — y 30 días gratis para probarlo antes de pagar nada. ¿Necesitas delivery propio o un agente de WhatsApp? Eso lo armamos a medida para tu negocio." },
   { q: "¿HOLU reemplaza al camarero?",         a: "No. HOLU ayuda al equipo a trabajar mejor. El camarero sigue siendo clave para la atención, la experiencia humana y el cobro presencial cuando corresponde." },
   { q: "¿Funciona con QR por mesa?",           a: "Sí. Cada mesa tiene un QR único. El cliente entra directamente a la experiencia de su mesa y todo queda conectado con pedidos, cocina, camareros y administración." },
   { q: "¿Puedo agregar o editar platos?",       a: "Sí. Desde administración puedes crear platos, cambiar precios, subir imágenes, activar o desactivar disponibilidad y decidir qué ve el cliente." },
   { q: "¿El sistema incluye propinas y caja?",  a: "Sí. HOLU permite registrar propinas aceptadas o rechazadas, abrir caja, cerrar caja, cambiar turnos, imprimir cierres y revisar reportes." },
-  { q: "¿Qué es el tótem de autoservicio?",    a: "Es una pantalla en barra o mostrador desde donde los clientes hacen sus propios pedidos sin esperar atención. Está conectada en tiempo real con cocina, caja y administración, e incluye también tu página de delivery en el mismo plan." },
+  { q: "¿Qué es el tótem de autoservicio?",    a: "Es una pantalla en barra o mostrador desde donde los clientes hacen sus propios pedidos sin esperar atención. Está conectada en tiempo real con cocina, caja y administración." },
   { q: "¿Sirve para comida rápida o cafés?",   a: "Sí. El tótem de autoservicio de barra es ideal para cafés, comida rápida y cualquier negocio con flujo alto de pedidos. Todo queda conectado a la misma carta, cocina y caja." },
+  { q: "¿Tienen delivery propio o agente de WhatsApp?", a: "Sí, pero como parte del plan A Medida: servidor dedicado, tu marca propia y delivery o agente de WhatsApp configurados para tu negocio. No es parte del plan básico — escríbenos por WhatsApp para cotizarlo." },
 ];
 
 const flow = [
@@ -371,10 +357,10 @@ a{color:inherit;text-decoration:none}
 .section h2{font-size:clamp(36px,5vw,58px);font-weight:700;line-height:.92;letter-spacing:-.05em;margin:0}
 .section-head p{color:var(--muted);max-width:440px;line-height:1.7;font-size:15px}
 
-/* Bento asimétrico: Administración es el núcleo (tarjeta grande), Delivery
-   cierra como banner ancho — rompe el grid de 3 columnas iguales sin tocar
-   la paleta. Las demás quedan chicas alrededor, como corresponde a módulos
-   que se conectan al núcleo en vez de competir con él en tamaño. */
+/* Bento asimétrico: Administración es el núcleo (tarjeta grande) — rompe el
+   grid de 3 columnas iguales sin tocar la paleta. Las demás quedan chicas
+   alrededor, como corresponde a módulos que se conectan al núcleo en vez de
+   competir con él en tamaño. */
 .modules{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:12px}
 .card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);padding:22px;transition:.2s ease}
 .card:hover{transform:translateY(-2px);border-color:rgba(240,212,141,.18)}
@@ -384,9 +370,7 @@ a{color:inherit;text-decoration:none}
 .modules .card:nth-child(4){grid-column:span 2;padding:28px 26px;background:linear-gradient(155deg,rgba(200,169,107,.16),rgba(255,255,255,.03));border-color:rgba(240,212,141,.3)}
 .modules .card:nth-child(4) h3{font-size:23px}
 .modules .card:nth-child(4) p{max-width:420px}
-.modules .card:nth-child(6){grid-column:span 3}
-.modules .card:nth-child(6) p{max-width:680px}
-@media(max-width:960px){.modules .card:nth-child(4),.modules .card:nth-child(6){grid-column:auto}}
+@media(max-width:960px){.modules .card:nth-child(4){grid-column:auto}}
 
 .showcase-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .info-card{border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);padding:28px;transition:.2s ease}
@@ -478,7 +462,7 @@ a{color:inherit;text-decoration:none}
 .tier-features div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13.5px;line-height:1.5}
 .tier-roi{color:var(--muted);font-size:12.5px;line-height:1.55;margin:0 0 16px;padding:11px 13px;border-radius:12px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.18)}
 
-/* DEMO SCREENS — kiosco y delivery de verdad, como si fueran la pantalla real */
+/* DEMO SCREEN — kiosco de verdad, como si fuera la pantalla real */
 .demo-screens{display:flex;justify-content:center;align-items:flex-start;gap:44px;flex-wrap:wrap;margin:0 0 44px}
 .demo-col{display:flex;flex-direction:column;align-items:center;text-align:center;width:280px}
 .demo-col-label{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
@@ -681,18 +665,6 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
     setTimeout(() => { setKioscoSent(false); setKioscoCart({}); }, 2200);
   }
 
-  const [deliverySel, setDeliverySel] = useState<Record<string, boolean>>({ d1: true, d2: false });
-  const [deliveryAddr, setDeliveryAddr] = useState("");
-  const [deliveryPaid, setDeliveryPaid] = useState(false);
-  const deliveryTotal = DELIVERY_ITEMS.reduce((sum, it) => sum + (deliverySel[it.id] ? it.price : 0), 0);
-  function toggleDeliveryItem(id: string) {
-    setDeliverySel((s) => ({ ...s, [id]: !s[id] }));
-  }
-  function payDelivery() {
-    setDeliveryPaid(true);
-    setTimeout(() => setDeliveryPaid(false), 2200);
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _ = adminUrl;
 
@@ -744,7 +716,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           <div>
             <div className="eyebrow">Mesa · Camareros · Cocina · Caja · Administración</div>
             <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
-            <p>HOLU conecta la mesa, los camareros, la cocina, la caja y la administración de tu restaurante en un solo sistema en tiempo real. Suma kiosco y delivery cuando quieras vender más.</p>
+            <p>HOLU conecta la mesa, los camareros, la cocina, la caja, el kiosco y la administración de tu restaurante en un solo sistema en tiempo real. ¿Necesitas delivery propio o un agente de WhatsApp? Lo armamos a medida para tu negocio.</p>
             <div className="cta-row">
               <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
               <a className="btn ghost" href="#conectado">Ver cómo se conecta</a>
@@ -752,7 +724,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <div className="trust">
               <span><i className="dot" />Sistema completo desde el primer día</span>
               <span><i className="dot" />Demo abierta · sin registro</span>
-              <span><i className="dot" />Kiosco y delivery se conectan al instante</span>
+              <span><i className="dot" />Kiosco de autoservicio incluido</span>
             </div>
             <div className="logos">{socialProof.map(item => <div className="logo-pill" key={item}>{item}</div>)}</div>
             <div className="metrics">{metrics.map(([value, label]) => <div className="metric" key={value}><b>{value}</b><span>{label}</span></div>)}</div>
@@ -829,7 +801,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         <div className="container hub-wrap">
           <div className="section-head reveal">
             <h2>Un sistema. Todo conectado en vivo.</h2>
-            <p>Mesa, camareros, cocina, caja y kiosco o delivery trabajan sobre el mismo cerebro — misma carta, misma cocina, misma caja, en tiempo real.</p>
+            <p>Mesa, camareros, cocina, caja y kiosco trabajan sobre el mismo cerebro — misma carta, misma cocina, misma caja, en tiempo real.</p>
           </div>
           <div className="hub">
             <div className="hub-core-wrap reveal">
@@ -843,7 +815,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <div className="hub-flow" />
             <div className="hub-group">
               <div className="hub-group-label">Canales de venta</div>
-              <div className="hub-row">
+              <div className="hub-row hub-row-2">
                 {salesChannels.map((e, i) => (
                   <div className="hub-spoke reveal" style={{ ["--d" as string]: i }} key={e.key}>
                     <div className="hub-spoke-line" />
@@ -1027,7 +999,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         <div className="container">
           <div className="section-head reveal">
             <h2>Un precio. Todo incluido.</h2>
-            <p>Mesa, camareros, cocina, caja, kiosco y delivery, sin niveles ni letra chica. 30 días gratis antes de pagar nada. ¿Necesitas algo hecho a tu medida? Bajá un poco más.</p>
+            <p>Mesa, camareros, cocina, caja y kiosco, sin niveles ni letra chica. 30 días gratis antes de pagar nada. ¿Necesitas delivery propio o un agente de WhatsApp? Bajá un poco más.</p>
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
@@ -1056,7 +1028,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                   </div>
                 ))}
               </div>
-              <p className="tier-roi">Ejemplo: si vendés {clp(300000)} al mes en delivery, hoy perdés cerca de {clp(75000)}–{clp(90000)} en comisión de apps — HOLU te sale {clp(PLAN.monthly)}.</p>
+              <p className="tier-roi">Ejemplo: con un ticket promedio de {clp(12000)}, atender solo 6 mesas más por noche gracias a pedidos más rápidos son cerca de {clp(72000)} extra cada noche — HOLU te sale {clp(PLAN.monthly)} al mes.</p>
               <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (${billing === "annual" ? `anual ${clp(PLAN.annual)}` : `mensual ${clp(PLAN.monthly)}`})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", fontSize: 14, padding: "13px 18px" }}>{Icons.message} Activar por WhatsApp</a>
             </article>
           </div>
@@ -1064,7 +1036,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
 
           <div style={{ marginTop: 56, marginBottom: 24, textAlign: "center" }}>
             <span className="eyebrow">Incluidos en tu plan</span>
-            <h3 style={{ fontSize: "clamp(24px,3vw,32px)", fontWeight: 700, letterSpacing: "-.03em", margin: "10px 0 0" }}>Así funcionan Kiosco y Delivery.</h3>
+            <h3 style={{ fontSize: "clamp(24px,3vw,32px)", fontWeight: 700, letterSpacing: "-.03em", margin: "10px 0 0" }}>Así funciona el Kiosco.</h3>
           </div>
           <div className="demo-screens">
             <div className="demo-col">
@@ -1097,44 +1069,6 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                     ) : (
                       <button type="button" className="device-cta" style={{ background: "linear-gradient(135deg,#a78bfa,#c4b5fd)", color: "#160f02" }} onClick={confirmKiosco} disabled={kioscoCount === 0}>
                         Confirmar pedido →
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="demo-col">
-              <div className="demo-col-label">Delivery</div>
-              <div className="demo-col-title">Tu carta, tu carrito, tu pago</div>
-              <div className="device-frame" style={{ width: 210 }}>
-                <div className="device-notch" />
-                <div className="device-cam" style={{ visibility: "hidden" }} />
-                <div className="device-screen">
-                  <div className="device-topbar centered">
-                    <b>Delivery</b>
-                    <span>● Pedido en línea</span>
-                  </div>
-                  <div className="device-list">
-                    {DELIVERY_ITEMS.map((it) => (
-                      <button type="button" key={it.id} className={`device-item${deliverySel[it.id] ? " sel" : ""}`} onClick={() => toggleDeliveryItem(it.id)}>
-                        <span className="device-item-img" style={{ background: it.bg }}>{it.img}</span>
-                        <span className="device-item-info"><b>{it.name}</b><span>{clp(it.price)}</span></span>
-                        <span className="device-item-check" style={deliverySel[it.id] ? { background: "#34d399", borderColor: "#34d399", color: "#053323" } : undefined}>{deliverySel[it.id] ? Icons.check : null}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <input className="device-addr" placeholder="Tu dirección de entrega" value={deliveryAddr} onChange={(e) => setDeliveryAddr(e.target.value)} />
-                  <div className="device-bar">
-                    <div className="device-bar-row">
-                      <span>Total</span>
-                      <b>{clp(deliveryTotal)}</b>
-                    </div>
-                    {deliveryPaid ? (
-                      <div className="device-done" style={{ background: "rgba(52,211,153,.16)", color: "#6ee7b7" }}>{Icons.check} Pago confirmado</div>
-                    ) : (
-                      <button type="button" className="device-cta" style={{ background: "linear-gradient(135deg,#25d366,#128c48)", color: "#fff" }} onClick={payDelivery} disabled={deliveryTotal === 0}>
-                        Pagar con MercadoPago →
                       </button>
                     )}
                   </div>
@@ -1216,7 +1150,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           <div className="final-box">
             <div className="eyebrow">Todo tu restaurante, en un solo sistema</div>
             <h2>El restaurante moderno funciona con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h2>
-            <p>Mesa, camareros, cocina, caja, kiosco y delivery — todo por $19.990/mes, con 30 días gratis para probarlo.</p>
+            <p>Mesa, camareros, cocina, caja y kiosco — todo por $19.990/mes, con 30 días gratis para probarlo.</p>
             <div className="final-btns">
               <a className="btn primary" href="#precios">Quiero mi cuenta</a>
               <a className="btn wa" href={WA} target="_blank" rel="noopener noreferrer">{Icons.message} Hablar por WhatsApp</a>
@@ -1228,7 +1162,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <footer className="footer">
         <div className="container footer-in">
           <span>© {new Date().getFullYear()} <span style={{ color: "var(--gold2)" }}>HOLU</span> fluye en tiempo real.</span>
-          <span>Mesas · Camareros · Cocina · Administración · Autoservicio · Delivery</span>
+          <span>Mesas · Camareros · Cocina · Administración · Autoservicio</span>
         </div>
         <div className="container footer-legal">
           <span>Servicio operado desde Chile · Ley N° 21.719 de Protección de Datos Personales</span>
