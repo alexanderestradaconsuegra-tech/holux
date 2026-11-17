@@ -616,8 +616,6 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 }
 `;
 
-const DEMO_URL = "https://app.holu.pro/?demo=1";
-
 export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: string }) {
   const [openFaq, setOpenFaq] = useState(0);
   const [form, setForm] = useState({ name: "", restaurant: "", email: "", phone: "", plan: "pro" });
@@ -710,7 +708,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <a href="#modulos">Módulos</a>
             <a href="#precios">Planes</a>
             <a href="#faq">Preguntas</a>
-            <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
+            <a className="btn primary" href="#registro">Crear cuenta gratis</a>
           </div>
         </div>
       </nav>
@@ -722,12 +720,12 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
             <p>HOLU conecta la mesa, los camareros, la cocina, la caja, el kiosco y la administración de tu restaurante en un solo sistema en tiempo real. ¿Necesitas delivery propio o un agente de WhatsApp? Lo armamos a medida para tu negocio.</p>
             <div className="cta-row">
-              <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Probar gratis</a>
+              <a className="btn primary" href="#registro">Crear mi cuenta gratis</a>
               <a className="btn ghost" href="#conectado">Ver cómo se conecta</a>
             </div>
             <div className="trust">
               <span><i className="dot" />Sistema completo desde el primer día</span>
-              <span><i className="dot" />Demo abierta · sin registro</span>
+              <span><i className="dot" />30 días gratis · Sin tarjeta</span>
               <span><i className="dot" />Kiosco de autoservicio incluido</span>
             </div>
             <div className="logos">{socialProof.map(item => <div className="logo-pill" key={item}>{item}</div>)}</div>
@@ -931,24 +929,21 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <section id="registro" className="register-section">
         <div className="container register-wrap">
           <div>
-            <div className="eyebrow">Pruébalo gratis, sin registrarte</div>
+            <div className="eyebrow">Empieza gratis, hoy mismo</div>
             <h2 style={{ fontSize: "clamp(36px,5vw,58px)", fontWeight: 700, lineHeight: .92, letterSpacing: "-.05em", margin: "14px 0 18px" }}>
-              Míralo funcionando{" "}
-              <span style={{ color: "var(--green)" }}>ahora</span>.{" "}
-              Decide <span style={{ color: "var(--gold2)" }}>después</span>.
+              Crea tu cuenta.{" "}
+              <span style={{ color: "var(--green)" }}>Pruébalo</span> en tu propio{" "}
+              <span style={{ color: "var(--gold2)" }}>restaurante</span>.
             </h2>
             <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 16, marginBottom: 24 }}>
-              Abre la demo y recorre HOLU con un restaurante en pleno servicio: mesas ocupadas, pedidos en cocina, llamados de clientes y la caja del turno. No pedimos correo ni tarjeta para eso.
+              Completa tus datos y en minutos tenés tu restaurante funcionando en HOLU: mesas, camareros, cocina y caja conectados en tiempo real. 30 días gratis, sin tarjeta.
             </p>
-            <div style={{ marginBottom: 26 }}>
-              <a className="btn primary" href={DEMO_URL} target="_blank" rel="noopener noreferrer">Abrir la demo →</a>
-            </div>
             <div className="register-benefits">
               {[
-                "La demo es HOLU completo, con datos de ejemplo",
+                "Tu restaurante funciona completo desde el día uno",
                 "Tu cuenta se crea sola, gratis, sin tarjeta",
                 "Sin instalación — funciona desde el navegador",
-                "30 días para probarlo en tu propio restaurante",
+                "30 días para probarlo antes de pagar nada",
               ].map(b => (
                 <div className="reg-benefit" key={b}>
                   <span className="reg-check">{Icons.check}</span>
@@ -1036,7 +1031,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
               <a className="btn wa" href={`${WA}?text=${encodeURIComponent(`Hola, quiero activar HOLU (${billing === "annual" ? `anual ${clp(PLAN.annual)}` : `mensual ${clp(PLAN.monthly)}`})`)}`} target="_blank" rel="noopener noreferrer" style={{ width: "100%", fontSize: 14, padding: "13px 18px" }}>{Icons.message} Activar por WhatsApp</a>
             </article>
           </div>
-          <p style={{ textAlign: "center", color: "var(--dim)", fontSize: 13, margin: "20px 0 0" }}>{Icons.check} Demo abierta, sin registro ni tarjeta, para probar el sistema completo antes de elegir.</p>
+          <p style={{ textAlign: "center", color: "var(--dim)", fontSize: 13, margin: "20px 0 0" }}>{Icons.check} 30 días gratis, sin tarjeta, para probar el sistema completo en tu propio restaurante.</p>
 
           <div style={{ marginTop: 56, marginBottom: 24, textAlign: "center" }}>
             <span className="eyebrow">Incluidos en tu plan</span>
