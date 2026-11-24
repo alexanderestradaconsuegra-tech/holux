@@ -27,6 +27,53 @@ const buildWebhookUrl = (path) => {
   return base ? `${base}/webhook/${clean}` : `/webhook/${clean}`;
 };
 
+// Electronic receipt (boleta) calls. Always resolves with an object carrying a
+// `resultado`, never throws: a network blip or a non-JSON reply must read as a
+// plain message, and must never look like the payment itself failed.
+const DTE_TIMEOUT_MS = 25000;
+const dteCall = async (token, action, extra = {}) => {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), DTE_TIMEOUT_MS);
+  try {
+    const res = await fetch(buildWebhookUrl("holu-dte"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: token, action, ...extra }),
+      signal: ctrl.signal,
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || typeof data.resultado !== "string") {
+      return { resultado: "error", error: res.ok ? "Respuesta inesperada del servidor de boletas" : `El servidor de boletas respondió ${res.status}` };
+    }
+    return data;
+  } catch (e) {
+    return { resultado: "error", error: e && e.name === "AbortError" ? "El servidor de boletas tardó demasiado en responder" : "No se pudo conectar con el servidor de boletas" };
+  } finally { clearTimeout(timer); }
+};
+
+// `win` is a tab opened synchronously inside the click handler: browsers block
+// window.open once an await has passed, so the tab is claimed first and pointed
+// at the PDF when it arrives.
+const openPdfBase64 = (b64, win = null) => {
+  const bin = atob(String(b64 || ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  if (win && !win.closed) win.location.href = url;
+  else window.open(url, "_blank");
+};
+
+// Returns null on success or a readable error.
+const viewBoletaPdf = async (token, ticketId) => {
+  const win = window.open("", "_blank");
+  const r = await dteCall(token, "pdf", { ticket_id: ticketId });
+  if (r.resultado === "ok" && r.pdf) {
+    try { openPdfBase64(r.pdf, win); return null; } catch { /* fall through */ }
+  }
+  if (win && !win.closed) win.close();
+  return r.error || "No se pudo abrir el PDF de la boleta";
+};
+
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL", "https://nlwrkumlrudfgsdnhfhw.supabase.co");
 const SUPABASE_ANON_KEY = getEnv("VITE_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sd3JrdW1scnVkZmdzZG5oZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODc1NTgsImV4cCI6MjA5NDE2MzU1OH0.Bi0v-temjfU-BDFVuyJTyc_19ZRx-T_we3MfeEkcsfg");
 const MESA_URL = getEnv("VITE_MESA_URL", "https://mesa.holu.pro").replace(/\/+$/, "");
@@ -1128,6 +1175,13 @@ function CobrarModal({ table, state, staffId, onClose }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(null);
+  // Receipt state, separate from the charge: the money is already in by the
+  // time this starts, so nothing here may make the payment look failed.
+  // null = nothing to show · {status:"emitiendo"} · {status:"emitida",folio}
+  // · {status:"error",error}
+  const [boleta, setBoleta] = useState(null);
+  const [boletaTicket, setBoletaTicket] = useState(null);
+  const [pdfErr, setPdfErr] = useState("");
   const authToken = state.authToken;
   const cajaAbierta = state.cashSession.status === "abierta";
   const title = table.label || `Mesa ${table.tableNumber ?? table.id}`;
@@ -1158,6 +1212,24 @@ function CobrarModal({ table, state, staffId, onClose }) {
         <div style={{ fontSize: 52, marginBottom: 12 }}>✓</div>
         <h2 style={{ margin: "0 0 8px" }}>{title} cobrada</h2>
         <p style={{ color: "var(--muted)", margin: 0 }}>{money(done.amount)} · {done.method}</p>
+        {boleta?.status === "emitiendo" && (
+          <p style={{ color: "var(--muted)", margin: "16px 0 0", fontSize: 14 }}>Emitiendo boleta…</p>
+        )}
+        {boleta?.status === "emitida" && (
+          <div style={{ margin: "16px 0 0" }}>
+            <p style={{ margin: "0 0 10px", fontWeight: 700 }}>Boleta N° {boleta.folio ?? "—"}</p>
+            <button className="btn ghost" onClick={async () => { setPdfErr(""); const e = await viewBoletaPdf(authToken, boletaTicket); if (e) setPdfErr(e); }}>Ver boleta</button>
+            {pdfErr && <p style={{ color: "var(--red2)", fontSize: 13, margin: "10px 0 0" }}>{pdfErr}</p>}
+          </div>
+        )}
+        {boleta?.status === "error" && (
+          <p style={{ color: "var(--red2)", fontSize: 13, lineHeight: 1.5, margin: "16px 0 0" }}>
+            No se pudo emitir la boleta: {boleta.error}. La puedes reintentar desde Caja → Boletas del día.
+          </p>
+        )}
+        {boleta && (
+          <button className="btn primary" style={{ marginTop: 18, minWidth: 140 }} onClick={onClose}>Listo</button>
+        )}
       </div>
     </div>
   );
@@ -1194,7 +1266,19 @@ function CobrarModal({ table, state, staffId, onClose }) {
       setCustom("");
       if (r.settled) {
         setDone({ amount: chargeNow, method });
-        setTimeout(onClose, 1800);
+        if (r.ticket_id) {
+          // Outside the critical path: the charge is done and shown as done;
+          // the receipt follows, and only a result worth reading keeps the
+          // window open.
+          setBoletaTicket(r.ticket_id);
+          setBoleta({ status: "emitiendo" });
+          const d = await dteCall(authToken, "emitir", { ticket_id: r.ticket_id });
+          if (d.resultado === "emitida" || d.resultado === "ya_emitida") setBoleta({ status: "emitida", folio: d.folio });
+          else if (d.resultado === "omitida") { setBoleta(null); setTimeout(onClose, 1800); }
+          else setBoleta({ status: "error", error: d.error || "error desconocido" });
+        } else {
+          setTimeout(onClose, 1800);
+        }
       } else {
         await load();
       }
@@ -1601,7 +1685,7 @@ function CashCloseReport({ session, userId }) {
   return <div className="close-report"><h2>Cierre de caja</h2><div className="muted2">{[getRestaurantInfo().legalName, getRestaurantInfo().rut && `RUT ${getRestaurantInfo().rut}`].filter(Boolean).join(" · ")}<br />Turno {session.activeTurn} · Responsable {user.name}<br />Apertura {session.openedAt} · Cierre {session.closedAt || "pendiente"}</div><div className="report-grid"><div className="report-box"><span>Fondo inicial</span><b>{money(session.openingCash)}</b></div><div className="report-box"><span>Efectivo</span><b>{money(session.cash)}</b></div><div className="report-box"><span>Tarjeta</span><b>{money(session.card)}</b></div><div className="report-box"><span>Transferencia</span><b>{money(session.transfer)}</b></div><div className="report-box"><span>Propinas</span><b>{money(session.tips)}</b></div><div className="report-box"><span>Gastos</span><b>{money(session.expenses)}</b></div><div className="report-box"><span>Efectivo esperado</span><b>{money(session.expected)}</b></div><div className="report-box"><span>Efectivo contado</span><b>{money(session.counted)}</b></div><div className="report-box"><span>Diferencia</span><b>{money(session.difference)}</b></div></div><h3>Historial del turno</h3>{session.history.slice(0,6).map((h,idx)=><div className="receipt-row" key={idx}><span>{h.time} · {getStaff(h.userId).name}</span><b>{h.action}</b></div>)}<div className="signature-line">Firma responsable: {user.name}</div></div>;
 }
 
-function CashClosingView({ state, staffId }) {
+function CashClosingView({ state, staffId, role }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [turn, setTurn] = useState(state.cashSession.activeTurn);
@@ -1658,7 +1742,7 @@ Diferencia: ${money(session.difference)}`;
   };
   return <div className="grid"><div className="shift-banner"><div><h2 style={{margin:0,fontFamily:"Playfair Display",fontSize:30}}>Caja {session.status}</h2><p style={{margin:"6px 0 0",color:"var(--muted)"}}>Turno {session.activeTurn} · Responsable actual: {responsible.name} · Apertura {session.openedAt}</p></div><div className="shift-actions">{session.status !== "abierta"
       ? <><input className="input" style={{width:150}} type="number" min="0" placeholder="Fondo inicial" value={openingCash} onChange={(e)=>setOpeningCash(e.target.value)} /><button className="btn primary" onClick={()=>state.openCash(staffId, Number(openingCash)||0, turn)}>Abrir caja</button></>
-      : <><button className="btn ghost" onClick={()=>state.closeTurn(staffId)}>Cerrar turno</button><input className="input" style={{width:150}} type="number" min="0" placeholder="Efectivo contado" value={countedCash} onChange={(e)=>setCountedCash(e.target.value)} /><button className="btn danger" onClick={closeShift}>Cerrar caja</button></>}</div></div><div className="panel"><div className="panel-head"><div><h2>Cambio de turno</h2><p style={{margin:"4px 0 0"}}>Cada acción queda asociada al usuario responsable.</p></div><span className={`badge ${session.status === "abierta" ? "green" : "red"}`}>{session.status}</span></div><div className="form-grid"><div className="field"><label>Turno activo</label><select className="input" value={turn} onChange={(e)=>setTurn(e.target.value)}><option>Día</option><option>Noche</option><option>Full</option></select></div><div className="field"><label>Responsable</label><select className="input" value={staffId} disabled><option>{getStaff(staffId).name}</option></select></div></div><button className="btn primary" style={{marginTop:12}} onClick={()=>state.changeTurn(staffId, turn)}>Cambiar turno</button></div><ExpenseRegister state={state} staffId={staffId} /><div className="panel"><div className="panel-head"><div><h2>Cierre de caja</h2><p style={{margin:"4px 0 0"}}>Control diario de ventas, propinas y diferencias de caja.</p></div><span className={`badge ${!counted ? "blue" : diffOk ? "green" : "red"}`}>{!counted ? "Turno en curso" : diffOk ? "Cuadrado" : "Diferencia"}</span></div><div className="cash-grid"><div className="cash-card"><span>Efectivo</span><strong>{money(session.cash)}</strong></div><div className="cash-card"><span>Tarjeta</span><strong>{money(session.card)}</strong></div><div className="cash-card"><span>Transferencia</span><strong>{money(session.transfer)}</strong></div><div className="cash-card"><span>Propinas</span><strong>{money(session.tips)}</strong></div><div className="cash-card"><span>Gastos</span><strong>{money(session.expenses)}</strong></div></div></div><div className="two"><div className="panel"><div className="panel-head"><h2>Resumen final</h2><span className="badge blue">Caja</span></div><div className="list"><div className="row"><span className="badge">Esperado</span><div className="row-main"><b>Efectivo esperado</b><small>Fondo inicial + cobros y propinas en efectivo − gastos. Tarjeta y transferencia no pasan por el cajón.</small></div><strong>{money(session.expected)}</strong></div><div className="row"><span className="badge green">Contado</span><div className="row-main"><b>Efectivo contado</b><small>Conteo físico del cajón al cerrar</small></div><strong>{money(session.counted)}</strong></div><div className="row"><span className={`badge ${diffOk ? "green" : "red"}`}>Diferencia</span><div className="row-main"><b>Ajuste</b><small>Debe ser 0 para cierre correcto</small></div><strong>{money(session.difference)}</strong></div></div><div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}><button className="btn primary" onClick={()=>setReportOpen(true)}>Ver cierre</button><button className="btn ghost" onClick={()=>window.print()}>Imprimir</button><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button></div></div><div className="panel"><div className="panel-head"><h2>Propinas registradas</h2><span className="badge">10%</span></div><div className="list">{state.tables.filter((t)=>t.bill > 0).map((t)=><div className="row" key={t.id}><span className={`badge ${t.tipAccepted ? "green" : "red"}`}>Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.tipAccepted ? "Cliente aceptó propina" : "Cliente rechazó propina"}</small></div><strong>{money(t.tipAmount)}</strong></div>)}</div></div></div><div className="panel"><div className="panel-head"><h2>Historial de caja/turno</h2><span className="badge purple">Auditoría</span></div><div className="list">{session.history.map((h,idx)=><div className="row" key={idx}><span className="badge">{h.time}</span><div className="row-main"><b>{h.action}</b><small>{h.detail}</small></div><strong>{getStaff(h.userId).name}</strong></div>)}</div></div>{reportOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Reporte de cierre</h2><button className="btn ghost" onClick={()=>setReportOpen(false)}>Cerrar</button></div><CashCloseReport session={session} userId={staffId} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button><button className="btn primary" onClick={()=>window.print()}>Imprimir</button></div></div></div>}{whatsappOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Enviar cierre por WhatsApp</h2><button className="btn ghost" onClick={()=>setWhatsappOpen(false)}>Cerrar</button></div><div className="whatsapp-card"><b>Mensaje listo para enviar</b><p style={{color:"var(--muted)",lineHeight:1.5}}>Se enviará resumen del cierre, responsable, métodos de pago, propinas y diferencia.</p><a className="btn primary" style={{display:"inline-block",textDecoration:"none"}} href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp</a></div></div></div>}</div>;
+      : <><button className="btn ghost" onClick={()=>state.closeTurn(staffId)}>Cerrar turno</button><input className="input" style={{width:150}} type="number" min="0" placeholder="Efectivo contado" value={countedCash} onChange={(e)=>setCountedCash(e.target.value)} /><button className="btn danger" onClick={closeShift}>Cerrar caja</button></>}</div></div><div className="panel"><div className="panel-head"><div><h2>Cambio de turno</h2><p style={{margin:"4px 0 0"}}>Cada acción queda asociada al usuario responsable.</p></div><span className={`badge ${session.status === "abierta" ? "green" : "red"}`}>{session.status}</span></div><div className="form-grid"><div className="field"><label>Turno activo</label><select className="input" value={turn} onChange={(e)=>setTurn(e.target.value)}><option>Día</option><option>Noche</option><option>Full</option></select></div><div className="field"><label>Responsable</label><select className="input" value={staffId} disabled><option>{getStaff(staffId).name}</option></select></div></div><button className="btn primary" style={{marginTop:12}} onClick={()=>state.changeTurn(staffId, turn)}>Cambiar turno</button></div><ExpenseRegister state={state} staffId={staffId} /><div className="panel"><div className="panel-head"><div><h2>Cierre de caja</h2><p style={{margin:"4px 0 0"}}>Control diario de ventas, propinas y diferencias de caja.</p></div><span className={`badge ${!counted ? "blue" : diffOk ? "green" : "red"}`}>{!counted ? "Turno en curso" : diffOk ? "Cuadrado" : "Diferencia"}</span></div><div className="cash-grid"><div className="cash-card"><span>Efectivo</span><strong>{money(session.cash)}</strong></div><div className="cash-card"><span>Tarjeta</span><strong>{money(session.card)}</strong></div><div className="cash-card"><span>Transferencia</span><strong>{money(session.transfer)}</strong></div><div className="cash-card"><span>Propinas</span><strong>{money(session.tips)}</strong></div><div className="cash-card"><span>Gastos</span><strong>{money(session.expenses)}</strong></div></div></div><div className="two"><div className="panel"><div className="panel-head"><h2>Resumen final</h2><span className="badge blue">Caja</span></div><div className="list"><div className="row"><span className="badge">Esperado</span><div className="row-main"><b>Efectivo esperado</b><small>Fondo inicial + cobros y propinas en efectivo − gastos. Tarjeta y transferencia no pasan por el cajón.</small></div><strong>{money(session.expected)}</strong></div><div className="row"><span className="badge green">Contado</span><div className="row-main"><b>Efectivo contado</b><small>Conteo físico del cajón al cerrar</small></div><strong>{money(session.counted)}</strong></div><div className="row"><span className={`badge ${diffOk ? "green" : "red"}`}>Diferencia</span><div className="row-main"><b>Ajuste</b><small>Debe ser 0 para cierre correcto</small></div><strong>{money(session.difference)}</strong></div></div><div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}><button className="btn primary" onClick={()=>setReportOpen(true)}>Ver cierre</button><button className="btn ghost" onClick={()=>window.print()}>Imprimir</button><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button></div></div><div className="panel"><div className="panel-head"><h2>Propinas registradas</h2><span className="badge">10%</span></div><div className="list">{state.tables.filter((t)=>t.bill > 0).map((t)=><div className="row" key={t.id}><span className={`badge ${t.tipAccepted ? "green" : "red"}`}>Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.tipAccepted ? "Cliente aceptó propina" : "Cliente rechazó propina"}</small></div><strong>{money(t.tipAmount)}</strong></div>)}</div></div></div><BoletasDelDia authToken={state.authToken} isAdmin={role === "admin"} /><div className="panel"><div className="panel-head"><h2>Historial de caja/turno</h2><span className="badge purple">Auditoría</span></div><div className="list">{session.history.map((h,idx)=><div className="row" key={idx}><span className="badge">{h.time}</span><div className="row-main"><b>{h.action}</b><small>{h.detail}</small></div><strong>{getStaff(h.userId).name}</strong></div>)}</div></div>{reportOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Reporte de cierre</h2><button className="btn ghost" onClick={()=>setReportOpen(false)}>Cerrar</button></div><CashCloseReport session={session} userId={staffId} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button><button className="btn primary" onClick={()=>window.print()}>Imprimir</button></div></div></div>}{whatsappOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Enviar cierre por WhatsApp</h2><button className="btn ghost" onClick={()=>setWhatsappOpen(false)}>Cerrar</button></div><div className="whatsapp-card"><b>Mensaje listo para enviar</b><p style={{color:"var(--muted)",lineHeight:1.5}}>Se enviará resumen del cierre, responsable, métodos de pago, propinas y diferencia.</p><a className="btn primary" style={{display:"inline-block",textDecoration:"none"}} href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp</a></div></div></div>}</div>;
 }
 
 function ExpenseRegister({ state, staffId }) {
@@ -2807,7 +2891,167 @@ function ReceiptPreview({ receiptConfig, restaurant }) {
   return <div className="receipt-wrap"><div className="receipt"><h3>{restaurant.name}</h3><div className="center muted2">{restaurant.legalName}<br />RUT {restaurant.rut}<br />{restaurant.address}<br />{restaurant.phone} · {restaurant.website}</div><div className="dash" /><div className="center"><b>{receiptConfig.title}</b><br /><span className="muted2">Mesa 7 · {new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" />{RECEIPT_ITEMS.map((i)=><div className="receipt-row" key={i.name}><span>{i.qty}× {i.name}</span><b>{money(i.qty * i.price)}</b></div>)}<div className="dash" /><div className="receipt-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Servicio 10%</span><b>{money(service)}</b></div><div className="receipt-row"><span>{receiptConfig.taxLabel}</span><b>—</b></div><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div>{receiptConfig.showWaiter && <div className="receipt-row"><span>Atendió</span><b>Nombre del camarero</b></div>}{receiptConfig.showQr && <ReviewQr url={restaurant.googleReviewUrl} />}<div className="dash" /><div className="center muted2">{receiptConfig.footer}</div></div></div>;
 }
 
-function SettingsView({ state, onRestaurantNameChange, onDeliveryEnabledChange }) {
+const FISCAL_MEDIOS = [["efectivo", "Efectivo"], ["tarjeta", "Tarjeta"], ["transferencia", "Transferencia"], ["mixto", "Mixto"]];
+const FISCAL_MEDIOS_DEFAULT = { efectivo: true, tarjeta: true, transferencia: true, mixto: true };
+
+// Boleta electrónica (Tuu / Haulmer). Independent of the restaurant's own
+// "Guardar y publicar": it talks to the receipt webhook directly, and the API
+// key never travels back — only its last four digits do.
+function FiscalConfigCard({ authToken, role }) {
+  const [cfg, setCfg] = useState({ activo: false, ambiente: "pruebas", medios: FISCAL_MEDIOS_DEFAULT });
+  const [meta, setMeta] = useState({ last4: null, conectado: false, emisor: null });
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [probing, setProbing] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const load = async () => {
+    try {
+      const rows = await supaGet(`restaurant_fiscal?restaurant_id=eq.${getRestaurantId()}&select=activo,ambiente,medios,api_key_last4,conectado,emisor&limit=1`, authToken);
+      const f = Array.isArray(rows) ? rows[0] : null;
+      if (!f) return;
+      setCfg({ activo: !!f.activo, ambiente: f.ambiente === "produccion" ? "produccion" : "pruebas", medios: { ...FISCAL_MEDIOS_DEFAULT, ...(f.medios || {}) } });
+      setMeta({ last4: f.api_key_last4 || null, conectado: !!f.conectado, emisor: f.emisor || null });
+    } catch { /* table unreadable: the card still works as an empty form */ }
+  };
+  useEffect(() => { if (role === "admin") load(); }, [role]);
+
+  if (role !== "admin") return null;
+
+  const setMedio = (k, v) => setCfg((c) => ({ ...c, medios: { ...c.medios, [k]: v } }));
+  const keyNew = apiKey.trim();
+
+  const save = async () => {
+    setSaving(true); setMsg(null);
+    const r = await dteCall(authToken, "config_save", { data: { activo: cfg.activo, ambiente: cfg.ambiente, medios: cfg.medios, ...(keyNew ? { api_key: keyNew } : {}) } });
+    if (r.resultado === "ok") { setApiKey(""); setMsg({ ok: true, text: "Guardado. Presiona «Probar conexión» para verificar la clave." }); await load(); }
+    else setMsg({ ok: false, text: r.error || "No se pudo guardar" });
+    setSaving(false);
+  };
+  const probar = async () => {
+    if (keyNew) return setMsg({ ok: false, text: "Primero guarda la clave nueva y luego prueba la conexión." });
+    setProbing(true); setMsg(null);
+    const r = await dteCall(authToken, "probar");
+    if (r.resultado === "ok") { setMsg({ ok: true, text: "Conexión correcta." }); await load(); }
+    else setMsg({ ok: false, text: r.error || "No se pudo conectar" });
+    setProbing(false);
+  };
+
+  const estado = meta.conectado ? { cls: "badge green", text: "Conectado" }
+    : meta.last4 ? { cls: "badge", text: "Clave guardada, sin probar" }
+    : { cls: "badge", text: "Sin configurar" };
+  const em = meta.emisor;
+
+  return <div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,gap:10,flexWrap:"wrap"}}>
+      <label style={{margin:0}}>Boleta electrónica (Tuu / Haulmer) <small style={{color:"var(--dim)",fontWeight:400}}>(boletas válidas ante el SII)</small></label>
+      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <span className={estado.cls} style={{fontSize:11}}>{estado.text}</span>
+        <label className="toggle" style={{fontSize:12}}><input type="checkbox" checked={cfg.activo} onChange={(e)=>setCfg((c)=>({...c,activo:e.target.checked}))} /> Activa</label>
+      </div>
+    </div>
+    {meta.conectado && em && <p style={{color:"var(--green)",fontSize:12,margin:"0 0 10px"}}>✓ {em.razonSocial || "Emisor"}{em.rut ? ` · RUT ${em.rut}` : ""}</p>}
+    <div className="config-grid" style={{gap:10}}>
+      <div className="field"><label>Ambiente</label>
+        <select className="input" value={cfg.ambiente} onChange={(e)=>setCfg((c)=>({...c,ambiente:e.target.value}))}>
+          <option value="pruebas">Pruebas</option>
+          <option value="produccion">Producción</option>
+        </select>
+      </div>
+      <div className="field"><label>Clave API <small style={{color:"var(--dim)",fontWeight:400}}>(de tu cuenta de Tuu / Haulmer)</small></label>
+        <input className="input" type="password" autoComplete="off" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} placeholder={meta.last4 ? `•••• ${meta.last4} — déjalo vacío para no cambiarla` : "Pega aquí tu clave API"} />
+      </div>
+    </div>
+    {cfg.ambiente === "produccion" && <div style={{background:"rgba(251,191,36,.12)",border:"1px solid rgba(251,191,36,.3)",borderRadius:10,padding:"10px 14px",fontSize:12.5,lineHeight:1.5,margin:"10px 0 0"}}>En <b>Producción</b> cada boleta que se emite es real y válida ante el SII. Usa <b>Pruebas</b> mientras verificas que todo funciona.</div>}
+    <div style={{margin:"12px 0 0"}}>
+      <small style={{color:"var(--muted)",display:"block",marginBottom:6}}>Medios de pago que llevan boleta</small>
+      <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+        {FISCAL_MEDIOS.map(([k,label])=><label key={k} className="toggle"><input type="checkbox" checked={cfg.medios[k] !== false} onChange={(e)=>setMedio(k,e.target.checked)} /> {label}</label>)}
+      </div>
+    </div>
+    <div style={{display:"flex",gap:8,alignItems:"center",margin:"12px 0 0",flexWrap:"wrap"}}>
+      <button className="btn primary" onClick={save} disabled={saving || probing}>{saving ? "Guardando..." : "Guardar"}</button>
+      <button className="btn ghost" onClick={probar} disabled={saving || probing || !meta.last4}>{probing ? "Probando..." : "Probar conexión"}</button>
+      {msg && <span className={`badge ${msg.ok ? "green" : "red"}`} style={{whiteSpace:"normal"}}>{msg.text}</span>}
+    </div>
+    <p style={{color:"var(--dim)",fontSize:12,margin:"8px 0 0"}}>La clave la sacas desde el panel de Tuu / Haulmer, en la sección API. Por seguridad este campo no muestra la clave ya guardada, solo permite reemplazarla.</p>
+  </div>;
+}
+
+// Receipts issued today, one row per paid table. Lives under the till close:
+// that is where a cashier looks when a receipt failed to go out.
+function BoletasDelDia({ authToken, isAdmin }) {
+  const [activo, setActivo] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  const [busy, setBusy] = useState(null);
+  const [msg, setMsg] = useState(null);
+
+  const load = async () => {
+    try {
+      const fiscal = await supaGet(`restaurant_fiscal?restaurant_id=eq.${getRestaurantId()}&select=activo&limit=1`, authToken);
+      if (!Array.isArray(fiscal) || !fiscal[0]?.activo) { setActivo(false); return; }
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const rows = await supaGet(`table_tickets?restaurant_id=eq.${getRestaurantId()}&select=*,fiscal_documents(tipo,estado,folio,error,ambiente)&order=settled_at.desc&limit=50&settled_at=gte.${encodeURIComponent(start.toISOString())}`, authToken);
+      setTickets(Array.isArray(rows) ? rows : []);
+      setActivo(true);
+    } catch { setActivo(false); }
+  };
+  useEffect(() => { load(); }, [authToken]);
+
+  if (!activo) return null;
+
+  const run = async (t, action) => {
+    setBusy(t.id); setMsg(null);
+    const r = await dteCall(authToken, action, { ticket_id: t.id });
+    const ok = ["emitida", "ya_emitida", "ya_anulada", "ok"].includes(r.resultado);
+    let text;
+    if (action === "emitir") text = r.resultado === "omitida" ? `Sin boleta: ${r.error || "este pago no lleva boleta"}` : ok ? `Boleta N° ${r.folio ?? "—"} emitida` : (r.error || "No se pudo emitir la boleta");
+    else text = r.resultado === "emitida" ? `Nota de crédito N° ${r.folio ?? "—"} emitida` : r.resultado === "ya_anulada" ? "La boleta ya estaba anulada" : r.resultado === "sin_boleta" ? "Este cobro no tiene boleta que anular" : (r.error || "No se pudo anular la boleta");
+    setMsg({ ok: ok || r.resultado === "sin_boleta" || r.resultado === "omitida", text });
+    await load();
+    setBusy(null);
+  };
+  const ver = async (t) => {
+    setBusy(t.id); setMsg(null);
+    const e = await viewBoletaPdf(authToken, t.id);
+    if (e) setMsg({ ok: false, text: e });
+    setBusy(null);
+  };
+  const anular = (t) => {
+    if (!window.confirm(`¿Anular la boleta de ${t.label || `Mesa ${t.table_id}`} por ${money(t.total)}? Se emitirá una nota de crédito ante el SII.`)) return;
+    run(t, "anular");
+  };
+
+  return <div className="panel">
+    <div className="panel-head"><div><h2>Boletas del día</h2><p style={{margin:"4px 0 0"}}>Una boleta por mesa cobrada. Si alguna no salió, puedes reintentarla aquí.</p></div><span className="badge blue">{tickets.length}</span></div>
+    {msg && <p style={{color: msg.ok ? "var(--green)" : "var(--red2)", fontSize: 13, margin: "0 0 10px"}}>{msg.text}</p>}
+    {tickets.length === 0 && <p style={{color:"var(--muted)",textAlign:"center",padding:"18px 0"}}>Todavía no hay mesas cobradas hoy.</p>}
+    <div className="list">{tickets.map((t) => {
+      const docs = [].concat(t.fiscal_documents || []);
+      const boleta = docs.find((d) => d.tipo === 39);
+      const nc = docs.find((d) => d.tipo === 61 && d.estado === "emitida");
+      const hora = new Date(t.settled_at).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+      const isBusy = busy === t.id;
+      let estado;
+      if (nc) estado = <span style={{color:"var(--muted)"}}>Anulada (NC N° {nc.folio ?? "—"})</span>;
+      else if (boleta?.estado === "emitida") estado = <span style={{color:"var(--green)"}}>Boleta N° {boleta.folio ?? "—"}</span>;
+      else if (boleta?.estado === "error") estado = <span style={{color:"var(--red2)"}}>Error: {boleta.error || "no se pudo emitir"}</span>;
+      else estado = <span style={{color:"var(--muted)"}}>Sin boleta</span>;
+      return <div className="row" key={t.id}>
+        <span className="badge">{hora}</span>
+        <div className="row-main"><b>{t.label || `Mesa ${t.table_id}`} · {t.method_label || "—"}</b><small>{estado}</small></div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <strong>{money(t.total)}</strong>
+          {boleta?.estado === "emitida" && <button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} disabled={isBusy} onClick={() => ver(t)}>Ver</button>}
+          {boleta?.estado === "emitida" && !nc && isAdmin && <button className="btn danger" style={{fontSize:12,padding:"7px 10px"}} disabled={isBusy} onClick={() => anular(t)}>Anular</button>}
+          {boleta?.estado !== "emitida" && !nc && <button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} disabled={isBusy} onClick={() => run(t, "emitir")}>{isBusy ? "..." : "Reintentar"}</button>}
+        </div>
+      </div>;
+    })}</div>
+  </div>;
+}
+
+function SettingsView({ state, role, onRestaurantNameChange, onDeliveryEnabledChange }) {
   const authToken = state?.authToken;
   const [restaurant, setRestaurant] = useState({ ...RESTAURANT, concept: "", googleReviewUrl: "", logoUrl: "", coverUrl: "" });
   const [delivery, setDelivery] = useState({ enabled: false, fee: "", min_order: "", zones: "", eta_minutes: "", origin_address: "", origin_lat: null, origin_lng: null, radius_km: "" });
@@ -2949,7 +3193,7 @@ function SettingsView({ state, onRestaurantNameChange, onDeliveryEnabledChange }
   };
   const updateReceipt = (key, value) => setReceiptConfig((r)=>({ ...r, [key]: value }));
   const printReceipt = () => window.print();
-  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}{saveErr&&<span className="badge red">{saveErr}</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><label style={{fontWeight:700,fontSize:13,marginBottom:8,display:"block"}}>Identidad visual en app de mesa</label><div className="config-grid" style={{gap:10}}><div className="field"><label>Logo URL <small style={{color:"var(--dim)",fontWeight:400}}>(aparece en la cabecera de mesa)</small></label><input className="input" value={restaurant.logoUrl||""} onChange={(e)=>updateRestaurant("logoUrl",e.target.value)} placeholder="https://..." />{restaurant.logoUrl&&<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10}}><img src={restaurant.logoUrl} alt="logo" style={{width:48,height:48,borderRadius:12,objectFit:"cover",border:"1px solid var(--line)"}} onError={(e)=>e.target.style.display="none"} /><small style={{color:"var(--dim)"}}>Vista previa del logo</small></div>}</div><div className="field"><label>Foto portada URL <small style={{color:"var(--dim)",fontWeight:400}}>(fondo hero de mesa)</small></label><input className="input" value={restaurant.coverUrl||""} onChange={(e)=>updateRestaurant("coverUrl",e.target.value)} placeholder="https://..." />{restaurant.coverUrl&&<div style={{marginTop:8,height:60,borderRadius:12,backgroundImage:`url(${restaurant.coverUrl})`,backgroundSize:"cover",backgroundPosition:"center",border:"1px solid var(--line)"}} />}</div></div></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Delivery</label><span className={delivery.enabled ? "badge green" : "badge"} style={{fontSize:11}}>{delivery.enabled ? "Activo" : "No incluido en tu plan"}</span></div>{delivery.enabled ? (<><div className="config-grid" style={{gap:10}}><div className="field"><label>Costo de envío</label><input className="input" type="number" min="0" value={delivery.fee} onChange={(e)=>updateDelivery("fee",e.target.value)} placeholder="0" /></div><div className="field"><label>Pedido mínimo</label><input className="input" type="number" min="0" value={delivery.min_order} onChange={(e)=>updateDelivery("min_order",e.target.value)} placeholder="0" /></div><div className="field"><label>Tiempo estimado (min)</label><input className="input" type="number" min="0" value={delivery.eta_minutes} onChange={(e)=>updateDelivery("eta_minutes",e.target.value)} placeholder="40" /></div><div className="field"><label>Zonas de reparto <small style={{color:"var(--dim)",fontWeight:400}}>(texto que ve el cliente)</small></label><input className="input" value={delivery.zones} onChange={(e)=>updateDelivery("zones",e.target.value)} placeholder="Providencia, Ñuñoa..." /></div></div><div className="field" style={{marginTop:10}}><label>Dirección del local <small style={{color:"var(--dim)",fontWeight:400}}>(punto de partida para calcular el radio real)</small></label><AddressAutocomplete value={delivery.origin_address} onChange={(v)=>updateDelivery("origin_address",v)} onPlace={({address,lat,lng})=>setDelivery((d)=>({...d,origin_address:address,origin_lat:lat,origin_lng:lng}))} placeholder="Escribe y elige una sugerencia de la lista" />{delivery.origin_lat!=null?<small style={{color:"var(--green)",display:"block",marginTop:6}}>✓ Ubicación confirmada</small>:<small style={{color:"var(--dim)",display:"block",marginTop:6}}>Elige la dirección de la lista de sugerencias — escribirla sin elegir no guarda la ubicación.</small>}</div><div className="field" style={{marginTop:10}}><label>Radio de reparto (km) <small style={{color:"var(--dim)",fontWeight:400}}>(pedidos fuera de este radio se rechazan)</small></label><input className="input" type="number" min="0" step="0.5" value={delivery.radius_km} onChange={(e)=>updateDelivery("radius_km",e.target.value)} placeholder="5" /></div><div className="field" style={{marginTop:10}}><label>Access Token de MercadoPago <small style={{color:"var(--dim)",fontWeight:400}}>(tu propia cuenta — así el pago de tus pedidos llega directo a ti, no a HOLU)</small></label><input className="input" type="password" autoComplete="off" value={mpAccessToken} onChange={(e)=>setMpAccessToken(e.target.value)} placeholder="Déjalo vacío para no cambiar el token ya guardado" /><small style={{color:"var(--dim)",display:"block",marginTop:6}}>Por seguridad este campo no muestra el token ya guardado, solo permite reemplazarlo. Lo sacas desde tu cuenta de MercadoPago → Tus integraciones → Credenciales de producción.</small></div></>) : (<p style={{color:"var(--dim)",fontSize:12,margin:0}}>No está incluido en tu plan actual — es parte del plan <b>A Medida</b>. Escríbenos por WhatsApp si querés sumar delivery propio a tu operación.</p>)}</div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Agente de WhatsApp <small style={{color:"var(--dim)",fontWeight:400}}>(toma pedidos por chat)</small></label><label className="toggle" style={{fontSize:12}}><input type="checkbox" checked={waAgent.enabled} onChange={(e)=>updateWaAgent("enabled",e.target.checked)} /> Habilitado</label></div>{!waAgent.enabled&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Desactivado: los mensajes a tu WhatsApp no reciben respuesta automática.</p>}<div className="config-grid" style={{gap:10}}><div className="field"><label>Nombre de instancia de WhatsApp <small style={{color:"var(--dim)",fontWeight:400}}>(el que le pusiste en Evolution API)</small></label><input className="input" value={waAgent.evolution_instance} onChange={(e)=>updateWaAgent("evolution_instance",e.target.value)} placeholder={`${restaurant.name ? restaurant.name.toLowerCase().replace(/[^a-z0-9]+/g,"-") : "mi-restaurante"}-wa`} /></div><div className="field"><label>Personalidad del agente <small style={{color:"var(--dim)",fontWeight:400}}>(opcional)</small></label><input className="input" value={waAgent.personality} onChange={(e)=>updateWaAgent("personality",e.target.value)} placeholder="Ej: Cercano y con humor, usa emojis" /></div></div><p style={{color:"var(--dim)",fontSize:12,margin:"8px 0 0"}}>El agente conoce tu carta en vivo, arma el pedido conversando y lo manda a pagar — llega a cocina igual que un pedido de delivery.</p></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Promociones visibles en la app de mesa</label><button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} onClick={addPromo}>+ Promo</button></div>{promos.length===0&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Sin promociones. El cliente no verá esta sección.</p>}{promos.map((p,idx)=><div key={idx} className="config-card" style={{marginBottom:8}}><div className="form-grid"><div className="field"><label>Etiqueta</label><input className="input" value={p.eyebrow||""} onChange={(e)=>updatePromo(idx,"eyebrow",e.target.value)} placeholder="LUN–VIE" /></div><div className="field"><label>Título</label><input className="input" value={p.title||""} onChange={(e)=>updatePromo(idx,"title",e.target.value)} placeholder="Menú del Día" /></div><div className="field"><label>Descripción</label><input className="input" value={p.body||""} onChange={(e)=>updatePromo(idx,"body",e.target.value)} placeholder="Entrada + principal + postre" /></div><div className="field"><label>Precio / destacado</label><input className="input" value={p.price||""} onChange={(e)=>updatePromo(idx,"price",e.target.value)} placeholder="$32.000" /></div></div><button className="btn danger" style={{marginTop:8,fontSize:12,padding:"7px 10px"}} onClick={()=>removePromo(idx)}>Eliminar</button></div>)}</div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
+  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><h2>Datos del restaurante</h2><div style={{display:"flex",gap:8,alignItems:"center"}}>{savedOk&&<span className="badge green">Guardado ✓</span>}{saveErr&&<span className="badge red">{saveErr}</span>}<button className="btn primary" onClick={saveRestaurant} disabled={saving}>{saving?"Guardando...":"Guardar y publicar"}</button></div></div><div className="config-grid"><div className="field"><label>Nombre comercial</label><input className="input" value={restaurant.name} onChange={(e)=>updateRestaurant("name", e.target.value)} /></div><div className="field"><label>Razón social</label><input className="input" value={restaurant.legalName} onChange={(e)=>updateRestaurant("legalName", e.target.value)} /></div><div className="field"><label>RUT</label><input className="input" value={restaurant.rut} onChange={(e)=>updateRestaurant("rut", e.target.value)} /></div><div className="field"><label>Teléfono</label><input className="input" value={restaurant.phone} onChange={(e)=>updateRestaurant("phone", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Dirección</label><input className="input" value={restaurant.address} onChange={(e)=>updateRestaurant("address", e.target.value)} /></div><div className="field"><label>Web</label><input className="input" value={restaurant.website} onChange={(e)=>updateRestaurant("website", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Eslogan / concepto (visible en app de mesa)</label><input className="input" value={restaurant.concept||""} onChange={(e)=>updateRestaurant("concept",e.target.value)} placeholder="Ej: Cocina italiana de autor" /></div><div className="field" style={{gridColumn:"1/-1"}}><label>URL reseña Google (aparece en la app de mesa)</label><input className="input" value={restaurant.googleReviewUrl||""} onChange={(e)=>updateRestaurant("googleReviewUrl",e.target.value)} placeholder="https://g.page/r/..." /></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><label style={{fontWeight:700,fontSize:13,marginBottom:8,display:"block"}}>Identidad visual en app de mesa</label><div className="config-grid" style={{gap:10}}><div className="field"><label>Logo URL <small style={{color:"var(--dim)",fontWeight:400}}>(aparece en la cabecera de mesa)</small></label><input className="input" value={restaurant.logoUrl||""} onChange={(e)=>updateRestaurant("logoUrl",e.target.value)} placeholder="https://..." />{restaurant.logoUrl&&<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10}}><img src={restaurant.logoUrl} alt="logo" style={{width:48,height:48,borderRadius:12,objectFit:"cover",border:"1px solid var(--line)"}} onError={(e)=>e.target.style.display="none"} /><small style={{color:"var(--dim)"}}>Vista previa del logo</small></div>}</div><div className="field"><label>Foto portada URL <small style={{color:"var(--dim)",fontWeight:400}}>(fondo hero de mesa)</small></label><input className="input" value={restaurant.coverUrl||""} onChange={(e)=>updateRestaurant("coverUrl",e.target.value)} placeholder="https://..." />{restaurant.coverUrl&&<div style={{marginTop:8,height:60,borderRadius:12,backgroundImage:`url(${restaurant.coverUrl})`,backgroundSize:"cover",backgroundPosition:"center",border:"1px solid var(--line)"}} />}</div></div></div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Delivery</label><span className={delivery.enabled ? "badge green" : "badge"} style={{fontSize:11}}>{delivery.enabled ? "Activo" : "No incluido en tu plan"}</span></div>{delivery.enabled ? (<><div className="config-grid" style={{gap:10}}><div className="field"><label>Costo de envío</label><input className="input" type="number" min="0" value={delivery.fee} onChange={(e)=>updateDelivery("fee",e.target.value)} placeholder="0" /></div><div className="field"><label>Pedido mínimo</label><input className="input" type="number" min="0" value={delivery.min_order} onChange={(e)=>updateDelivery("min_order",e.target.value)} placeholder="0" /></div><div className="field"><label>Tiempo estimado (min)</label><input className="input" type="number" min="0" value={delivery.eta_minutes} onChange={(e)=>updateDelivery("eta_minutes",e.target.value)} placeholder="40" /></div><div className="field"><label>Zonas de reparto <small style={{color:"var(--dim)",fontWeight:400}}>(texto que ve el cliente)</small></label><input className="input" value={delivery.zones} onChange={(e)=>updateDelivery("zones",e.target.value)} placeholder="Providencia, Ñuñoa..." /></div></div><div className="field" style={{marginTop:10}}><label>Dirección del local <small style={{color:"var(--dim)",fontWeight:400}}>(punto de partida para calcular el radio real)</small></label><AddressAutocomplete value={delivery.origin_address} onChange={(v)=>updateDelivery("origin_address",v)} onPlace={({address,lat,lng})=>setDelivery((d)=>({...d,origin_address:address,origin_lat:lat,origin_lng:lng}))} placeholder="Escribe y elige una sugerencia de la lista" />{delivery.origin_lat!=null?<small style={{color:"var(--green)",display:"block",marginTop:6}}>✓ Ubicación confirmada</small>:<small style={{color:"var(--dim)",display:"block",marginTop:6}}>Elige la dirección de la lista de sugerencias — escribirla sin elegir no guarda la ubicación.</small>}</div><div className="field" style={{marginTop:10}}><label>Radio de reparto (km) <small style={{color:"var(--dim)",fontWeight:400}}>(pedidos fuera de este radio se rechazan)</small></label><input className="input" type="number" min="0" step="0.5" value={delivery.radius_km} onChange={(e)=>updateDelivery("radius_km",e.target.value)} placeholder="5" /></div><div className="field" style={{marginTop:10}}><label>Access Token de MercadoPago <small style={{color:"var(--dim)",fontWeight:400}}>(tu propia cuenta — así el pago de tus pedidos llega directo a ti, no a HOLU)</small></label><input className="input" type="password" autoComplete="off" value={mpAccessToken} onChange={(e)=>setMpAccessToken(e.target.value)} placeholder="Déjalo vacío para no cambiar el token ya guardado" /><small style={{color:"var(--dim)",display:"block",marginTop:6}}>Por seguridad este campo no muestra el token ya guardado, solo permite reemplazarlo. Lo sacas desde tu cuenta de MercadoPago → Tus integraciones → Credenciales de producción.</small></div></>) : (<p style={{color:"var(--dim)",fontSize:12,margin:0}}>No está incluido en tu plan actual — es parte del plan <b>A Medida</b>. Escríbenos por WhatsApp si quieres sumar delivery propio a tu operación.</p>)}</div><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Agente de WhatsApp <small style={{color:"var(--dim)",fontWeight:400}}>(toma pedidos por chat)</small></label><label className="toggle" style={{fontSize:12}}><input type="checkbox" checked={waAgent.enabled} onChange={(e)=>updateWaAgent("enabled",e.target.checked)} /> Habilitado</label></div>{!waAgent.enabled&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Desactivado: los mensajes a tu WhatsApp no reciben respuesta automática.</p>}<div className="config-grid" style={{gap:10}}><div className="field"><label>Nombre de instancia de WhatsApp <small style={{color:"var(--dim)",fontWeight:400}}>(el que le pusiste en Evolution API)</small></label><input className="input" value={waAgent.evolution_instance} onChange={(e)=>updateWaAgent("evolution_instance",e.target.value)} placeholder={`${restaurant.name ? restaurant.name.toLowerCase().replace(/[^a-z0-9]+/g,"-") : "mi-restaurante"}-wa`} /></div><div className="field"><label>Personalidad del agente <small style={{color:"var(--dim)",fontWeight:400}}>(opcional)</small></label><input className="input" value={waAgent.personality} onChange={(e)=>updateWaAgent("personality",e.target.value)} placeholder="Ej: Cercano y con humor, usa emojis" /></div></div><p style={{color:"var(--dim)",fontSize:12,margin:"8px 0 0"}}>El agente conoce tu carta en vivo, arma el pedido conversando y lo manda a pagar — llega a cocina igual que un pedido de delivery.</p></div><FiscalConfigCard authToken={authToken} role={role} /><div className="field" style={{gridColumn:"1/-1",borderTop:"1px solid var(--line)",paddingTop:14,marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><label style={{margin:0}}>Promociones visibles en la app de mesa</label><button className="btn ghost" style={{fontSize:12,padding:"7px 10px"}} onClick={addPromo}>+ Promo</button></div>{promos.length===0&&<p style={{color:"var(--dim)",fontSize:12,margin:"0 0 8px"}}>Sin promociones. El cliente no verá esta sección.</p>}{promos.map((p,idx)=><div key={idx} className="config-card" style={{marginBottom:8}}><div className="form-grid"><div className="field"><label>Etiqueta</label><input className="input" value={p.eyebrow||""} onChange={(e)=>updatePromo(idx,"eyebrow",e.target.value)} placeholder="LUN–VIE" /></div><div className="field"><label>Título</label><input className="input" value={p.title||""} onChange={(e)=>updatePromo(idx,"title",e.target.value)} placeholder="Menú del Día" /></div><div className="field"><label>Descripción</label><input className="input" value={p.body||""} onChange={(e)=>updatePromo(idx,"body",e.target.value)} placeholder="Entrada + principal + postre" /></div><div className="field"><label>Precio / destacado</label><input className="input" value={p.price||""} onChange={(e)=>updatePromo(idx,"price",e.target.value)} placeholder="$32.000" /></div></div><button className="btn danger" style={{marginTop:8,fontSize:12,padding:"7px 10px"}} onClick={()=>removePromo(idx)}>Eliminar</button></div>)}</div><div className="field"><label>Impresora</label><input className="input" value={receiptConfig.printer} onChange={(e)=>updateReceipt("printer", e.target.value)} /></div><div className="field"><label>IP impresora / estación</label><input className="input" value={receiptConfig.printerIp} onChange={(e)=>updateReceipt("printerIp", e.target.value)} /></div><div className="field"><label>Ancho papel</label><select className="input" value={receiptConfig.paperWidth} onChange={(e)=>updateReceipt("paperWidth", e.target.value)}><option>58mm</option><option>80mm</option></select></div><div className="field"><label>Modo impresión</label><input className="input" value={receiptConfig.printMode} onChange={(e)=>updateReceipt("printMode", e.target.value)} /></div></div></div><div className="panel"><div className="panel-head"><h2>Diseño de boleta</h2><button className="btn primary" onClick={printReceipt}>Generar boleta impresa</button></div><div className="config-grid"><div className="field"><label>Título</label><input className="input" value={receiptConfig.title} onChange={(e)=>updateReceipt("title", e.target.value)} /></div><div className="field"><label>Texto impuesto</label><input className="input" value={receiptConfig.taxLabel} onChange={(e)=>updateReceipt("taxLabel", e.target.value)} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Pie de ticket</label><input className="input" value={receiptConfig.footer} onChange={(e)=>updateReceipt("footer", e.target.value)} /></div></div><div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12}}><label className="toggle"><input type="checkbox" checked={receiptConfig.showWaiter} onChange={(e)=>updateReceipt("showWaiter", e.target.checked)} /> Mostrar camarero</label><label className="toggle"><input type="checkbox" checked={receiptConfig.showQr} onChange={(e)=>updateReceipt("showQr", e.target.checked)} /> Mostrar QR reseña</label></div><p className="print-preview-note">Formato pensado para impresora térmica {receiptConfig.paperWidth}: tipografía monoespaciada, contraste alto, separadores limpios y QR visible para reseña.</p>
 <>
   <button className="btn ghost" style={{marginTop:10}} onClick={()=>setShowPrinterPanel(!showPrinterPanel)}>
     {showPrinterPanel ? "Ocultar" : "Ver"} configuración de impresora
@@ -3387,7 +3631,7 @@ export default function HoluAdmin() {
       case "kitchen": return <KitchenView state={state} />;
       case "calls": return <CallsView role={role} staffId={staffId} state={state} />;
       case "messages": return <MessagesView role={role} staffId={staffId} state={state} />;
-      case "sales": return <CashClosingView state={state} staffId={staffId} />;
+      case "sales": return <CashClosingView state={state} staffId={staffId} role={role} />;
       case "revenue": return <SalesView authToken={state.authToken} />;
       case "staff": return <StaffView state={state} />;
       case "inventory": return <InventoryView state={state} />;
@@ -3395,7 +3639,7 @@ export default function HoluAdmin() {
       case "menu": return <MenuView state={state} />;
       case "delivery": return <DeliveryView authToken={state.authToken} />;
       case "reviews": return <ReviewsView role={role} staffId={staffId} authToken={state.authToken} />;
-      case "settings": return <SettingsView state={state} onRestaurantNameChange={setRestaurantName} onDeliveryEnabledChange={setDeliveryEnabled} />;
+      case "settings": return <SettingsView state={state} role={role} onRestaurantNameChange={setRestaurantName} onDeliveryEnabledChange={setDeliveryEnabled} />;
       default: return <Dashboard role={role} staffId={staffId} state={state} onGoToCaja={() => setTab("sales")} />;
     }
   }, [safeTab, role, staffId, state]);

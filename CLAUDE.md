@@ -47,6 +47,17 @@ token global compartido) y aislamiento por `restaurant_id` vía RLS.
 - `p_amount` es consumo; la propina va aparte en `p_tip` y se cobra una sola vez
   por mesa. El efectivo esperado (`cash_session_expected`) es solo efectivo.
 
+## Boleta electrónica (nov. 2026)
+
+- Cada restaurante usa **su propia** clave de Tuu/Haulmer, guardada en Supabase
+  Vault (`fiscal_save_config` / `fiscal_get_api_key`, solo `service_role`).
+  Nunca la leas ni la escribas desde el navegador ni la pongas en una tabla.
+- Al cerrar una mesa `pay_table_part` crea un `table_tickets`; la boleta sale de
+  ese ticket vía el webhook `holu-dte` (ver `n8n/README-boleta-electronica.md`).
+- En los nodos Code de n8n **`fetch` no existe**: usa `this.helpers.httpRequest`.
+- Nunca decidas permisos con `user_metadata` (el usuario lo puede editar):
+  comprueba en la tabla `staff`, como hace `holu-dte`.
+
 ## Después de terminar un cambio
 
 - Si tocaste una migración SQL con un `check constraint`, revisá los valores permitidos
