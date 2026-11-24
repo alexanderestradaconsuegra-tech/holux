@@ -199,18 +199,49 @@ const supaPatch = (path, body, token = null) =>
   supaFetch(path, { method: "PATCH", body: JSON.stringify(body) }, token);
 const supaPost = (path, body, token = null) =>
   supaFetch(path, { method: "POST", body: JSON.stringify(body) }, token);
+const DISH_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#2a211a"/><g fill="none" stroke="#8a7a68" stroke-width="6" stroke-linecap="round"><circle cx="100" cy="100" r="38"/><path d="M52 62v38M44 62v22a8 8 0 0 0 16 0V62M148 62v76M148 62c-14 6-14 36 0 42"/></g></svg>');
+const ALERGENOS = ["Gluten", "Lácteos", "Huevo", "Pescado", "Mariscos", "Frutos secos", "Maní", "Soya", "Sésamo", "Sulfitos"];
 const supaDelete = (path, token = null) =>
   supaFetch(path, { method: "DELETE" }, token);
 
+// Una foto de celular pesa 4-8 MB y el bucket acepta 5 MB: se reduce en el navegador
+// (lado mayor 1280 px, JPEG) antes de subirla. Si algo falla se sube la original.
+const shrinkImage = async (file, max = 1280, quality = 0.82) => {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bmp, 0, 0, w, h);
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality));
+    if (blob && blob.size < file.size) return blob;
+  } catch {}
+  return file;
+};
+
+// Cada restaurante sube solo a su carpeta (`<restaurant_id>/archivo`): las políticas
+// de storage lo exigen para que nadie pueda tocar las fotos de otro restaurante.
 const supaUploadImage = async (file, token, bucket = "menu-images") => {
-  const ext = file.name.split(".").pop().toLowerCase();
-  const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const folder = getRestaurantId();
+  if (!folder) throw new Error("No se pudo identificar tu restaurante. Cierra sesión y vuelve a entrar.");
+  const body = await shrinkImage(file);
+  const type = body.type || file.type || "image/jpeg";
+  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  const name = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${name}`, {
     method: "POST",
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": file.type },
-    body: file,
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": type },
+    body,
   });
-  if (!res.ok) { const t = await res.text(); throw new Error(`Upload failed: ${t.slice(0, 100)}`); }
+  if (!res.ok) {
+    let detail = "";
+    try { const j = await res.json(); detail = j.message || j.error || ""; } catch {}
+    if (res.status === 413) throw new Error("La foto es muy pesada (máximo 5 MB).");
+    throw new Error(`No se pudo subir (${res.status}) ${String(detail).slice(0, 100)}`.trim());
+  }
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${name}`;
 };
 
@@ -289,7 +320,8 @@ const dbMenuItemToUI = (m) => ({
   id: m.id,
   dish: m.name,
   category: m.category,
-  description: m.subtitle || m.description || "",
+  description: m.subtitle || "",
+  detail: m.description || "",
   price: m.price,
   avgPrep: m.avg_prep_minutes || 15,
   stock: m.stock_status || "OK",
@@ -858,6 +890,8 @@ function useBackofficeState(authToken = null) {
       name: item.dish,
       category: item.category,
       subtitle: item.description || null,
+      description: item.detail || null,
+      allergens: Array.isArray(item.allergens) ? item.allergens : [],
       price: Number(item.price) || 0,
       avg_prep_minutes: Number(item.avgPrep) || 15,
       stock_status: item.stock || "OK",
@@ -2669,9 +2703,9 @@ function MenuImporter({ state, onClose }) {
 function MenuView({ state }) {
   const [editing, setEditing] = useState(null);
   const [importing, setImporting] = useState(false);
-  const openNew = () => setEditing({ id: `dish-${Date.now()}`, dish: "", category: "Principales", description: "", price: 0, avgPrep: 15, stock: "OK", available: true, visibleClient: true, tags: "", imageUrl: "" });
+  const openNew = () => setEditing({ id: `dish-${Date.now()}`, dish: "", category: "Principales", description: "", detail: "", allergens: [], price: 0, avgPrep: 15, stock: "OK", available: true, visibleClient: true, tags: "", imageUrl: "" });
   const visibleClient = state.menuItems.filter((d) => d.available && d.visibleClient);
-  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><div><h2>Carta operativa</h2><p style={{margin:"4px 0 0"}}>Admin crea/edita platos. Lo visible aparece en el sistema del cliente QR.</p></div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn ghost" onClick={()=>setImporting(true)}>Importar carta</button><button className="btn primary" onClick={openNew}>Nuevo plato</button></div></div><div className="list">{state.menuItems.map((d)=><div className="row" key={d.id}><span className={`badge ${d.available ? "green" : "red"}`}>{d.available ? "Activo" : "Oculto"}</span><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div className="row-main"><b>{d.dish}</b><small>{d.category} · {money(d.price)} · Prep {d.avgPrep} min · Tags: {d.tags || "—"}</small><small>{d.description}</small></div><div style={{display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end"}}><button className="btn ghost" onClick={()=>setEditing(d)}>Editar</button><button className="btn ghost" onClick={()=>state.toggleMenuAvailability(d.id)}>{d.available ? "Desactivar" : "Activar"}</button><button className="btn danger" onClick={()=>state.deleteMenuItem(d.id)}>Eliminar</button></div></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Vista cliente QR</h2><span className="badge blue">Sincronizada</span></div><div className="preview-phone">{visibleClient.length ? visibleClient.map((d)=><div className="client-dish" key={d.id}><div style={{display:"flex", gap:12}}><img className="dish-thumb" src={d.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop"} alt={d.dish} /><div style={{flex:1}}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h4>{d.dish}</h4><b className="price">{money(d.price)}</b></div><p>{d.description}</p><small style={{color:"var(--gold2)",fontWeight:900}}>{d.category} · {d.avgPrep} min</small></div></div></div>) : <p style={{color:"var(--muted)"}}>No hay platos visibles para el cliente.</p>}</div></div></div>{editing && <MenuEditor item={editing} authToken={state.authToken} onClose={()=>setEditing(null)} onSave={async (item)=>{ await state.saveMenuItem(item); setEditing(null); }} />}{importing && <MenuImporter state={state} onClose={()=>setImporting(false)} />}</div>;
+  return <div className="grid"><div className="two"><div className="panel"><div className="panel-head"><div><h2>Carta operativa</h2><p style={{margin:"4px 0 0"}}>Admin crea/edita platos. Lo visible aparece en el sistema del cliente QR.</p></div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn ghost" onClick={()=>setImporting(true)}>Importar carta</button><button className="btn primary" onClick={openNew}>Nuevo plato</button></div></div><div className="list">{state.menuItems.map((d)=><div className="row" key={d.id}><span className={`badge ${d.available ? "green" : "red"}`}>{d.available ? "Activo" : "Oculto"}</span><img className="dish-thumb" src={d.imageUrl || DISH_PLACEHOLDER} alt={d.dish} /><div className="row-main"><b>{d.dish}</b><small>{d.category} · {money(d.price)} · Prep {d.avgPrep} min · Tags: {d.tags || "—"}</small><small>{d.description}</small>{(!d.imageUrl || !(d.allergens||[]).length) && <small style={{color:"var(--gold2)"}}>Falta: {[!d.imageUrl && "foto", !(d.allergens||[]).length && "alérgenos"].filter(Boolean).join(" y ")}</small>}</div><div style={{display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end"}}><button className="btn ghost" onClick={()=>setEditing(d)}>Editar</button><button className="btn ghost" onClick={()=>state.toggleMenuAvailability(d.id)}>{d.available ? "Desactivar" : "Activar"}</button><button className="btn danger" onClick={()=>state.deleteMenuItem(d.id)}>Eliminar</button></div></div>)}</div></div><div className="panel"><div className="panel-head"><h2>Vista cliente QR</h2><span className="badge blue">Sincronizada</span></div><div className="preview-phone">{visibleClient.length ? visibleClient.map((d)=><div className="client-dish" key={d.id}><div style={{display:"flex", gap:12}}><img className="dish-thumb" src={d.imageUrl || DISH_PLACEHOLDER} alt={d.dish} /><div style={{flex:1}}><div style={{display:"flex", justifyContent:"space-between", gap:10}}><h4>{d.dish}</h4><b className="price">{money(d.price)}</b></div><p>{d.description}</p><small style={{color:"var(--gold2)",fontWeight:900}}>{d.category} · {d.avgPrep} min</small></div></div></div>) : <p style={{color:"var(--muted)"}}>No hay platos visibles para el cliente.</p>}</div></div></div>{editing && <MenuEditor item={editing} authToken={state.authToken} onClose={()=>setEditing(null)} onSave={async (item)=>{ await state.saveMenuItem(item); setEditing(null); }} />}{importing && <MenuImporter state={state} onClose={()=>setImporting(false)} />}</div>;
 }
 
 function MenuEditor({ item, onClose, onSave, authToken }) {
@@ -2712,7 +2746,7 @@ function MenuEditor({ item, onClose, onSave, authToken }) {
     }
   };
 
-  const placeholder = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop";
+  const placeholder = DISH_PLACEHOLDER;
 
   return (
     <div className="modal-backdrop">
@@ -2731,9 +2765,10 @@ function MenuEditor({ item, onClose, onSave, authToken }) {
               disabled={uploading}
               onClick={() => fileRef.current?.click()}
             >
-              {uploading ? "Subiendo…" : "Subir foto desde dispositivo"}
+              {uploading ? "Subiendo…" : form.imageUrl ? "Cambiar foto" : "Subir foto"}
             </button>
             {uploadErr && <small style={{ color: "var(--red2)", display: "block", marginTop: 6 }}>{uploadErr}</small>}
+            {!uploadErr && !form.imageUrl && <small style={{ color: "var(--dim)", display: "block", marginTop: 6 }}>JPG, PNG o WebP. Desde el celular puedes sacar la foto en el momento; se reduce sola.</small>}
             {form.imageUrl && (
               <button className="btn ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => update("imageUrl", "")}>
                 Quitar imagen
@@ -2754,8 +2789,28 @@ function MenuEditor({ item, onClose, onSave, authToken }) {
               <div className="field"><label>Tags</label><input className="input" value={form.tags} onChange={(e) => update("tags", e.target.value)} placeholder="TOP,CHEF,Sin gluten" /></div>
             </div>
             <div className="field" style={{ marginTop: 10 }}>
-              <label>Descripción visible en cliente</label>
-              <textarea className="textarea" value={form.description} onChange={(e) => update("description", e.target.value)} />
+              <label>Descripción corta <small style={{ color: "var(--dim)", fontWeight: 400 }}>(bajo el nombre en la carta)</small></label>
+              <input className="input" maxLength={90} value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Ej: Papas fritas, cebolla y huevo" />
+            </div>
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>Detalle del plato <small style={{ color: "var(--dim)", fontWeight: 400 }}>(opcional, se ve al tocar el plato)</small></label>
+              <textarea className="textarea" value={form.detail || ""} onChange={(e) => update("detail", e.target.value)} placeholder="Cómo se prepara, de dónde vienen los ingredientes…" />
+            </div>
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>Alérgenos <small style={{ color: "var(--dim)", fontWeight: 400 }}>(los ve el cliente al tocar el plato)</small></label>
+              {(() => {
+                const sel = Array.isArray(form.allergens) ? form.allergens : [];
+                const none = sel.includes("ninguno");
+                const extra = sel.filter((a) => a !== "ninguno" && !ALERGENOS.includes(a));
+                const toggle = (a) => update("allergens", sel.includes(a) ? sel.filter((x) => x !== a) : [...sel.filter((x) => x !== "ninguno"), a]);
+                return <>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", marginTop: 6 }}>
+                    {[...ALERGENOS, ...extra].map((a) => <label className="toggle" key={a}><input type="checkbox" checked={sel.includes(a)} disabled={none} onChange={() => toggle(a)} /> {a}</label>)}
+                  </div>
+                  <label className="toggle" style={{ marginTop: 10 }}><input type="checkbox" checked={none} onChange={(e) => update("allergens", e.target.checked ? ["ninguno"] : [])} /> No contiene alérgenos comunes</label>
+                  <small style={{ color: "var(--dim)", display: "block", marginTop: 6 }}>Si no marcas nada, el cliente verá “sin información” y se le pedirá avisar al camarero. Marca esto solo si estás seguro.</small>
+                </>;
+              })()}
             </div>
           </div>
         </div>

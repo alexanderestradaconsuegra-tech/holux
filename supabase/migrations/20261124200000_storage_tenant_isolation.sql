@@ -1,6 +1,5 @@
--- ESTADO: PENDIENTE DE APLICAR (24 nov. 2026). Aplicar solo junto con el cambio de
--- admin.jsx que sube las fotos a `<restaurant_id>/<archivo>`: con el panel actual,
--- que sube sin carpeta, estas políticas rechazarían todas las subidas.
+-- ESTADO: APLICADA el 24 nov. 2026 (junto con el cambio de admin.jsx que sube a
+-- `<restaurant_id>/<archivo>`; el panel antiguo, que subía sin carpeta, ya no puede subir).
 
 -- Fotos de platos y de personal: cada restaurante solo escribe en su carpeta.
 --

@@ -294,7 +294,7 @@ function DishDetail({ dish, inCart = 0, onClose, onAdd }) {
       {dish.subtitle && <p className="sub">{dish.subtitle}</p>}
       <div className="facts">{tagList.map((t) => <span className="tag" key={t}>{t}</span>)}<span>{dish.minutes || dish.avgPrep || 0} min</span>{dish.kcal ? <span>{dish.kcal} kcal</span> : null}</div>
       {dish.detail && <p className="desc">{dish.detail}</p>}
-      <div className="info-block"><b>Alérgenos</b>{allergens.length ? `Contiene: ${allergens.join(", ")}.` : "Sin información cargada. Si tienes alguna alergia, avisa al camarero."}</div>
+      <div className="info-block"><b>Alérgenos</b>{allergens.includes("ninguno") ? "El restaurante no declara alérgenos comunes en este plato. Si tienes una alergia grave, avisa igual al camarero." : allergens.length ? `Contiene: ${allergens.join(", ")}.` : "Sin información cargada. Si tienes alguna alergia, avisa al camarero."}</div>
       {dish.pair && <div className="info-block"><b>Maridaje sugerido</b>{dish.pair}</div>}
       <label className="info-block" style={{ display: "block" }}><b>Indicaciones para este plato</b><textarea className="searchbox" maxLength={120} rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Sin cebolla, punto de la carne, sin picante..." style={{ width: "100%", marginTop: 6, color: "var(--text)", resize: "none", fontFamily: "inherit" }} /></label>
       {inCart > 0 && <p className="sub" style={{ margin: "12px 2px 0" }}>Ya tienes {inCart} en tu pedido.</p>}

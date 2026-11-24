@@ -1,9 +1,9 @@
 # HOLU — por hacer
 
 ## Siguiente
-- **Carta de mesa (`mesa.jsx`)**: hecho el botón +, la tarjeta del plato, el contraste y el detalle
-  por plato (24 nov.). Falta: acortar la portada para llegar antes a la carta, y un botón en el
-  panel para subir fotos de los platos y cargar alérgenos/descripción.
+- **Carta de mesa (`mesa.jsx`)**: hechos el botón +, la tarjeta del plato, el contraste, el detalle
+  por plato y, en el panel, subir foto (reducida, por carpeta de restaurante), alérgenos y detalle.
+  Falta: acortar la portada para llegar antes a la carta.
 - **Terminal de ventas / toma de pedidos desde el panel**: hoy el personal no puede
   ingresar un pedido (ni venta de mostrador) desde `admin.jsx`; solo cobra lo que llega
   por QR/kiosco. Ver conversación del 24 nov. 2026.

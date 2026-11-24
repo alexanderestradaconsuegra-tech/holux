@@ -141,6 +141,16 @@ para no perder el hilo en la próxima sesión.
   errorWorkflow = yDjW10KL9aUJTtEL` (las ejecuciones manuales no disparan el aviso).
   Pruebas: `node n8n/tests/holu-aviso-fallos.test.cjs`.
 
+- **Fotos de carta y de personal (24 nov. 2026).** Las políticas de `storage.objects`
+  dejaban a cualquier usuario autenticado subir, reemplazar o borrar archivos de
+  `menu-images` y `staff-avatars` sin mirar el restaurante. Ahora solo se escribe en
+  la carpeta `<restaurant_id>/` del propio usuario (migración
+  `20261124200000_storage_tenant_isolation.sql`); la lectura sigue pública porque la
+  carta del cliente carga las fotos sin sesión. Probado en la base con un usuario
+  simulado: subir a su carpeta pasa; a la de otro restaurante o sin carpeta se rechaza.
+  `admin.jsx` sube a esa carpeta y reduce la foto antes (lado mayor 1280 px, JPEG): hay
+  que redesplegar `admin` o las subidas del panel viejo fallan.
+
 ## Acción requerida AHORA en EasyPanel
 
 Agregar `HOLU_INTERNAL_SECRET` como variable de entorno en el servicio de
