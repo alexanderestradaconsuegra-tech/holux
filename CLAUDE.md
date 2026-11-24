@@ -71,9 +71,13 @@ token global compartido) y aislamiento por `restaurant_id` vía RLS.
   antes/después antes de decir que está listo — no alcanza con que compile.
 - Si tocaste un workflow de n8n, avisá qué variables de entorno nuevas necesita EasyPanel
   (nada se hereda solo ahí) y qué nodo webhook expone qué path, para evitar duplicados.
-- EasyPanel no reconstruye solo con un push nuevo: si algo "no se ve", antes de sospechar
-  del código, recordar al usuario subir el número de `cachebust` en el Dockerfile del
-  servicio y redesplegar.
+- Ya no hay número de `cachebust` que subir: `COPY . .` invalida el caché cuando cambia
+  cualquier archivo y EasyPanel pasa `GIT_SHA` en cada deploy. Si después de un deploy "no se
+  ve nada", abre `<dominio del servicio>/version.txt` (hora, vista y commit del build) o mira
+  la etiqueta "Versión" (panel: abajo a la izquierda; mesa: al final de la portada) y compara con
+  el último commit de la rama. Si el commit es viejo, el servicio apunta a otra rama (debe ser
+  `claude/elegant-darwin-zcAa4`) o el deploy se lanzó antes del push; si es el nuevo y igual no se
+  ve, es caché del navegador. No agregues `serve.json` con `headers`: con `serve` rompe el servidor.
 
 ## Seguridad
 

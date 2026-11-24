@@ -1137,7 +1137,7 @@ function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restau
         <div style={{display:"flex", gap:10, alignItems:"center"}}><StaffAvatar staff={currentStaff} /><div><b>{currentStaff.name}</b><small style={{display:"block", color:"var(--muted)", marginTop:3}}>{ROLE_DISPLAY[role] || "Camarero"}</small></div></div>
       </div>
       <nav className="nav">{tabs.map(([id, label, ic]) => <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{ic}<span>{label}</span></button>)}</nav>
-      <div className="side-footer">Conectado a QR de mesas, cocina y panel de cliente. El rol Camarero no accede a ventas ni configuración financiera.</div>
+      <div className="side-footer"><div style={{ opacity: .55, fontSize: 10, marginBottom: 6 }} title="Si acabas de hacer deploy y no ves los cambios, compara esta hora">Versión {typeof __HOLU_BUILD__ !== "undefined" ? __HOLU_BUILD__ : "local"}</div>Conectado a QR de mesas, cocina y panel de cliente. El rol Camarero no accede a ventas ni configuración financiera.</div>
       {onLogout && <button className="btn ghost" style={{width:"100%",marginTop:10,fontSize:12}} onClick={onLogout}>Cerrar sesión</button>}
     </aside>
     <div className="mobile-top">{tabs.map(([id, label]) => <button className={`btn ${tab === id ? "primary" : "ghost"}`} key={id} onClick={() => setTab(id)}>{label}</button>)}</div>

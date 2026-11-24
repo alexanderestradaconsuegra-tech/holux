@@ -7,9 +7,7 @@
 - **Toma de pedidos desde el panel (24 nov.)**: hecha (mesa y mostrador). Limitación: el mostrador
   es una sola mesa; si hay dos clientes a la vez, sus pedidos se suman en la misma cuenta, así que hay
   que cobrar uno antes de tomar el siguiente. Falta, si hace falta: dividir la cuenta por pedido.
-- **Bug de números de pedido (n8n)**: `Validate & Transform1` arma `ORD-` + 4 dígitos al azar; con unos
-  cientos de pedidos empiezan a chocar y el pedido del cliente falla. Cambiar a un id más largo
-  (la base ya genera `ORD-` + 8 caracteres por defecto).
+- ~~Bug de números de pedido (n8n)~~: arreglado, ahora `ORD-` + 8 caracteres hex (probado con un pedido real).
 
 ## Después
 - **WhatsApp en el aviso de fallos**: agregar en n8n `EVOLUTION_API_URL`,

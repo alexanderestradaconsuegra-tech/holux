@@ -6,7 +6,10 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-ARG CACHEBUST=2
+# EasyPanel pasa GIT_SHA en cada deploy: si cambia el commit, se reconstruye solo.
+# (COPY . . ya invalida el caché cuando cambia cualquier archivo; no hay número que subir.)
+ARG GIT_SHA=""
+ENV GIT_SHA=$GIT_SHA
 COPY . .
 RUN cp .env.delivery.production .env.production && npm run build
 
