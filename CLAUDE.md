@@ -34,6 +34,19 @@ token global compartido) y aislamiento por `restaurant_id` vía RLS.
   mostrado coincida con lo que realmente cobra el n8n de suscripciones (son dos cosas
   separadas a propósito, ver el comentario arriba de `PLAN` en `Landing.tsx`).
 
+## Caja y cobro (nov. 2026)
+
+- `orders.status` es **solo de cocina** (recibido → preparando → servido). Que un
+  pedido esté pagado lo dice `orders.paid_at`, nunca `status = 'served'`. Ventas
+  (`sales_summary`, `dish_sales`) y la cuenta de la mesa (`recalc_table_bill`)
+  leen `paid_at`.
+- Todo cobro pasa por el RPC `pay_table_part` (cobrar todo junto también: es
+  pagar el saldo completo). Nunca sumes totales de caja en el navegador ni hagas
+  PATCH a `cash_sessions` con montos: los totales solo los mueve un cobro dentro
+  de la base. Gastos → `add_cash_expense`, cierre → `close_cash_session`.
+- `p_amount` es consumo; la propina va aparte en `p_tip` y se cobra una sola vez
+  por mesa. El efectivo esperado (`cash_session_expected`) es solo efectivo.
+
 ## Después de terminar un cambio
 
 - Si tocaste una migración SQL con un `check constraint`, revisá los valores permitidos

@@ -100,7 +100,14 @@ const supaFetch = (path, opts = {}, authToken = null) => {
     Prefer: opts.prefer || "return=representation",
   };
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...opts, headers }).then((r) => {
-    if (!r.ok) return r.text().then((t) => Promise.reject(new Error(`Supabase ${r.status}: ${t.slice(0, 120)}`)));
+    // Errors raised on purpose inside a database function ("La caja está
+    // cerrada...") come back as JSON with a readable `message`; show that to
+    // the cashier instead of a truncated blob.
+    if (!r.ok) return r.text().then((t) => {
+      let msg = "";
+      try { msg = JSON.parse(t)?.message || ""; } catch {}
+      return Promise.reject(new Error(msg || `Supabase ${r.status}: ${t.slice(0, 120)}`));
+    });
     const ct = r.headers.get("content-type") || "";
     if (r.status === 204 || !ct.includes("json")) return null;
     return r.json();
@@ -252,7 +259,10 @@ const dbMenuItemToUI = (m) => ({
   sortOrder: m.sort_order || 0,
 });
 
-const money = (n) => `$${Number(n || 0).toLocaleString("es-CL")}`;
+const money = (n) => {
+  const v = Number(n || 0);
+  return `${v < 0 ? "-" : ""}$${Math.abs(v).toLocaleString("es-CL")}`;
+};
 
 // Legal identity printed on customer receipts and cash-closing reports. It
 // starts blank and is filled from the restaurants row: these fields used to
@@ -623,9 +633,10 @@ function useBackofficeState(authToken = null) {
           return;
         }
         cashSessionId.current = open.id;
-        const [moves, spend] = await Promise.all([
+        const [moves, spend, expectedCash] = await Promise.all([
           supaGet(`cash_movements?session_id=eq.${encodeURIComponent(open.id)}&order=created_at.desc&limit=40`, authToken),
           supaGet(`expenses?cash_session_id=eq.${encodeURIComponent(open.id)}&order=created_at.desc&limit=40`, authToken),
+          supaRpc("cash_session_expected", { p_session_id: open.id }, authToken),
         ]);
         if (Array.isArray(spend)) setExpenses(spend.map((e) => ({
           id: e.id, type: e.expense_type, detail: e.detail, amount: e.amount, userId: e.staff_id,
@@ -646,7 +657,9 @@ function useBackofficeState(authToken = null) {
           transfer: open.transfer_total || 0,
           tips: open.tips_total || 0,
           expenses: open.expenses_total || 0,
-          expected: (open.opening_cash || 0) + (open.cash_total || 0) + (open.card_total || 0) + (open.transfer_total || 0) - (open.expenses_total || 0),
+          // Cash only, computed by the database: card and transfer never pass
+          // through the drawer, so adding them made every count look short.
+          expected: Number(expectedCash) || 0,
           history: Array.isArray(moves) ? moves.map((m) => ({
             time: new Date(m.created_at).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
             userId: m.staff_id, action: m.action, detail: m.detail || "",
@@ -790,6 +803,7 @@ function useBackofficeState(authToken = null) {
     const outcome = Array.isArray(result) ? result[0] : result;
     if (outcome === "forbidden") throw new Error("No tienes permiso para anular este pedido");
     if (outcome === "not_found") throw new Error("El pedido ya no existe");
+    if (outcome === "already_paid") throw new Error("Este pedido ya está cobrado y no se puede anular");
     setOrders((rows) => rows.filter((o) => o.id !== id));
     return outcome;
   };
@@ -911,25 +925,26 @@ function useBackofficeState(authToken = null) {
     } catch (e) { console.error("[holu caja] abrir:", e.message); }
   };
 
-  const closeCash = async (userId, counted = null) => {
+  // The database works out the expected cash and stores the count and the
+  // difference. The totals themselves are never written from here: only a
+  // payment moves them, so a stale screen can't wipe out a charge taken on
+  // another device.
+  const closeCash = async (userId, counted) => {
+    const rows = await supaRpc("close_cash_session", {
+      p_counted: Math.round(Number(counted)),
+      p_staff_id: isStaffUuid(userId) ? userId : null,
+    }, authToken);
+    const r = Array.isArray(rows) ? rows[0] : rows;
     const closedAt = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
-    await logMovement(userId, "Cerró caja", "Cierre validado del turno");
-    setCashSession((s) => {
-      const countedVal = counted == null ? s.expected : Number(counted);
-      return { ...s, status: "cerrada", closedAt, currentUser: userId, counted: countedVal, difference: countedVal - s.expected };
-    });
-    if (!cashSessionId.current) return;
-    try {
-      await supaPatch(`cash_sessions?id=eq.${encodeURIComponent(cashSessionId.current)}`, {
-        status: "closed",
-        closed_at: new Date().toISOString(),
-        closed_by: isStaffUuid(userId) ? userId : null,
-        cash_total: cashSession.cash, card_total: cashSession.card,
-        transfer_total: cashSession.transfer, tips_total: cashSession.tips,
-        expenses_total: cashSession.expenses,
-      }, authToken);
-    } catch (e) { console.error("[holu caja] cerrar:", e.message); }
+    setCashSession((s) => ({
+      ...s, status: "cerrada", closedAt, currentUser: userId,
+      expected: r?.expected ?? s.expected,
+      counted: r?.counted ?? Math.round(Number(counted)),
+      difference: r?.difference ?? 0,
+      history: [{ time: closedAt, userId, action: "Cerró caja", detail: `Contado ${money(r?.counted ?? counted)} · diferencia ${money(r?.difference ?? 0)}` }, ...(s.history || [])],
+    }));
     cashSessionId.current = null;
+    return r;
   };
 
   const changeTurn = async (userId, turn) => {
@@ -942,22 +957,16 @@ function useBackofficeState(authToken = null) {
 
   const closeTurn = (userId) => logMovement(userId, "Cerró turno", `Responsable: ${getStaff(userId).name}`);
 
+  // One database call records the expense, adds it to the shift's total and
+  // logs the movement, then the till is reloaded so the expected cash drops.
   const addExpense = async (expense) => {
-    const amount = Number(expense.amount) || 0;
-    const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
-    setExpenses((rows) => [{ ...expense, id: `E-${Date.now()}`, time }, ...rows]);
-    setCashSession((s) => ({ ...s, expenses: s.expenses + amount, expected: s.expected - amount }));
-    try {
-      await supaPost(`expenses`, {
-        restaurant_id: getRestaurantId(),
-        cash_session_id: cashSessionId.current,
-        staff_id: isStaffUuid(expense.userId) ? expense.userId : null,
-        expense_type: expense.type || "Caja",
-        detail: expense.detail,
-        amount,
-      }, authToken);
-    } catch (e) { console.error("[holu caja] gasto:", e.message); }
-    await logMovement(expense.userId, "Registró gasto", `${expense.detail} · ${money(amount)}`, -amount);
+    await supaRpc("add_cash_expense", {
+      p_type: expense.type || "Caja",
+      p_detail: expense.detail,
+      p_amount: Math.round(Number(expense.amount) || 0),
+      p_staff_id: isStaffUuid(expense.userId) ? expense.userId : null,
+    }, authToken);
+    await refreshCashSession();
   };
 
   const updateInventoryStock = async (id, stock) => {
@@ -996,47 +1005,7 @@ function useBackofficeState(authToken = null) {
     return r || { paid: 0, remaining: 0, settled: false };
   };
 
-  const cobrarMesa = async (tableId, callId, method, tipAccepted, total, tipAmt, staffUserId) => {
-    setTables((rows) => rows.map((t) => t.id === tableId ? { ...t, status: "Libre", bill: 0, tipAccepted: false, tipAmount: 0, guests: 0, waiterId: null } : t));
-    setCalls((rows) => rows.filter((c) => c.table !== tableId));
-    const time = new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
-    let totals = null;
-    setCashSession((s) => {
-      const next = {
-        ...s,
-        cash:     method === "Efectivo"      ? s.cash     + total : s.cash,
-        card:     method === "Tarjeta"       ? s.card     + total : s.card,
-        transfer: method === "Transferencia" ? s.transfer + total : s.transfer,
-        tips:     s.tips + tipAmt,
-        expected: s.expected + total,
-        history: [{ time, userId: staffUserId, action: "Cobro registrado", detail: `Mesa ${tableId} · ${money(total)} · ${method}` }, ...(s.history || [])],
-      };
-      totals = next;
-      return next;
-    });
-    if (cashSessionId.current && totals) {
-      try {
-        await supaPatch(`cash_sessions?id=eq.${encodeURIComponent(cashSessionId.current)}`, {
-          cash_total: totals.cash, card_total: totals.card,
-          transfer_total: totals.transfer, tips_total: totals.tips,
-        }, authToken);
-        await supaPost(`cash_movements`, {
-          restaurant_id: getRestaurantId(),
-          session_id: cashSessionId.current,
-          staff_id: isStaffUuid(staffUserId) ? staffUserId : null,
-          action: "Cobro registrado",
-          detail: `Mesa ${tableId} · ${money(total)} · ${method}`,
-          amount: total,
-        }, authToken);
-      } catch (e) { console.error("[holu caja] cobro:", e.message); }
-    }
-    try {
-      await supaPatch(`calls?table_id=eq.${tableId}&status=neq.Resuelto&restaurant_id=eq.${getRestaurantId()}`, { status: "Resuelto", resolved_at: new Date().toISOString() }, authToken);
-      await supaPatch(`orders?table_id=eq.${tableId}&status=neq.served&restaurant_id=eq.${getRestaurantId()}`, { status: "served" }, authToken);
-      await supaPatch(`tables?id=eq.${tableId}&restaurant_id=eq.${getRestaurantId()}`, { status: "Libre", guests: 0, bill_total: 0, tip_accepted: false, tip_amount: 0, waiter_id: null }, authToken);
-    } catch (e) { console.error("[holu admin] cobrarMesa:", e.message); }
-  };
-  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, payTablePart, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter, cobrarMesa };
+  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, payTablePart, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter };
 }
 
 function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restaurantName, deliveryEnabled }) {
@@ -1149,93 +1118,135 @@ function Dashboard({ role, staffId, state, onGoToCaja }) {
   </div>;
 }
 
-function CobrarModal({ table, callId, state, staffId, onClose }) {
+// Every charge goes through pay_table_part, whether it settles the whole table
+// at once or one share of a split. The database owns the numbers — what the
+// table owes, what was already paid in this sitting and whether the tip was
+// already charged — so closing this window halfway through a split and opening
+// it again picks up exactly where it was.
+function CobrarModal({ table, state, staffId, onClose }) {
   const [method, setMethod] = useState("Efectivo");
-  const [tip, setTip] = useState(false);
-  const [done, setDone] = useState(false);
+  const [tip, setTip] = useState(!!table.tipAccepted);
   const [split, setSplit] = useState(false);
   const [parts, setParts] = useState(2);
   const [custom, setCustom] = useState("");
-  const [paid, setPaid] = useState(0);
+  const [status, setStatus] = useState(null);
+  const [lines, setLines] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const subtotal = table.bill || 0;
-  const tipAmt = tip ? Math.round(subtotal * 0.1) : 0;
-  const total = subtotal + tipAmt;
-  const tableOrders = state.orders.filter((o) => o.table === table.id);
+  const [done, setDone] = useState(null);
+  const authToken = state.authToken;
+  const cajaAbierta = state.cashSession.status === "abierta";
+  const title = table.label || `Mesa ${table.tableNumber ?? table.id}`;
 
-  // What is still owed after whatever has already been taken in this sitting.
-  const remaining = Math.max(0, total - paid);
-  // The last share absorbs the rounding, so splitting 68.400 in three collects
-  // exactly 68.400 and not 68.399.
-  const perPart = parts > 0 ? Math.floor(remaining / parts) : remaining;
-  const suggested = parts <= 1 ? remaining : perPart;
-
-  const handleCobrar = async () => {
-    setBusy(true); setErr("");
+  const load = async () => {
     try {
-      await state.cobrarMesa(table.id, callId, method, tip, total, tipAmt, staffId);
-      setDone(true);
-      setTimeout(onClose, 1800);
-    } catch (e) { setErr(e.message.slice(0, 140)); setBusy(false); }
-  };
-
-  // Each share is its own payment, so different people can pay different ways.
-  // The tip rides on the first one only — charging it per share would multiply
-  // it by the number of people splitting.
-  const handlePart = async () => {
-    const amount = custom !== "" ? Math.round(Number(custom)) : suggested;
-    if (!amount || amount <= 0) return setErr("Monto inválido");
-    if (amount > remaining) return setErr(`No puede superar lo que falta (${money(remaining)})`);
-    setBusy(true); setErr("");
-    try {
-      const r = await state.payTablePart(table.id, amount, paid === 0 ? tipAmt : 0, method, staffId);
-      setCustom("");
-      if (r.settled) {
-        setDone(true);
-        setTimeout(onClose, 1800);
-      } else {
-        setPaid((p) => p + amount);
+      const [rows, orders] = await Promise.all([
+        supaRpc("table_bill_status", { p_table_id: table.id }, authToken),
+        supaGet(`orders?restaurant_id=eq.${getRestaurantId()}&table_id=eq.${table.id}&paid_at=is.null&status=neq.cancelled&select=id,order_items(dish_name,qty,unit_price)&order=created_at.asc`, authToken),
+      ]);
+      const s = Array.isArray(rows) ? rows[0] : rows;
+      setStatus({ bill: s?.bill || 0, paid: s?.paid || 0, remaining: s?.remaining || 0, tipPaid: s?.tip_paid || 0 });
+      if (Array.isArray(orders)) {
+        setLines(orders.flatMap((o) => (o.order_items || []).map((i, idx) => ({
+          key: `${o.id}-${idx}`, dish: i.dish_name, qty: i.qty, price: i.unit_price || 0,
+        }))));
       }
-    } catch (e) { setErr(e.message.slice(0, 140)); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setErr(e.message.slice(0, 160));
+      setStatus((prev) => prev || { bill: 0, paid: 0, remaining: 0, tipPaid: 0 });
+    }
   };
+  useEffect(() => { load(); }, [table.id]);
 
   if (done) return (
     <div className="modal-backdrop">
       <div className="modal" style={{ textAlign: "center", padding: "40px 24px" }}>
         <div style={{ fontSize: 52, marginBottom: 12 }}>✓</div>
-        <h2 style={{ margin: "0 0 8px" }}>Mesa {table.id} cobrada</h2>
-        <p style={{ color: "var(--muted)", margin: 0 }}>{money(total)} · {method}</p>
+        <h2 style={{ margin: "0 0 8px" }}>{title} cobrada</h2>
+        <p style={{ color: "var(--muted)", margin: 0 }}>{money(done.amount)} · {done.method}</p>
       </div>
     </div>
   );
+
+  if (!status) return (
+    <div className="modal-backdrop">
+      <div className="modal" style={{ textAlign: "center", padding: "40px 24px" }}>
+        <p style={{ color: "var(--muted)", margin: 0 }}>Cargando cuenta...</p>
+      </div>
+    </div>
+  );
+
+  const { bill, paid, remaining, tipPaid } = status;
+  // The tip is charged once per table, on the first payment — never per share,
+  // or a four-way split would collect it four times.
+  const tipAlready = tipPaid > 0;
+  const tipAmt = Math.round(bill * 0.1);
+  const tipNow = tip && !tipAlready ? tipAmt : 0;
+  // Shares are sized from the whole bill rather than from what's left, so the
+  // third payment of a three-way split is still a third. The last share takes
+  // whatever remains, which absorbs the rounding.
+  const share = Math.floor(bill / Math.max(1, parts));
+  const suggested = remaining < share * 2 ? remaining : share;
+  const amount = split ? (custom !== "" ? Math.round(Number(custom)) || 0 : suggested) : remaining;
+  const chargeNow = amount + tipNow;
+  const canCharge = cajaAbierta && remaining > 0 && !busy;
+
+  const handleCharge = async () => {
+    if (!amount || amount <= 0) return setErr("Monto inválido");
+    if (amount > remaining) return setErr(`No puede superar lo que falta (${money(remaining)})`);
+    setBusy(true); setErr("");
+    try {
+      const r = await state.payTablePart(table.id, amount, tipNow, method, staffId);
+      setCustom("");
+      if (r.settled) {
+        setDone({ amount: chargeNow, method });
+        setTimeout(onClose, 1800);
+      } else {
+        await load();
+      }
+    } catch (e) { setErr(e.message.slice(0, 160)); }
+    finally { setBusy(false); }
+  };
 
   return (
     <div className="modal-backdrop">
       <div className="modal">
         <div className="panel-head">
-          <div><h2>Cobrar Mesa {table.id}</h2><p style={{ margin: "4px 0 0", color: "var(--muted)" }}>{table.zone} · {table.guests || 0} clientes</p></div>
+          <div><h2>Cobrar {title}</h2><p style={{ margin: "4px 0 0", color: "var(--muted)" }}>{table.zone} · {table.guests || 0} clientes</p></div>
           <button className="btn ghost" onClick={onClose}>Cancelar</button>
         </div>
-        {tableOrders.length > 0 && (
-          <div style={{ margin: "12px 0" }}>
-            {tableOrders.map((o) => o.items.map((item, i) => (
-              <div key={`${o.id}-${i}`} className="receipt-row"><span>{item.qty}× {item.dish}</span><span>{money((item.price || 0) * item.qty)}</span></div>
-            )))}
+
+        {!cajaAbierta && (
+          <div style={{ background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, padding: "10px 14px", margin: "12px 0 0", fontSize: 13 }}>
+            La caja está cerrada. Ábrela en la pestaña <b>Caja</b> antes de cobrar.
           </div>
         )}
-        {tableOrders.length === 0 && subtotal > 0 && (
-          <div className="receipt-row" style={{ margin: "12px 0" }}><span>Consumo mesa</span><span>{money(subtotal)}</span></div>
+
+        {lines.length > 0 ? (
+          <div style={{ margin: "12px 0" }}>
+            {lines.map((item) => (
+              <div key={item.key} className="receipt-row"><span>{item.qty}× {item.dish}</span><span>{money(item.price * item.qty)}</span></div>
+            ))}
+          </div>
+        ) : bill > 0 ? (
+          <div className="receipt-row" style={{ margin: "12px 0" }}><span>Consumo mesa</span><span>{money(bill)}</span></div>
+        ) : (
+          <p style={{ color: "var(--muted)", margin: "12px 0" }}>Esta mesa no tiene nada pendiente por cobrar.</p>
         )}
         <div className="dash" />
+
         <div style={{ margin: "14px 0" }}>
           <b style={{ fontSize: 13, color: "var(--muted)" }}>PROPINA</b>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button className={`btn ${tip ? "primary" : "ghost"}`} onClick={() => setTip(true)}>+ {money(Math.round(subtotal * 0.1))} (10%)</button>
-            <button className={`btn ${!tip ? "primary" : "ghost"}`} onClick={() => setTip(false)}>Sin propina</button>
-          </div>
+          {tipAlready ? (
+            <div className="receipt-row" style={{ marginTop: 8 }}><span>Ya cobrada en un pago anterior</span><b>{money(tipPaid)}</b></div>
+          ) : (
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button className={`btn ${tip ? "primary" : "ghost"}`} onClick={() => setTip(true)}>+ {money(tipAmt)} (10%)</button>
+              <button className={`btn ${!tip ? "primary" : "ghost"}`} onClick={() => setTip(false)}>Sin propina</button>
+            </div>
+          )}
         </div>
+
         <div style={{ margin: "14px 0" }}>
           <b style={{ fontSize: 13, color: "var(--muted)" }}>MÉTODO DE PAGO</b>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -1245,8 +1256,9 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
           </div>
         </div>
         <div className="dash" />
+
         <div className="receipt-row receipt-total" style={{ fontSize: 20, margin: "14px 0" }}>
-          <span>Total</span><b>{money(total)}</b>
+          <span>Total</span><b>{money(bill + (tipAlready ? tipPaid : tipNow))}</b>
         </div>
 
         {paid > 0 && (
@@ -1256,7 +1268,7 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
           </div>
         )}
 
-        <button className="btn ghost" style={{ width: "100%", marginBottom: 10 }} onClick={() => { setSplit(!split); setErr(""); }}>
+        <button className="btn ghost" style={{ width: "100%", marginBottom: 10 }} onClick={() => { setSplit(!split); setCustom(""); setErr(""); }}>
           {split ? "Cobrar todo junto" : "Dividir la cuenta"}
         </button>
 
@@ -1273,22 +1285,17 @@ function CobrarModal({ table, callId, state, staffId, onClose }) {
               <input className="input" type="number" min="1" max={remaining} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={String(suggested)} />
             </div>
             <p style={{ color: "var(--dim)", fontSize: 12, lineHeight: 1.5, margin: "10px 0 0" }}>
-              Cada pago se registra por separado con su método. La mesa se libera sola cuando esté todo pagado.
+              Cada pago se registra por separado con su método. La propina se cobra una sola vez, en el primer pago. La mesa se libera sola cuando esté todo pagado.
             </p>
           </div>
         )}
 
         {err && <p style={{ color: "var(--red2)", fontSize: 13, margin: "0 0 10px" }}>{err}</p>}
 
-        {split ? (
-          <button className="btn primary" style={{ width: "100%", padding: "15px 0", fontSize: 16 }} onClick={handlePart} disabled={busy}>
-            {busy ? "Cobrando..." : `Cobrar ${money(custom !== "" ? Math.round(Number(custom)) || 0 : suggested)} · ${method}`}
-          </button>
-        ) : (
-          <button className="btn primary" style={{ width: "100%", padding: "15px 0", fontSize: 16, marginTop: 4 }} onClick={handleCobrar} disabled={busy}>
-            {busy ? "Cobrando..." : `Cobrar ${money(total)} · ${method}`}
-          </button>
-        )}
+        <button className="btn primary" style={{ width: "100%", padding: "15px 0", fontSize: 16, marginTop: 4 }} onClick={handleCharge} disabled={!canCharge}>
+          {busy ? "Cobrando..." : `Cobrar ${money(chargeNow)} · ${method}`}
+        </button>
+        {tipNow > 0 && <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", margin: "8px 0 0" }}>Incluye {money(tipNow)} de propina</p>}
       </div>
     </div>
   );
@@ -1414,7 +1421,7 @@ function TableDrawer({ table, role, state, staffId, onClose }) {
   const suggestedTip = Math.round(liveTable.bill * 0.1);
   const total = liveTable.bill + liveTable.tipAmount;
   const generateReceipt = () => setShowReceipt(true);
-  return <aside className="drawer-lite"><div className="panel-head"><div><h2>Ficha Mesa {liveTable.id}</h2><p style={{margin:"4px 0 0"}}>Token QR {liveTable.qrToken} · {liveTable.zone}</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="list"><div className="row"><span className={`badge ${statusBadge(liveTable.status)}`}>{liveTable.status}</span><div className="row-main"><b>{liveTable.guests} clientes</b><small>Camarero: {waiter.name}</small></div><strong>{money(liveTable.bill)}</strong></div><div className="tip-box"><b>Propina sugerida 10%</b><p style={{margin:"6px 0",color:"var(--muted)"}}>El cliente decide si desea agregarla. Debe quedar registrado para cierre diario/semanal/mensual.</p><div className="receipt-row" style={{color:"var(--text)"}}><span>Subtotal mesa</span><b>{money(liveTable.bill)}</b></div><div className="receipt-row" style={{color:"var(--text)"}}><span>Propina 10%</span><b>{liveTable.tipAccepted ? money(liveTable.tipAmount) : `${money(suggestedTip)} sugerida`}</b></div><div className="receipt-row receipt-total" style={{color:"var(--text)"}}><span>Total cobro</span><b>{money(total)}</b></div><div className="tip-actions"><button className="btn primary" onClick={()=>state.setTableTip(liveTable.id, true)}>Agregar 10%</button><button className="btn ghost" onClick={()=>state.setTableTip(liveTable.id, false)}>Sin propina</button></div><small style={{display:"block",color:"var(--muted)",marginTop:10}}>Estado: {liveTable.tipAccepted ? "propina aceptada y registrada" : "sin propina registrada"}</small></div><div className="panel" style={{boxShadow:"none"}}><h2>Pedidos</h2>{tableOrders.map((o)=><p key={o.id} style={{color:"var(--muted)"}}><b>{o.id}</b> · {o.status} · {o.items.map(i=>`${i.qty}× ${i.dish}`).join(", ")}</p>)}</div><div className="panel" style={{boxShadow:"none"}}><h2>Mensajes del cliente</h2>{tableMessages.map((m)=><blockquote key={m.id} style={{background:"rgba(var(--surface-rgb),.05)",borderRadius:14,padding:"10px 12px",color:"#eadfd4"}}>{m.text}</blockquote>)}</div>{liveTable.bill > 0 && <button className="btn primary" style={{width:"100%",padding:"14px 0",fontSize:15,background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#160f02",marginBottom:8}} onClick={()=>setCobrarOpen(true)}>Cobrar mesa · {money(total)}</button>}{(role === "admin" || role === "caja") && <button className="btn ghost" style={{width:"100%"}} onClick={generateReceipt}>Generar boleta</button>}{showReceipt && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>Boleta generada</h2><p style={{margin:"4px 0 0"}}>Mesa {liveTable.id} · Total {money(total)}</p></div><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Cerrar</button></div><TableReceipt table={liveTable} waiter={waiter} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Volver</button><button className="btn primary" onClick={()=>window.print()}>Imprimir boleta</button></div></div></div>}{cobrarOpen && <CobrarModal table={liveTable} callId={null} state={state} staffId={staffId} onClose={()=>setCobrarOpen(false)} />}</div></aside>;
+  return <aside className="drawer-lite"><div className="panel-head"><div><h2>Ficha Mesa {liveTable.id}</h2><p style={{margin:"4px 0 0"}}>Token QR {liveTable.qrToken} · {liveTable.zone}</p></div><button className="btn ghost" onClick={onClose}>Cerrar</button></div><div className="list"><div className="row"><span className={`badge ${statusBadge(liveTable.status)}`}>{liveTable.status}</span><div className="row-main"><b>{liveTable.guests} clientes</b><small>Camarero: {waiter.name}</small></div><strong>{money(liveTable.bill)}</strong></div><div className="tip-box"><b>Propina sugerida 10%</b><p style={{margin:"6px 0",color:"var(--muted)"}}>El cliente decide si desea agregarla. Debe quedar registrado para cierre diario/semanal/mensual.</p><div className="receipt-row" style={{color:"var(--text)"}}><span>Subtotal mesa</span><b>{money(liveTable.bill)}</b></div><div className="receipt-row" style={{color:"var(--text)"}}><span>Propina 10%</span><b>{liveTable.tipAccepted ? money(liveTable.tipAmount) : `${money(suggestedTip)} sugerida`}</b></div><div className="receipt-row receipt-total" style={{color:"var(--text)"}}><span>Total cobro</span><b>{money(total)}</b></div><div className="tip-actions"><button className="btn primary" onClick={()=>state.setTableTip(liveTable.id, true)}>Agregar 10%</button><button className="btn ghost" onClick={()=>state.setTableTip(liveTable.id, false)}>Sin propina</button></div><small style={{display:"block",color:"var(--muted)",marginTop:10}}>Estado: {liveTable.tipAccepted ? "propina aceptada y registrada" : "sin propina registrada"}</small></div><div className="panel" style={{boxShadow:"none"}}><h2>Pedidos</h2>{tableOrders.map((o)=><p key={o.id} style={{color:"var(--muted)"}}><b>{o.id}</b> · {o.status} · {o.items.map(i=>`${i.qty}× ${i.dish}`).join(", ")}</p>)}</div><div className="panel" style={{boxShadow:"none"}}><h2>Mensajes del cliente</h2>{tableMessages.map((m)=><blockquote key={m.id} style={{background:"rgba(var(--surface-rgb),.05)",borderRadius:14,padding:"10px 12px",color:"#eadfd4"}}>{m.text}</blockquote>)}</div>{liveTable.bill > 0 && <button className="btn primary" style={{width:"100%",padding:"14px 0",fontSize:15,background:"linear-gradient(135deg,var(--gold),var(--gold2))",color:"#160f02",marginBottom:8}} onClick={()=>setCobrarOpen(true)}>Cobrar mesa · {money(total)}</button>}{(role === "admin" || role === "caja") && <button className="btn ghost" style={{width:"100%"}} onClick={generateReceipt}>Generar boleta</button>}{showReceipt && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><div><h2>Boleta generada</h2><p style={{margin:"4px 0 0"}}>Mesa {liveTable.id} · Total {money(total)}</p></div><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Cerrar</button></div><TableReceipt table={liveTable} waiter={waiter} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={()=>setShowReceipt(false)}>Volver</button><button className="btn primary" onClick={()=>window.print()}>Imprimir boleta</button></div></div></div>}{cobrarOpen && <CobrarModal table={liveTable} state={state} staffId={staffId} onClose={()=>setCobrarOpen(false)} />}</div></aside>;
 }
 
 function OrdersView({ role, staffId, state }) {
@@ -1524,7 +1531,7 @@ function CallRow({ call, state, actor, staffId }) {
         )}
       </div>
       {cobrarOpen && table && (
-        <CobrarModal table={table} callId={call.id} state={state} staffId={staffId} onClose={() => setCobrarOpen(false)} />
+        <CobrarModal table={table} state={state} staffId={staffId} onClose={() => setCobrarOpen(false)} />
       )}
     </>
   );
@@ -1597,7 +1604,7 @@ function KitchenView({ state }) {
 
 function CashCloseReport({ session, userId }) {
   const user = getStaff(userId || session.currentUser);
-  return <div className="close-report"><h2>Cierre de caja</h2><div className="muted2">{[getRestaurantInfo().legalName, getRestaurantInfo().rut && `RUT ${getRestaurantInfo().rut}`].filter(Boolean).join(" · ")}<br />Turno {session.activeTurn} · Responsable {user.name}<br />Apertura {session.openedAt} · Cierre {session.closedAt || "pendiente"}</div><div className="report-grid"><div className="report-box"><span>Fondo inicial</span><b>{money(session.openingCash)}</b></div><div className="report-box"><span>Efectivo</span><b>{money(session.cash)}</b></div><div className="report-box"><span>Tarjeta</span><b>{money(session.card)}</b></div><div className="report-box"><span>Transferencia</span><b>{money(session.transfer)}</b></div><div className="report-box"><span>Propinas</span><b>{money(session.tips)}</b></div><div className="report-box"><span>Gastos</span><b>{money(session.expenses)}</b></div><div className="report-box"><span>Total esperado</span><b>{money(session.expected)}</b></div><div className="report-box"><span>Diferencia</span><b>{money(session.difference)}</b></div></div><h3>Historial del turno</h3>{session.history.slice(0,6).map((h,idx)=><div className="receipt-row" key={idx}><span>{h.time} · {getStaff(h.userId).name}</span><b>{h.action}</b></div>)}<div className="signature-line">Firma responsable: {user.name}</div></div>;
+  return <div className="close-report"><h2>Cierre de caja</h2><div className="muted2">{[getRestaurantInfo().legalName, getRestaurantInfo().rut && `RUT ${getRestaurantInfo().rut}`].filter(Boolean).join(" · ")}<br />Turno {session.activeTurn} · Responsable {user.name}<br />Apertura {session.openedAt} · Cierre {session.closedAt || "pendiente"}</div><div className="report-grid"><div className="report-box"><span>Fondo inicial</span><b>{money(session.openingCash)}</b></div><div className="report-box"><span>Efectivo</span><b>{money(session.cash)}</b></div><div className="report-box"><span>Tarjeta</span><b>{money(session.card)}</b></div><div className="report-box"><span>Transferencia</span><b>{money(session.transfer)}</b></div><div className="report-box"><span>Propinas</span><b>{money(session.tips)}</b></div><div className="report-box"><span>Gastos</span><b>{money(session.expenses)}</b></div><div className="report-box"><span>Efectivo esperado</span><b>{money(session.expected)}</b></div><div className="report-box"><span>Efectivo contado</span><b>{money(session.counted)}</b></div><div className="report-box"><span>Diferencia</span><b>{money(session.difference)}</b></div></div><h3>Historial del turno</h3>{session.history.slice(0,6).map((h,idx)=><div className="receipt-row" key={idx}><span>{h.time} · {getStaff(h.userId).name}</span><b>{h.action}</b></div>)}<div className="signature-line">Firma responsable: {user.name}</div></div>;
 }
 
 function CashClosingView({ state, staffId }) {
@@ -1608,6 +1615,20 @@ function CashClosingView({ state, staffId }) {
   const [countedCash, setCountedCash] = useState("");
   const session = state.cashSession;
   const diffOk = session.difference === 0;
+  // The count only means something once the drawer was actually counted at
+  // closing time; before that there is nothing to call "cuadrado".
+  const counted = session.status === "cerrada" && !!session.closedAt;
+  const closeShift = async () => {
+    if (countedCash === "" || Number(countedCash) < 0) {
+      alert("Cuenta el efectivo del cajón e ingrésalo antes de cerrar la caja.");
+      return;
+    }
+    if (!window.confirm(`¿Cerrar la caja con ${money(Number(countedCash))} de efectivo contado?`)) return;
+    try {
+      await state.closeCash(staffId, Number(countedCash));
+      setCountedCash("");
+    } catch (e) { alert(e.message); }
+  };
   const responsible = getStaff(session.currentUser);
   const whatsappText = encodeURIComponent(`Cierre de caja ${getRestaurantInfo().name}
 Turno: ${session.activeTurn}
@@ -1616,6 +1637,8 @@ Efectivo: ${money(session.cash)}
 Tarjeta: ${money(session.card)}
 Transferencia: ${money(session.transfer)}
 Propinas: ${money(session.tips)}
+Efectivo esperado: ${money(session.expected)}
+Efectivo contado: ${money(session.counted)}
 Diferencia: ${money(session.difference)}`);
   const whatsappUrl = `https://wa.me/?text=${whatsappText}`;
   const downloadReport = () => {
@@ -1628,8 +1651,8 @@ Tarjeta: ${money(session.card)}
 Transferencia: ${money(session.transfer)}
 Propinas: ${money(session.tips)}
 Gastos: ${money(session.expenses)}
-Esperado: ${money(session.expected)}
-Contado: ${money(session.counted)}
+Efectivo esperado: ${money(session.expected)}
+Efectivo contado: ${money(session.counted)}
 Diferencia: ${money(session.difference)}`;
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -1641,15 +1664,17 @@ Diferencia: ${money(session.difference)}`;
   };
   return <div className="grid"><div className="shift-banner"><div><h2 style={{margin:0,fontFamily:"Playfair Display",fontSize:30}}>Caja {session.status}</h2><p style={{margin:"6px 0 0",color:"var(--muted)"}}>Turno {session.activeTurn} · Responsable actual: {responsible.name} · Apertura {session.openedAt}</p></div><div className="shift-actions">{session.status !== "abierta"
       ? <><input className="input" style={{width:150}} type="number" min="0" placeholder="Fondo inicial" value={openingCash} onChange={(e)=>setOpeningCash(e.target.value)} /><button className="btn primary" onClick={()=>state.openCash(staffId, Number(openingCash)||0, turn)}>Abrir caja</button></>
-      : <><button className="btn ghost" onClick={()=>state.closeTurn(staffId)}>Cerrar turno</button><input className="input" style={{width:150}} type="number" min="0" placeholder="Efectivo contado" value={countedCash} onChange={(e)=>setCountedCash(e.target.value)} /><button className="btn danger" onClick={()=>{ if(window.confirm("¿Cerrar la caja de este turno?")) state.closeCash(staffId, countedCash === "" ? null : Number(countedCash)); }}>Cerrar caja</button></>}</div></div><div className="panel"><div className="panel-head"><div><h2>Cambio de turno</h2><p style={{margin:"4px 0 0"}}>Cada acción queda asociada al usuario responsable.</p></div><span className={`badge ${session.status === "abierta" ? "green" : "red"}`}>{session.status}</span></div><div className="form-grid"><div className="field"><label>Turno activo</label><select className="input" value={turn} onChange={(e)=>setTurn(e.target.value)}><option>Día</option><option>Noche</option><option>Full</option></select></div><div className="field"><label>Responsable</label><select className="input" value={staffId} disabled><option>{getStaff(staffId).name}</option></select></div></div><button className="btn primary" style={{marginTop:12}} onClick={()=>state.changeTurn(staffId, turn)}>Cambiar turno</button></div><ExpenseRegister state={state} staffId={staffId} /><div className="panel"><div className="panel-head"><div><h2>Cierre de caja</h2><p style={{margin:"4px 0 0"}}>Control diario de ventas, propinas y diferencias de caja.</p></div><span className={`badge ${diffOk ? "green" : "red"}`}>{diffOk ? "Cuadrado" : "Diferencia"}</span></div><div className="cash-grid"><div className="cash-card"><span>Efectivo</span><strong>{money(session.cash)}</strong></div><div className="cash-card"><span>Tarjeta</span><strong>{money(session.card)}</strong></div><div className="cash-card"><span>Transferencia</span><strong>{money(session.transfer)}</strong></div><div className="cash-card"><span>Propinas</span><strong>{money(session.tips)}</strong></div><div className="cash-card"><span>Gastos</span><strong>{money(session.expenses)}</strong></div></div></div><div className="two"><div className="panel"><div className="panel-head"><h2>Resumen final</h2><span className="badge blue">Caja</span></div><div className="list"><div className="row"><span className="badge">Esperado</span><div className="row-main"><b>Total esperado</b><small>Suma de ventas y métodos de pago</small></div><strong>{money(session.expected)}</strong></div><div className="row"><span className="badge green">Contado</span><div className="row-main"><b>Total contado</b><small>Conteo físico del turno</small></div><strong>{money(session.counted)}</strong></div><div className="row"><span className={`badge ${diffOk ? "green" : "red"}`}>Diferencia</span><div className="row-main"><b>Ajuste</b><small>Debe ser 0 para cierre correcto</small></div><strong>{money(session.difference)}</strong></div></div><div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}><button className="btn primary" onClick={()=>setReportOpen(true)}>Ver cierre</button><button className="btn ghost" onClick={()=>window.print()}>Imprimir</button><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button></div></div><div className="panel"><div className="panel-head"><h2>Propinas registradas</h2><span className="badge">10%</span></div><div className="list">{state.tables.filter((t)=>t.bill > 0).map((t)=><div className="row" key={t.id}><span className={`badge ${t.tipAccepted ? "green" : "red"}`}>Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.tipAccepted ? "Cliente aceptó propina" : "Cliente rechazó propina"}</small></div><strong>{money(t.tipAmount)}</strong></div>)}</div></div></div><div className="panel"><div className="panel-head"><h2>Historial de caja/turno</h2><span className="badge purple">Auditoría</span></div><div className="list">{session.history.map((h,idx)=><div className="row" key={idx}><span className="badge">{h.time}</span><div className="row-main"><b>{h.action}</b><small>{h.detail}</small></div><strong>{getStaff(h.userId).name}</strong></div>)}</div></div>{reportOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Reporte de cierre</h2><button className="btn ghost" onClick={()=>setReportOpen(false)}>Cerrar</button></div><CashCloseReport session={session} userId={staffId} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button><button className="btn primary" onClick={()=>window.print()}>Imprimir</button></div></div></div>}{whatsappOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Enviar cierre por WhatsApp</h2><button className="btn ghost" onClick={()=>setWhatsappOpen(false)}>Cerrar</button></div><div className="whatsapp-card"><b>Mensaje listo para enviar</b><p style={{color:"var(--muted)",lineHeight:1.5}}>Se enviará resumen del cierre, responsable, métodos de pago, propinas y diferencia.</p><a className="btn primary" style={{display:"inline-block",textDecoration:"none"}} href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp</a></div></div></div>}</div>;
+      : <><button className="btn ghost" onClick={()=>state.closeTurn(staffId)}>Cerrar turno</button><input className="input" style={{width:150}} type="number" min="0" placeholder="Efectivo contado" value={countedCash} onChange={(e)=>setCountedCash(e.target.value)} /><button className="btn danger" onClick={closeShift}>Cerrar caja</button></>}</div></div><div className="panel"><div className="panel-head"><div><h2>Cambio de turno</h2><p style={{margin:"4px 0 0"}}>Cada acción queda asociada al usuario responsable.</p></div><span className={`badge ${session.status === "abierta" ? "green" : "red"}`}>{session.status}</span></div><div className="form-grid"><div className="field"><label>Turno activo</label><select className="input" value={turn} onChange={(e)=>setTurn(e.target.value)}><option>Día</option><option>Noche</option><option>Full</option></select></div><div className="field"><label>Responsable</label><select className="input" value={staffId} disabled><option>{getStaff(staffId).name}</option></select></div></div><button className="btn primary" style={{marginTop:12}} onClick={()=>state.changeTurn(staffId, turn)}>Cambiar turno</button></div><ExpenseRegister state={state} staffId={staffId} /><div className="panel"><div className="panel-head"><div><h2>Cierre de caja</h2><p style={{margin:"4px 0 0"}}>Control diario de ventas, propinas y diferencias de caja.</p></div><span className={`badge ${!counted ? "blue" : diffOk ? "green" : "red"}`}>{!counted ? "Turno en curso" : diffOk ? "Cuadrado" : "Diferencia"}</span></div><div className="cash-grid"><div className="cash-card"><span>Efectivo</span><strong>{money(session.cash)}</strong></div><div className="cash-card"><span>Tarjeta</span><strong>{money(session.card)}</strong></div><div className="cash-card"><span>Transferencia</span><strong>{money(session.transfer)}</strong></div><div className="cash-card"><span>Propinas</span><strong>{money(session.tips)}</strong></div><div className="cash-card"><span>Gastos</span><strong>{money(session.expenses)}</strong></div></div></div><div className="two"><div className="panel"><div className="panel-head"><h2>Resumen final</h2><span className="badge blue">Caja</span></div><div className="list"><div className="row"><span className="badge">Esperado</span><div className="row-main"><b>Efectivo esperado</b><small>Fondo inicial + cobros y propinas en efectivo − gastos. Tarjeta y transferencia no pasan por el cajón.</small></div><strong>{money(session.expected)}</strong></div><div className="row"><span className="badge green">Contado</span><div className="row-main"><b>Efectivo contado</b><small>Conteo físico del cajón al cerrar</small></div><strong>{money(session.counted)}</strong></div><div className="row"><span className={`badge ${diffOk ? "green" : "red"}`}>Diferencia</span><div className="row-main"><b>Ajuste</b><small>Debe ser 0 para cierre correcto</small></div><strong>{money(session.difference)}</strong></div></div><div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}><button className="btn primary" onClick={()=>setReportOpen(true)}>Ver cierre</button><button className="btn ghost" onClick={()=>window.print()}>Imprimir</button><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button></div></div><div className="panel"><div className="panel-head"><h2>Propinas registradas</h2><span className="badge">10%</span></div><div className="list">{state.tables.filter((t)=>t.bill > 0).map((t)=><div className="row" key={t.id}><span className={`badge ${t.tipAccepted ? "green" : "red"}`}>Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.tipAccepted ? "Cliente aceptó propina" : "Cliente rechazó propina"}</small></div><strong>{money(t.tipAmount)}</strong></div>)}</div></div></div><div className="panel"><div className="panel-head"><h2>Historial de caja/turno</h2><span className="badge purple">Auditoría</span></div><div className="list">{session.history.map((h,idx)=><div className="row" key={idx}><span className="badge">{h.time}</span><div className="row-main"><b>{h.action}</b><small>{h.detail}</small></div><strong>{getStaff(h.userId).name}</strong></div>)}</div></div>{reportOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Reporte de cierre</h2><button className="btn ghost" onClick={()=>setReportOpen(false)}>Cerrar</button></div><CashCloseReport session={session} userId={staffId} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button><button className="btn primary" onClick={()=>window.print()}>Imprimir</button></div></div></div>}{whatsappOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Enviar cierre por WhatsApp</h2><button className="btn ghost" onClick={()=>setWhatsappOpen(false)}>Cerrar</button></div><div className="whatsapp-card"><b>Mensaje listo para enviar</b><p style={{color:"var(--muted)",lineHeight:1.5}}>Se enviará resumen del cierre, responsable, métodos de pago, propinas y diferencia.</p><a className="btn primary" style={{display:"inline-block",textDecoration:"none"}} href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp</a></div></div></div>}</div>;
 }
 
 function ExpenseRegister({ state, staffId }) {
   const [form, setForm] = useState({ type: "Caja", detail: "", amount: "", userId: staffId });
-  const submit = () => {
+  const submit = async () => {
     if (!form.detail.trim() || !Number(form.amount)) return alert("Detalle y monto son requeridos");
-    state.addExpense({ ...form, amount: Number(form.amount), userId: staffId });
-    setForm({ type: "Caja", detail: "", amount: "", userId: staffId });
+    try {
+      await state.addExpense({ ...form, amount: Number(form.amount), userId: staffId });
+      setForm({ type: "Caja", detail: "", amount: "", userId: staffId });
+    } catch (e) { alert(e.message); }
   };
   return <div className="panel"><div className="panel-head"><div><h2>Gastos del turno</h2><p style={{margin:"4px 0 0"}}>Todo gasto queda asociado al usuario responsable y afecta cierre de caja.</p></div><span className="badge red">Egresos</span></div><div className="form-grid"><div className="field"><label>Tipo</label><select className="input" value={form.type} onChange={(e)=>setForm({...form,type:e.target.value})}><option>Caja</option><option>Proveedor</option><option>Emergencia</option><option>Operativo</option></select></div><div className="field"><label>Monto</label><input className="input" type="number" value={form.amount} onChange={(e)=>setForm({...form,amount:e.target.value})} /></div><div className="field" style={{gridColumn:"1/-1"}}><label>Detalle</label><input className="input" value={form.detail} onChange={(e)=>setForm({...form,detail:e.target.value})} placeholder="Ej: compra hielo, reposición pan..." /></div></div><button className="btn primary" style={{marginTop:12}} onClick={submit}>Registrar gasto</button><div className="list" style={{marginTop:14}}>{state.expenses.map((e)=><div className="row" key={e.id}><span className="badge red">{e.type}</span><div className="row-main"><b>{e.detail}</b><small>{e.time} · {getStaff(e.userId).name}</small></div><strong>{money(e.amount)}</strong></div>)}</div></div>;
 }
