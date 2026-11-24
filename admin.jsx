@@ -1081,7 +1081,27 @@ function useBackofficeState(authToken = null) {
     return r || { paid: 0, remaining: 0, settled: false };
   };
 
-  return { orders, calls, messages, menuItems, tables, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, payTablePart, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter };
+  // Pedido tomado por el personal (mesa o mostrador). El servidor arma el precio y el
+  // restaurante; aquí solo viajan platos, cantidades y notas.
+  const createStaffOrder = async (tableId, items, notes) => {
+    const r = await supaRpc("staff_create_order", {
+      p_table_id: tableId,
+      p_items: items.map((i) => ({ menu_item_id: i.id, qty: i.qty, note: i.note || undefined })),
+      p_notes: notes || null,
+    }, authToken);
+    const res = Array.isArray(r) ? r[0] : r;
+    // La mesa (y el mostrador, que puede ser nuevo) aparece al instante, sin esperar al sondeo.
+    try {
+      const rows = await supaGet(`tables?id=eq.${res.table_id}&select=*`, authToken);
+      if (Array.isArray(rows) && rows[0]) {
+        const ui = dbTableToUI(rows[0]);
+        setTables((prev) => prev.some((t) => t.id === ui.id) ? prev.map((t) => t.id === ui.id ? ui : t) : [...prev, ui]);
+      }
+    } catch {}
+    return res;
+  };
+
+  return { orders, calls, messages, menuItems, tables, createStaffOrder, staffList, cashSession, inventory, qrTokens, expenses, authToken, attendCall, resolveMessage, updateOrderStatus, cancelOrder, payTablePart, saveMenuItem, toggleMenuAvailability, deleteMenuItem, importMenuItems, setTableTip, openCash, closeCash, changeTurn, closeTurn, addExpense, updateInventoryStock, toggleQr, regenerateQr, assignWaiter };
 }
 
 function Layout({ role, staffId, tab, setTab, onLogout, children, authed, restaurantName, deliveryEnabled }) {
@@ -1422,6 +1442,9 @@ function TablesView({ role, staffId, state, onGoToQr }) {
   const seesAllTables = isAdmin || role === "caja";
   const canClaimTables = role === "camarero";
   const [selectedTable, setSelectedTable] = useState(null);
+  // undefined = cerrado, null = mostrador (sin mesa), objeto = esa mesa
+  const [orderFor, setOrderFor] = useState(undefined);
+  const [chargeTable, setChargeTable] = useState(null);
   // A waiter sees the tables they already hold plus any table nobody has claimed,
   // so they can pick one up from their phone the moment a call comes in.
   const mine = state.tables.filter((t) => t.waiterId === staffId);
@@ -1442,6 +1465,7 @@ function TablesView({ role, staffId, state, onGoToQr }) {
       <h2>{seesAllTables ? "Mapa de mesas" : "Mesas"}</h2>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <span className="badge">{seesAllTables ? `${visible.length} mesas` : `${mine.length} mías · ${free.length} libres`}</span>
+        {seesAllTables && <button className="btn primary" style={{ fontSize: 12, padding: "7px 12px" }} onClick={() => setOrderFor(null)}>Venta de mostrador</button>}
         {isAdmin && onGoToQr && <button className="btn ghost" style={{ fontSize: 12, padding: "7px 12px" }} onClick={onGoToQr}>QR</button>}
       </div>
     </div>
@@ -1476,11 +1500,14 @@ function TablesView({ role, staffId, state, onGoToQr }) {
           {canClaimTables && isMine
             ? <button className="btn ghost" onClick={() => state.assignWaiter(t.id, null)}>Soltar</button>
             : <button className="btn ghost" onClick={() => setSelectedTable(t)}>Ver ficha</button>}
+          <button className="btn ghost" style={{ gridColumn: "1/-1" }} onClick={() => setOrderFor(t)}>Tomar pedido</button>
         </div>
       </div>;
     })}</div>
   </div>
   {selectedTable && <TableDrawer table={selectedTable} role={role} staffId={staffId} state={state} onClose={() => setSelectedTable(null)} />}
+  {orderFor !== undefined && <TakeOrderModal table={orderFor} state={state} onClose={() => setOrderFor(undefined)} onCharge={seesAllTables ? (id) => { const t = state.tables.find((x) => x.id === id); if (t) { setOrderFor(undefined); setChargeTable(t); } } : null} />}
+  {chargeTable && <CobrarModal table={state.tables.find((x) => x.id === chargeTable.id) || chargeTable} state={state} staffId={staffId} onClose={() => setChargeTable(null)} />}
   </div>;
 }
 
@@ -1522,6 +1549,94 @@ function TableReceipt({ table, waiter }) {
   const tip = table.tipAmount || 0;
   const total = subtotal + tip;
   return <div className="receipt-wrap"><div className="receipt"><h3>{info.name || "—"}</h3><ReceiptIdentity info={info} /><div className="dash" /><div className="center"><b>PRE-CUENTA MESA {table.id}</b><br /><span className="muted2">{new Date().toLocaleString("es-CL", { hour:"2-digit", minute:"2-digit", day:"2-digit", month:"2-digit", year:"numeric" })}</span></div><div className="dash" /><div className="receipt-row"><span>Consumo mesa</span><b>{money(subtotal)}</b></div><div className="receipt-row"><span>Propina 10%</span><b>{tip ? money(tip) : "No agregada"}</b></div><div className="receipt-row"><span>Documento no tributario</span><b>No es boleta</b></div><div className="dash" /><div className="receipt-row receipt-total"><span>TOTAL</span><b>{money(total)}</b></div><div className="receipt-row"><span>Atendió</span><b>{waiter.name}</b></div><ReviewQr url={info.googleReviewUrl} /><div className="dash" /><div className="center muted2">Gracias por visitar HOLU · Vuelve pronto</div></div></div>;
+}
+
+function TakeOrderModal({ table, state, onClose, onCharge }) {
+  const isCounter = !table;
+  const dishes = state.menuItems.filter((d) => d.available !== false);
+  const cats = ["Todos", ...Array.from(new Set(dishes.map((d) => d.category).filter(Boolean)))];
+  const [cat, setCat] = useState("Todos");
+  const [q, setQ] = useState("");
+  const [cart, setCart] = useState({});
+  const [notes, setNotes] = useState("");
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(null);
+  const needle = q.trim().toLowerCase();
+  const list = dishes.filter((d) => (cat === "Todos" || d.category === cat) && `${d.dish} ${d.description || ""}`.toLowerCase().includes(needle));
+  const lines = Object.values(cart);
+  const total = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
+  const count = lines.reduce((sum, l) => sum + l.qty, 0);
+  const add = (d) => setCart((c) => ({ ...c, [d.id]: { id: d.id, dish: d.dish, price: d.price, qty: Math.min(50, (c[d.id]?.qty || 0) + 1), note: c[d.id]?.note || "" } }));
+  const sub = (id) => setCart((c) => { const n = { ...c }; if (!n[id]) return n; if (n[id].qty <= 1) delete n[id]; else n[id] = { ...n[id], qty: n[id].qty - 1 }; return n; });
+  const setNote = (id, v) => setCart((c) => ({ ...c, [id]: { ...c[id], note: v } }));
+  const send = async () => {
+    if (!lines.length || sending) return;
+    setSending(true); setErr("");
+    try { setDone(await state.createStaffOrder(table ? table.id : null, lines, notes.trim())); }
+    catch (e) { setErr(`No se pudo enviar el pedido: ${String(e.message).slice(0, 140)}`); }
+    finally { setSending(false); }
+  };
+  const reset = () => { setCart({}); setNotes(""); setDone(null); setErr(""); };
+  const title = isCounter ? "Venta de mostrador" : `Nuevo pedido · ${table.label}`;
+
+  return <div className="modal-backdrop"><div className="modal" role="dialog" aria-modal="true" aria-label={title} style={{ width: "min(820px,100%)", display: "flex", flexDirection: "column", overflow: "hidden", maxHeight: "92dvh", paddingBottom: 0 }}>
+    <div className="panel-head">
+      <div><h2>{title}</h2><p style={{ margin: "4px 0 0" }}>{isCounter ? "Cliente sin mesa: arma el pedido, envíalo a cocina y cóbralo." : "Para clientes que no usan el QR. El precio lo calcula el sistema."}</p></div>
+      <button className="btn ghost" onClick={onClose}>Cerrar</button>
+    </div>
+    {done ? <div style={{ textAlign: "center", padding: "26px 8px" }}>
+      <div style={{ fontSize: 44, color: "var(--green)" }}>✓</div>
+      <h3 style={{ margin: "6px 0" }}>Pedido enviado a cocina</h3>
+      <p style={{ color: "var(--muted)", margin: 0 }}>{done.order_id} · {done.table_label} · {money(done.total)}</p>
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 18 }}>
+        {isCounter && onCharge && <button className="btn primary" onClick={() => onCharge(done.table_id)}>Cobrar ahora</button>}
+        <button className={`btn ${isCounter && onCharge ? "ghost" : "primary"}`} onClick={reset}>Tomar otro pedido</button>
+        <button className="btn ghost" onClick={onClose}>Listo</button>
+      </div>
+    </div> : <>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "4px 0 10px" }}>
+        <input className="input" style={{ flex: "1 1 180px" }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato…" aria-label="Buscar plato" />
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        {cats.map((c) => <button key={c} className={`btn ${cat === c ? "primary" : "ghost"}`} style={{ padding: "7px 12px", fontSize: 12 }} onClick={() => setCat(c)}>{c}</button>)}
+      </div>
+      <div className="list" style={{ maxHeight: "30dvh", overflowY: "auto" }}>
+        {dishes.length === 0 && <p style={{ color: "var(--muted)", textAlign: "center", padding: 18 }}>La carta está vacía. Agrega platos en la pestaña Carta.</p>}
+        {dishes.length > 0 && list.length === 0 && <p style={{ color: "var(--muted)", textAlign: "center", padding: 18 }}>Ningún plato coincide.</p>}
+        {list.map((d) => <div className="row" key={d.id} style={{ gridTemplateColumns: "1fr auto" }}>
+          <div className="row-main"><b>{d.dish}{d.stock === "Agotado" && <span className="badge red" style={{ marginLeft: 8 }}>Agotado</span>}</b><small>{money(d.price)}{d.category ? ` · ${d.category}` : ""}</small></div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {cart[d.id] && <><button className="btn ghost" aria-label={`Quitar uno de ${d.dish}`} style={{ padding: "8px 14px" }} onClick={() => sub(d.id)}>−</button><b style={{ minWidth: 18, textAlign: "center" }}>{cart[d.id].qty}</b></>}
+            <button className="btn primary" aria-label={`Agregar ${d.dish}`} style={{ padding: "8px 14px" }} onClick={() => add(d)}>+</button>
+          </div>
+        </div>)}
+      </div>
+      <div className="panel" style={{ boxShadow: "none", marginTop: 12 }}>
+        <h2 style={{ margin: "0 0 8px" }}>Pedido</h2>
+        {lines.length === 0 ? <p style={{ color: "var(--muted)", margin: 0 }}>Aún no hay platos. Toca + para agregarlos.</p> : <div className="list">
+          {lines.map((l) => <div className="row" key={l.id} style={{ gridTemplateColumns: "1fr auto" }}>
+            <div className="row-main"><b>{l.qty} × {l.dish}</b>
+              <input className="input" style={{ marginTop: 6 }} maxLength={120} value={l.note} onChange={(e) => setNote(l.id, e.target.value)} placeholder="Nota para cocina: sin cebolla, punto de la carne…" aria-label={`Nota para ${l.dish}`} /></div>
+            <strong>{money(l.price * l.qty)}</strong>
+          </div>)}
+        </div>}
+        <div className="field" style={{ marginTop: 10 }}><label>Nota general (opcional)</label><input className="input" maxLength={200} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej: traer todo junto, cliente con apuro…" /></div>
+      </div>
+      </div>
+      <div style={{ flex: "none", padding: "12px 0 16px", borderTop: "1px solid var(--line)", background: "var(--surface-solid)" }}>
+        {err && <p style={{ color: "var(--red2)", margin: "0 0 10px", fontSize: 13, lineHeight: 1.5 }}>{err}</p>}
+        <div style={{ display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+          <strong style={{ fontSize: 18 }}>Total {money(total)}</strong>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn ghost" onClick={onClose}>Cancelar</button>
+            <button className="btn primary" disabled={!lines.length || sending} onClick={send}>{sending ? "Enviando…" : `Enviar a cocina${count ? ` · ${count}` : ""}`}</button>
+          </div>
+        </div>
+      </div>
+    </>}
+  </div></div>;
 }
 
 function TableDrawer({ table, role, state, staffId, onClose }) {

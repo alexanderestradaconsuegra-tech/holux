@@ -4,9 +4,12 @@
 - **Carta de mesa (`mesa.jsx`)**: hechos el botón +, la tarjeta del plato, el contraste, el detalle
   por plato y, en el panel, subir foto (reducida, por carpeta de restaurante), alérgenos y detalle.
   Portada acortada con botón "Ver la carta" (24 nov.). Con esto la carta de mesa queda al día.
-- **Terminal de ventas / toma de pedidos desde el panel**: hoy el personal no puede
-  ingresar un pedido (ni venta de mostrador) desde `admin.jsx`; solo cobra lo que llega
-  por QR/kiosco. Ver conversación del 24 nov. 2026.
+- **Toma de pedidos desde el panel (24 nov.)**: hecha (mesa y mostrador). Limitación: el mostrador
+  es una sola mesa; si hay dos clientes a la vez, sus pedidos se suman en la misma cuenta, así que hay
+  que cobrar uno antes de tomar el siguiente. Falta, si hace falta: dividir la cuenta por pedido.
+- **Bug de números de pedido (n8n)**: `Validate & Transform1` arma `ORD-` + 4 dígitos al azar; con unos
+  cientos de pedidos empiezan a chocar y el pedido del cliente falla. Cambiar a un id más largo
+  (la base ya genera `ORD-` + 8 caracteres por defecto).
 
 ## Después
 - **WhatsApp en el aviso de fallos**: agregar en n8n `EVOLUTION_API_URL`,

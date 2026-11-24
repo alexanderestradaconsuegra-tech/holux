@@ -151,6 +151,16 @@ para no perder el hilo en la próxima sesión.
   `admin.jsx` sube a esa carpeta y reduce la foto antes (lado mayor 1280 px, JPEG): hay
   que redesplegar `admin` o las subidas del panel viejo fallan.
 
+- **Toma de pedidos por el personal (24 nov. 2026).** Función
+  `staff_create_order(p_table_id, p_items, p_notes)` (migración
+  `20261124210000_staff_create_order.sql`). El restaurante sale del JWT, los precios
+  y nombres de `menu_items` (el panel solo manda id, cantidad y nota), solo admin,
+  camarero y caja pueden llamarla (cocina no), y el camarero queda como `waiter_id`.
+  `p_table_id = null` es "Mostrador": una mesa especial (zona `Mostrador`) que se
+  crea sola la primera vez. No pasa por n8n. Probada en la base con usuarios
+  simulados: precio falso ignorado, cocina rechazada, mesa de otro restaurante y
+  platos inexistentes rechazados, cantidades inválidas rechazadas.
+
 ## Acción requerida AHORA en EasyPanel
 
 Agregar `HOLU_INTERNAL_SECRET` como variable de entorno en el servicio de
