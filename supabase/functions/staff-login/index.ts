@@ -4,8 +4,10 @@
 // operating on the anon key and RLS could not tell one restaurant from another.
 // Here the PIN is checked with the service role (which never leaves the edge
 // runtime) and the caller gets back a normal access/refresh token pair whose
-// user_metadata carries restaurant_id — exactly what get_user_restaurant_id()
-// reads, so every existing mt_* policy starts applying to staff too.
+// app_metadata carries restaurant_id, role and staff_id — exactly what
+// get_user_restaurant_id() reads, so every existing mt_* policy applies to staff
+// too. It MUST be app_metadata: user_metadata can be edited by the signed-in
+// user, which would let any employee switch themselves to another restaurant.
 //
 // Deploy:  supabase functions deploy staff-login --no-verify-jwt
 
@@ -108,6 +110,13 @@ Deno.serve(async (req) => {
   // is only ever a one-shot handle used to mint this session.
   const email = `staff.${staff.id}@holu.internal`;
   const password = randomPassword();
+  // Only the server can write app_metadata; RLS and set_staff_pin() trust it.
+  const appMetadata = {
+    restaurant_id: restaurantId,
+    role: staff.role,
+    staff_id: staff.id,
+  };
+  // user_metadata is cosmetic (shown in the UI) and never used to authorize.
   const metadata = {
     restaurant_id: restaurantId,
     staff_id: staff.id,
@@ -120,6 +129,7 @@ Deno.serve(async (req) => {
   if (authUserId) {
     const { error } = await admin.auth.admin.updateUserById(authUserId, {
       password,
+      app_metadata: appMetadata,
       user_metadata: metadata,
     });
     if (error) authUserId = null; // user was deleted out from under us; recreate
@@ -130,6 +140,7 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: true,
+      app_metadata: appMetadata,
       user_metadata: metadata,
     });
     if (error || !created?.user) {

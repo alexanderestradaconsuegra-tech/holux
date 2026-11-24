@@ -74,6 +74,31 @@ para no perder el hilo en la próxima sesión.
   bcrypt — nunca coincidía, todo el personal operaba con la clave anon en vez
   de su propia sesión. Ahora usa el RPC `staff_login()` que sí compara bien.
 
+- **Aislamiento entre restaurantes (24 nov. 2026).** `get_user_restaurant_id()`
+  leía `user_metadata`, que el propio usuario puede editar: probado en vivo,
+  un usuario del demo se cambió el `restaurant_id` y pasó a ver las filas de otro
+  restaurante (cualquier usuario autenticado podía leer y escribir los datos de
+  cualquier restaurante). Ahora el restaurante y el rol salen de `app_metadata`,
+  que solo escribe el servidor: `restaurant-onboard`, `staff-create` y
+  `staff-login` lo fijan al crear el usuario, los usuarios existentes se
+  rellenaron, y `get_user_restaurant_id()` y `set_staff_pin()` leen solo
+  `app_metadata` (migración `20261124180000_tenant_isolation_app_metadata.sql`).
+  Se repitió el ataque después del cambio: `PUT /auth/v1/user` con `app_metadata`
+  responde 403 y el usuario sigue viendo solo su restaurante. De paso se cerró
+  `set_staff_pin`, que dejaba a un mozo hacerse pasar por administrador borrando
+  su `staff_id` del metadata y cambiar el PIN de cualquiera. Los tokens
+  anteriores no traen `app_metadata`: esas sesiones deben volver a iniciar sesión
+  (el panel ya las manda al login).
+- **Login por PIN.** La Edge Function `staff-login` no estaba desplegada
+  (`/functions/v1/staff-login` respondía 404): el personal por PIN quedaba con la
+  clave anónima y, como las políticas son `to authenticated`, no veía nada.
+  Desplegada y probada en vivo (mozo y caja entran, un PIN malo da 401). Los
+  administradores entran con correo y contraseña, no con PIN (`staff_login()`
+  excluye `role = 'admin'` a propósito).
+- **`whatsapp-agent`** usaba `fetch` dentro de un nodo Code y en esta instancia
+  `fetch` no existe; ahora lleva un adaptador sobre `this.helpers.httpRequest`.
+  Sigue sin publicar hasta que estén Evolution API y `ANTHROPIC_API_KEY`.
+
 ## Acción requerida AHORA en EasyPanel
 
 Agregar `HOLU_INTERNAL_SECRET` como variable de entorno en el servicio de
@@ -83,28 +108,6 @@ rechazan todo con "No autorizado"**, lo que incluye crear cuentas nuevas por
 suscripción o por registro gratis. No es opcional, es bloqueante.
 
 ## Pendiente (no resuelto todavía)
-
-- **BLOQUEANTE — aislamiento entre restaurantes rompible (verificado en vivo,
-  24 nov. 2026).** `get_user_restaurant_id()` lee
-  `auth.jwt() -> 'user_metadata' ->> 'restaurant_id'`, y `user_metadata` lo puede
-  editar el propio usuario (`PUT /auth/v1/user`). Prueba controlada: un usuario
-  del demo se cambió el `restaurant_id` a otro restaurante, volvió a iniciar
-  sesión y pasó a ver sus filas (`get_user_restaurant_id()` devolvió el id
-  ajeno). Cualquier usuario autenticado —incluso un registro de prueba gratis
-  o un mozo— puede leer y escribir los datos de cualquier restaurante. Arreglo:
-  guardar `restaurant_id` (y el rol) en `app_metadata` (solo lo escribe el
-  servidor) al crear usuarios (`restaurant-onboard`, `staff-create`,
-  `staff-login`), rellenar los existentes y leer solo `app_metadata` en
-  `get_user_restaurant_id()`.
-- **BLOQUEANTE — la Edge Function `staff-login` no está desplegada**
-  (`/functions/v1/staff-login` responde 404). El login por PIN cae al RPC
-  `staff_login()` y deja al personal con la clave anónima; como las políticas
-  de `orders`, `tables`, `calls`, etc. son solo `to authenticated`, camareros,
-  cocina y caja por PIN no ven ni escriben nada. Hay que desplegarla
-  (`supabase functions deploy staff-login --no-verify-jwt`) y probar el login.
-- **`whatsapp-agent`** usa `fetch` dentro de un nodo Code y en esta instancia
-  de n8n `fetch` no existe: aunque se publique no funcionaría. Reescribir con
-  `this.helpers.httpRequest`.
 
 - **`whatsapp-agent`**: el workflow se creó pero se dejó **sin publicar**
   porque depende de Evolution API + `ANTHROPIC_API_KEY`, que no se confirmó

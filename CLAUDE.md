@@ -55,8 +55,12 @@ token global compartido) y aislamiento por `restaurant_id` vía RLS.
 - Al cerrar una mesa `pay_table_part` crea un `table_tickets`; la boleta sale de
   ese ticket vía el webhook `holu-dte` (ver `n8n/README-boleta-electronica.md`).
 - En los nodos Code de n8n **`fetch` no existe**: usa `this.helpers.httpRequest`.
-- Nunca decidas permisos con `user_metadata` (el usuario lo puede editar):
-  comprueba en la tabla `staff`, como hace `holu-dte`.
+- Nunca decidas permisos con `user_metadata` (el usuario lo puede editar). El
+  restaurante y el rol de un usuario viven en `app_metadata` (solo lo escribe el
+  servidor) y `get_user_restaurant_id()` lee únicamente eso. Todo lugar que cree
+  un usuario de Auth (`restaurant-onboard`, `staff-create`, `staff-login`) debe
+  fijarlo ahí. Para permisos finos comprueba además la tabla `staff`, como hace
+  `holu-dte`.
 
 ## Después de terminar un cambio
 
