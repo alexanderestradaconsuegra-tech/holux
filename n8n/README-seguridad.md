@@ -26,6 +26,27 @@ para no perder el hilo en la próxima sesión.
   ya lo llamaba, estaba roto en producción), `subscription-resubscribe`
   (reactivación — `admin.jsx` ya lo llamaba, estaba roto en producción), y
   `whatsapp-agent` (creado pero sin publicar, ver pendientes).
+- `Create Restaurant1` interpolaba `restaurantName`/`legalName`/etc. a mano
+  dentro de un string JSON (mismo patrón de inyección que ya se arregló en
+  los otros nodos, pero este se había quedado afuera) → ahora usa
+  `JSON.stringify` como el resto.
+- **Verificación de correo obligatoria** antes de abrir el panel (nov. 2026):
+  el registro gratis dejaba entrar al instante a cualquiera que llenara el
+  formulario, sin confirmar que el correo fuera real. Ahora `Create
+  Restaurant1` guarda un `email_verify_token`, el correo de bienvenida manda
+  un botón "Confirmar mi correo", y `admin.jsx` bloquea el panel
+  (`EmailUnverifiedScreen`) hasta que `restaurants.email_verified_at` se
+  marca. Workflow separado `HOLU - Verificación de correo`
+  (`OhKVgJZeAIRdPNsX`) con `verify-email` (GET) y `resend-verification`
+  (POST, rate-limit de 2 min) — ver `README-registro-gratis.md` §4.
+- CRM interno + aviso al admin (nov. 2026): cada cuenta creada (trial o pago)
+  queda registrada en `admin_leads` (tabla nueva, solo accesible por
+  `service_role`) y dispara un intento de WhatsApp al número del admin vía
+  Evolution API (`Insert Admin Lead1`/`Notify Admin WhatsApp1` en el
+  combinado, con `onError: continueRegularOutput` para que una falla ahí
+  nunca bloquee la creación de la cuenta). El WhatsApp necesita la variable
+  `EVOLUTION_ADMIN_INSTANCE` — sin ella, falla en silencio y solo queda el
+  registro en `admin_leads`.
 
 **Supabase** (migración `20260901000000_security_hardening_batch.sql`, aplicada):
 - `apply_stock_movement()`/`recalc_table_bill()` sin `REVOKE` → cualquiera con

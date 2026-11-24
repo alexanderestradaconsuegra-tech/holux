@@ -47,11 +47,35 @@ trial, ahí sí conviene conectar `subscription-resubscribe` (ya existe en
 `holu-suscripciones-mercadopago.json`) al botón de "reactivar" del panel —
 pero **eso es un paso aparte, no lo activa este workflow.**
 
-## 4. Riesgo a tener presente
+## 4. Verificación de correo (ya resuelto)
 
-Como el registro vuelve a ser gratis, cualquiera puede llenar el formulario
-sin tarjeta. Ya no queda una cuenta abierta para siempre (se vence sola a
-los 30 días), pero sí queda expuesto a registros repetidos o spam. Si eso
-se vuelve un problema real, conviene agregar un captcha simple en el
-formulario o un límite de registros por IP/correo antes de llamar a este
-webhook — no está resuelto en esta versión.
+Como el registro es gratis y sin tarjeta, cualquiera podía llenar el
+formulario con un correo falso y tener acceso instantáneo al panel. Desde
+nov. 2026 esto ya no pasa: `restaurant-onboard` genera un
+`email_verify_token` random (columna `restaurants.email_verify_token`) y el
+correo de bienvenida manda un botón "Confirmar mi correo" en vez de abrir el
+panel directo. Hasta que esa confirmación llega, `admin.jsx` muestra la
+pantalla de "Confirma tu correo" en vez del panel (ver `emailVerifiedAt` en
+`HoluAdmin`) — con un botón para reenviar el correo.
+
+Esto vive en un workflow separado, **`HOLU - Verificación de correo`**
+(id `OhKVgJZeAIRdPNsX`), con dos webhooks:
+
+- `GET /webhook/verify-email?token=...` — confirma el token, marca
+  `email_verified_at` y limpia el token (un solo uso).
+- `POST /webhook/resend-verification` con `{ restaurant_id }` — reenvía el
+  correo de confirmación si todavía no está verificado, con un rate-limit de
+  2 minutos entre reenvíos (columna `email_verify_sent_at`).
+
+No usa `fetch()` dentro de un Code node — esta instancia de n8n no lo
+soporta (`fetch is not defined`, confirmado con una ejecución real). Todas
+las llamadas a Supabase van por nodos HTTP Request nativos, igual que el
+resto del workflow combinado.
+
+Restaurantes que ya existían antes de este cambio quedaron verificados
+automáticamente (migración `20261124140000_add_email_verification.sql`) —
+esto solo afecta a cuentas nuevas de acá en adelante. Si en el futuro se
+quiere además un límite de registros repetidos por IP/correo (captcha,
+rate-limit), eso sigue sin resolver — la verificación de correo frena bots
+obvios, pero no un humano registrando varias veces con correos reales
+distintos.

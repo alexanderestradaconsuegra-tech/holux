@@ -3203,6 +3203,57 @@ function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscripti
   );
 }
 
+function EmailUnverifiedScreen({ restaurantName, ownerEmail }) {
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleResend = async () => {
+    setSending(true); setError(""); setSent(false);
+    try {
+      const res = await fetch(buildWebhookUrl("resend-verification"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurant_id: getRestaurantId() }),
+      });
+      if (!res.ok) throw new Error("fail");
+      setSent(true);
+    } catch {
+      setError("No pudimos reenviar el correo. Intenta de nuevo en un momento.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const base = { minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"var(--bg)", gap:24, padding:20 };
+
+  return (
+    <div style={base}>
+      <style>{CSS}</style>
+      <BrandMark size={64} sub="BACKOFFICE" />
+      <div style={{ width:"min(400px,100%)", background:"rgba(var(--surface-rgb),.04)", border:"1px solid rgba(var(--surface-rgb),.1)", borderRadius:16, padding:28, display:"flex", flexDirection:"column", gap:16, textAlign:"center" }}>
+        <div style={{ fontSize:40 }}>✉️</div>
+        <div>
+          <div style={{ fontSize:18, fontWeight:700, marginBottom:6 }}>Confirma tu correo para entrar</div>
+          <div style={{ color:"var(--muted)", fontSize:13, lineHeight:1.6 }}>
+            Te mandamos un correo a <strong>{ownerEmail || "tu casilla"}</strong> con un link para activar
+            el acceso de <strong>{restaurantName || "tu restaurante"}</strong>. Ábrelo y confirma — el panel
+            se habilita al instante.
+          </div>
+        </div>
+        {sent && <div style={{ color:"var(--green)", fontSize:13 }}>Listo, te reenviamos el correo. Revisa tu bandeja (y spam).</div>}
+        {error && <div style={{ color:"var(--red2)", fontSize:13 }}>{error}</div>}
+        <button className="btn primary" onClick={handleResend} disabled={sending}>
+          {sending ? "Reenviando..." : "Reenviar correo"}
+        </button>
+        <div style={{ color:"var(--dim)", fontSize:11.5, lineHeight:1.5 }}>
+          ¿No te llega? Puedes pedir que te reenvíen el link cada 2 minutos.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HoluAdmin() {
   const [session, setSession] = useState(() => {
     try {
@@ -3240,6 +3291,10 @@ export default function HoluAdmin() {
   const [tab, setTab] = useState("dashboard");
   const [restaurantName, setRestaurantName] = useState("");
   const [trialInfo, setTrialInfo] = useState(null);
+  // undefined = still loading, null = confirmed unverified, string = verified.
+  // Only an explicit null blocks the panel — never the loading state, or every
+  // owner would flash the "confirm your email" screen on each page refresh.
+  const [emailVerifiedAt, setEmailVerifiedAt] = useState(undefined);
   // Delivery is a paid "a medida" extra, not part of the base plan — the
   // Delivery tab only shows up for restaurants that actually have it
   // configured, so a base-plan restaurant doesn't see a feature it never
@@ -3252,11 +3307,12 @@ export default function HoluAdmin() {
   // screen gets the name from restaurant_public(), which exposes only branding.
   useEffect(() => {
     if (session?.access_token) {
-      supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,legal_name,rut,address,phone,website,google_review_url,trial_ends_at,activated_at,settings&limit=1`, {}, session.access_token)
+      supaFetch(`restaurants?id=eq.${getRestaurantId()}&select=name,legal_name,rut,address,phone,website,google_review_url,trial_ends_at,activated_at,settings,email_verified_at&limit=1`, {}, session.access_token)
         .then((rows) => {
           const r = Array.isArray(rows) ? rows[0] : null;
           if (!r) return;
           if (r.name) setRestaurantName(r.name);
+          setEmailVerifiedAt(r.email_verified_at || null);
           setDeliveryEnabled(!!r.settings?.delivery?.enabled);
           // Receipts and the cash-closing report read this, so it has to be the
           // restaurant's own legal identity, never a placeholder.
@@ -3380,6 +3436,10 @@ export default function HoluAdmin() {
   };
 
   if (!authed) return <LoginEntry onAdminAuth={handleAdminAuth} onStaffAuth={handleStaffAuth} />;
+
+  if (session && emailVerifiedAt === null) {
+    return <EmailUnverifiedScreen restaurantName={restaurantName} ownerEmail={session?.email || ""} />;
+  }
 
   if (session && trialStatus.blocked) {
     return <TrialBlockedScreen restaurantName={restaurantName} onActivate={handleActivate} ownerEmail={session?.email || ""} subscriptionStatus={trialStatus.subscriptionStatus} />;
