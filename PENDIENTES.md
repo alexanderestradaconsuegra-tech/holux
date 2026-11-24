@@ -23,7 +23,7 @@
 - `Save Basket` (delivery) arma el JSON a mano: arreglar antes de activar delivery a un cliente.
 
 ## Acciones tuyas
-- Redesplegar `admin`, `mesa` y `landing` en EasyPanel (subir `cachebust`).
+- Redesplegar `admin`, `kiosco` y `landing` en EasyPanel (ya no hay cachebust: revisa `/version.txt` de cada uno). Mesa ya está al día.
 - Borrar los leads falsos de prueba en el Hub de Autix.
 - Activar "Leaked password protection" en Supabase y confirmar backups.
 - Cambiar o borrar la contraseña de la cuenta demo (`demo@holu.pro`).
