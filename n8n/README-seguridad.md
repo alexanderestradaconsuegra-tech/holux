@@ -126,6 +126,21 @@ para no perder el hilo en la próxima sesión.
 - **QR de mesas nuevas** ahora son aleatorios (`<slug>-` + 12 caracteres) en vez
   de `<slug>-T1..T5`. Los QR ya impresos de restaurantes existentes no cambian.
 
+- **Aviso de fallos (24 nov. 2026).** Workflow `HOLU - Aviso de fallos`
+  (`yDjW10KL9aUJTtEL`, Error Trigger → Code `n8n/holu-aviso-fallos.code.js` →
+  correo). Está fijado como `errorWorkflow` de los 5 flujos activos de HOLU
+  (`wjuez84ARaq2Qm9f`, `0zO9QSjr28CarnJM`, `6aU7YwIxvQIWnezT`, `TROwkSxloLfiJFfq`,
+  `OhKVgJZeAIRdPNsX`): si uno falla **en producción** llega un correo a
+  `grupoestradaspa@gmail.com` con flujo, nodo, error y enlace a la ejecución.
+  No avisa por rechazos esperados (QR inválido, sin sesión, carrito vacío...) y
+  no repite el mismo error en 30 minutos. Probado en vivo con un flujo temporal que
+  falla a propósito: llegó el correo y la segunda falla idéntica se suprimió.
+  También intenta un WhatsApp al admin si en n8n existen `EVOLUTION_API_URL`,
+  `EVOLUTION_API_KEY` y `EVOLUTION_ADMIN_INSTANCE` (sin ellas solo sale el correo).
+  Un flujo nuevo de HOLU hay que enlazarlo a mano: `setWorkflowSettings
+  errorWorkflow = yDjW10KL9aUJTtEL` (las ejecuciones manuales no disparan el aviso).
+  Pruebas: `node n8n/tests/holu-aviso-fallos.test.cjs`.
+
 ## Acción requerida AHORA en EasyPanel
 
 Agregar `HOLU_INTERNAL_SECRET` como variable de entorno en el servicio de

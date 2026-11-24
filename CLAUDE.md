@@ -90,6 +90,12 @@ token global compartido) y aislamiento por `restaurant_id` vía RLS.
   `HOLU_INTERNAL_SECRET` en el servicio de n8n — sin configurarla, esos tres
   webhooks (incluida la creación de cuentas nuevas) rechazan todo.
 
+- Los fallos de producción de los flujos de n8n llegan por correo vía el workflow
+  `HOLU - Aviso de fallos` (`yDjW10KL9aUJTtEL`). **Todo workflow nuevo de HOLU debe
+  llevar `errorWorkflow = yDjW10KL9aUJTtEL`** (`setWorkflowSettings`) y publicarse
+  después; si un rechazo esperado empieza a avisar, agrégalo a `ESPERADOS` en
+  `n8n/holu-aviso-fallos.code.js`. Ver `n8n/README-seguridad.md`.
+
 ## Git
 
 - Todo el trabajo va a la rama `claude/elegant-darwin-zcAa4`, nunca directo a `main`.
