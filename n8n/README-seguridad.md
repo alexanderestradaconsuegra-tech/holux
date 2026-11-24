@@ -39,14 +39,20 @@ para no perder el hilo en la próxima sesión.
   marca. Workflow separado `HOLU - Verificación de correo`
   (`OhKVgJZeAIRdPNsX`) con `verify-email` (GET) y `resend-verification`
   (POST, rate-limit de 2 min) — ver `README-registro-gratis.md` §4.
-- CRM interno + aviso al admin (nov. 2026): cada cuenta creada (trial o pago)
-  queda registrada en `admin_leads` (tabla nueva, solo accesible por
-  `service_role`) y dispara un intento de WhatsApp al número del admin vía
-  Evolution API (`Insert Admin Lead1`/`Notify Admin WhatsApp1` en el
-  combinado, con `onError: continueRegularOutput` para que una falla ahí
-  nunca bloquee la creación de la cuenta). El WhatsApp necesita la variable
-  `EVOLUTION_ADMIN_INSTANCE` — sin ella, falla en silencio y solo queda el
-  registro en `admin_leads`.
+- CRM + aviso al admin (nov. 2026): cada cuenta creada (trial o pago)
+  dispara un intento de WhatsApp al número del admin vía Evolution API
+  (`Notify Admin WhatsApp1`, necesita la variable `EVOLUTION_ADMIN_INSTANCE`
+  — sin ella, falla en silencio) y queda registrada como lead en el **Hub de
+  Autix** (`Hub - Armar evento signup` → `Hub - Enviar evento`, `POST
+  {{$env.HUB_URL}}/ingest` con `x-api-key: {{$env.HUB_API_KEY_HOLU}}`), el
+  CRM cross-producto que ya usan el resto de los sistemas de Autix. Hubo
+  brevemente una tabla `admin_leads` local además del Hub — se unificó en
+  uno solo (el Hub) y se borró la tabla
+  (`20261124150000_drop_admin_leads_unified_with_hub.sql`) para no mantener
+  el mismo dato en dos lugares. Los tres nodos (`Notify Admin WhatsApp1`,
+  `Hub - Armar evento signup`, `Hub - Enviar evento`) tienen
+  `onError: continueRegularOutput` para que una falla ahí nunca bloquee la
+  creación de la cuenta.
 
 **Supabase** (migración `20260901000000_security_hardening_batch.sql`, aplicada):
 - `apply_stock_movement()`/`recalc_table_bill()` sin `REVOKE` → cualquiera con
