@@ -79,9 +79,12 @@ token global compartido) y aislamiento por `restaurant_id` vía RLS.
 
 - Hay una auditoría completa (nov. 2026) de n8n/Supabase/frontend en
   `n8n/README-seguridad.md` — qué se corrigió ya en producción y qué queda
-  pendiente (cruce de `restaurant_id` con `qr_token`, autorización de
-  `subscription-resubscribe`, QR tokens de mesa poco aleatorios, etc.). Leela
-  antes de asumir que algo relacionado a multi-tenant o auth ya está resuelto.
+  pendiente (hoy: el webhook de pagos de delivery y el esquema base sin
+  versionar). Leela antes de asumir que algo relacionado a multi-tenant o auth
+  ya está resuelto.
+- Después de editar un nodo de n8n a mano en el editor, **prueba con una
+  ejecución real**: un `=` de más (`=={{ ... }}`) dejó la mesa respondiendo 500
+  y no se notó porque solo se había mirado que el texto estuviera guardado.
 - `restaurant-onboard`, `staff-create` y `activate-restaurant` ahora exigen el
   header `x-holu-internal-key` contra la variable de entorno
   `HOLU_INTERNAL_SECRET` en el servicio de n8n — sin configurarla, esos tres
