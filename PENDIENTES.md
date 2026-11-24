@@ -3,7 +3,7 @@
 ## Siguiente
 - **Carta de mesa (`mesa.jsx`)**: hechos el botón +, la tarjeta del plato, el contraste, el detalle
   por plato y, en el panel, subir foto (reducida, por carpeta de restaurante), alérgenos y detalle.
-  Falta: acortar la portada para llegar antes a la carta.
+  Portada acortada con botón "Ver la carta" (24 nov.). Con esto la carta de mesa queda al día.
 - **Terminal de ventas / toma de pedidos desde el panel**: hoy el personal no puede
   ingresar un pedido (ni venta de mostrador) desde `admin.jsx`; solo cobra lo que llega
   por QR/kiosco. Ver conversación del 24 nov. 2026.
