@@ -142,6 +142,15 @@ suscripción o por registro gratis. No es opcional, es bloqueante.
   esas credenciales estén listas. Usa `?key=HOLU_INTERNAL_SECRET` en la URL
   del webhook (no un header) porque Evolution API no siempre soporta headers
   custom — ver `README-whatsapp-agente.md`.
+- **Delivery (plan A Medida) — antes de activárselo a un cliente.** Hoy el servidor
+  exige `settings.delivery.enabled === true` (24 nov. 2026; antes solo bloqueaba
+  si era `false`, y un restaurante nuevo no quedaba bloqueado). Delivery nunca se
+  ha probado de punta a punta (0 pedidos reales). Checklist para el primer
+  cliente: (1) arreglar `Save Basket`, que arma el JSON a mano y se rompe con
+  comillas en la dirección; (2) cargarle su token de MercadoPago; (3) hacer un
+  pedido de prueba completo con un token de pruebas de MercadoPago (cobro →
+  webhook `mp-delivery-webhook` → pedido en cocina); (4) confirmar
+  `DELIVERY_PUBLIC_URL` en n8n.
 - **`mp-delivery-webhook`**: el `restaurant_id` para elegir qué token de
   MercadoPago usar al verificar un pago viene del query string de la propia
   notificación. El daño está acotado porque igual se re-verifica el pago
