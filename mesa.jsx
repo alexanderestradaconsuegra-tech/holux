@@ -387,7 +387,7 @@ function Feedback({ qrContext = FALLBACK_CONTEXT, restaurant = RESTAURANT }) {
     if (!rating) return;
     setSending(true); setError(false);
     try {
-      await postWebhook("feedback", { table_id: qrContext.tableId, rating: Number(rating), comment: comment || null, source: "table_qr" }, qrContext.restaurantId);
+      await postWebhook("feedback", { qr_token: qrContext.qrToken, table_id: qrContext.tableId, rating: Number(rating), comment: comment || null, source: "table_qr" }, qrContext.restaurantId);
       setSent(true);
     } catch { setError(true); } finally { setSending(false); }
   };

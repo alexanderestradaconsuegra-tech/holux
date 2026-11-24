@@ -3361,7 +3361,7 @@ function PinGate({ onAuth, onBack }) {
 const PLAN_PRICE = 19990;
 const PLAN_BLURB = "Todo incluido: mesa, camareros, cocina, caja y kiosco.";
 
-function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscriptionStatus }) {
+function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscriptionStatus, accessToken }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -3386,7 +3386,7 @@ function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscripti
       const res = await fetch(buildWebhookUrl("subscription-resubscribe"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurant_id: getRestaurantId(), payer_email: ownerEmail, plan }),
+        body: JSON.stringify({ restaurant_id: getRestaurantId(), payer_email: ownerEmail, plan, access_token: accessToken }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.init_point) throw new Error("sin enlace de pago");
@@ -3702,7 +3702,7 @@ export default function HoluAdmin() {
   }
 
   if (session && trialStatus.blocked) {
-    return <TrialBlockedScreen restaurantName={restaurantName} onActivate={handleActivate} ownerEmail={session?.email || ""} subscriptionStatus={trialStatus.subscriptionStatus} />;
+    return <TrialBlockedScreen restaurantName={restaurantName} onActivate={handleActivate} ownerEmail={session?.email || ""} subscriptionStatus={trialStatus.subscriptionStatus} accessToken={session?.access_token} />;
   }
 
   const trialBanner = session && trialStatus.daysLeft !== null && !trialStatus.blocked && trialStatus.daysLeft <= 7

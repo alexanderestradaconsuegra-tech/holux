@@ -99,6 +99,33 @@ para no perder el hilo en la próxima sesión.
   `fetch` no existe; ahora lleva un adaptador sobre `this.helpers.httpRequest`.
   Sigue sin publicar hasta que estén Evolution API y `ANTHROPIC_API_KEY`.
 
+- **Webhooks de la mesa (24 nov. 2026).** `camarero-call`, `bill-request`,
+  `feedback` y `order-create` confiaban en el `restaurant_id` y el `table_id` que
+  mandaba el navegador (con fallback silencioso a `'holu'`). Ahora cada
+  validador resuelve la mesa desde el `qr_token` real (mesa activa) y usa SU
+  restaurante y SU mesa; el `qr_token`, el `session_id` y el `menu_item_id` solo
+  admiten caracteres seguros (antes entraban sin escapar a URLs y JSON armados a
+  mano: se podía colar un filtro y actualizar varias mesas, o reescribir la
+  sesión de otro restaurante vía `merge-duplicates`, hoy `ignore-duplicates`).
+  Probado en vivo con un navegador "mentiroso": queda en el restaurante correcto
+  y un QR falso o con filtro colado se rechaza. `mesa.jsx` ahora manda el
+  `qr_token` también en la reseña.
+- **Mesa rota en producción (24 nov. 2026).** Al pegar a mano `Insert Call1`,
+  `Insert Bill Call1`, `Insert Review1` e `Insert Order1` en el editor quedó un
+  `=` de más al inicio del cuerpo (`=={{ ... }}`) y n8n lo rechaza como JSON
+  inválido: llamar al camarero, pedir la cuenta, dejar una reseña y hacer un
+  pedido desde la mesa respondían 500. Corregido y verificado con ejecuciones
+  reales. Lección: después de editar un nodo en el editor, probar con una
+  ejecución real, no solo mirar que el texto esté.
+- **`subscription-resubscribe`**: antes cualquiera que conociera un
+  `restaurant_id` podía iniciar el cobro de otro y, vía `start_resubscription()`,
+  cancelar su intento de pago pendiente. Ahora valida la sesión contra Supabase y
+  exige ser el administrador de ese restaurante (`app_metadata`). El panel manda
+  su `access_token` (hay que redesplegar `admin`). La `back_url` y el monto ya no
+  los decide el navegador.
+- **QR de mesas nuevas** ahora son aleatorios (`<slug>-` + 12 caracteres) en vez
+  de `<slug>-T1..T5`. Los QR ya impresos de restaurantes existentes no cambian.
+
 ## Acción requerida AHORA en EasyPanel
 
 Agregar `HOLU_INTERNAL_SECRET` como variable de entorno en el servicio de
@@ -115,26 +142,6 @@ suscripción o por registro gratis. No es opcional, es bloqueante.
   esas credenciales estén listas. Usa `?key=HOLU_INTERNAL_SECRET` en la URL
   del webhook (no un header) porque Evolution API no siempre soporta headers
   custom — ver `README-whatsapp-agente.md`.
-- **`restaurant_id` no se cruza con el `qr_token`/mesa real** en
-  `camarero-call`, `bill-request`, `feedback` y `order-create` — el workflow
-  confía en el `restaurant_id` que manda el body (con fallback silencioso a
-  `'holu'` si falta), en vez de resolverlo desde la tabla `tables` por
-  `qr_token`. Esto permite, en teoría, que un request con el `qr_token` real
-  de un restaurante pero un `restaurant_id` distinto cree registros atribuidos
-  al tenant equivocado.
-- **`subscription-resubscribe`**: el monto está bien protegido (hardcodeado en
-  servidor), pero el webhook no verifica que quien llama sea realmente dueño
-  del `restaurant_id` que manda — alguien podría cancelar un intento de pago
-  pendiente legítimo de otro restaurante (ver `start_resubscription()`, que
-  borra intentos previos antes de crear uno nuevo). Arreglarlo bien requiere
-  verificar la firma del JWT de Supabase dentro de n8n (HMAC con el JWT
-  secret del proyecto, no solo decodificarlo) — no se implementó por no tener
-  ese secreto a mano en esta sesión.
-- **QR tokens de mesa predecibles**: se generan como `<slug-restaurante>-T1`
-  a `-T5` — baja entropía, enumerable si se conoce un token real del mismo
-  restaurante. No se cambió el formato para no invalidar los QR ya impresos
-  de restaurantes existentes; si se decide arreglar, hay que regenerar los QR
-  físicos también.
 - **`mp-delivery-webhook`**: el `restaurant_id` para elegir qué token de
   MercadoPago usar al verificar un pago viene del query string de la propia
   notificación. El daño está acotado porque igual se re-verifica el pago
