@@ -17,7 +17,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
-RUN npm i -g serve
+# Servidor propio (static-server.mjs): index.html siempre se revalida, así un deploy
+# nuevo se ve al recargar. `serve` no mandaba Cache-Control.
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/static-server.mjs ./static-server.mjs
 EXPOSE 3000
-CMD ["sh", "-c", "serve -s dist -l ${PORT:-3000}"]
+CMD ["node", "static-server.mjs"]
