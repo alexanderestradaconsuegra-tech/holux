@@ -155,21 +155,6 @@ const icons = {
   star: <svg viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21 7 14.2 2 9.3l6.9-1Z" /></svg>,
 };
 
-const photos = {
-  burrata: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?q=80&w=600&auto=format&fit=crop",
-  carpaccio: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?q=80&w=600&auto=format&fit=crop",
-  arancini: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?q=80&w=600&auto=format&fit=crop",
-  tagliatelle: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=600&auto=format&fit=crop",
-  branzino: "https://images.unsplash.com/photo-1535400255456-984241443b29?q=80&w=600&auto=format&fit=crop",
-  ossobuco: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=600&auto=format&fit=crop",
-  risotto: "https://images.unsplash.com/photo-1476124369491-e7addf5db371?q=80&w=600&auto=format&fit=crop",
-  tiramisu: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?q=80&w=600&auto=format&fit=crop",
-  panna: "https://images.unsplash.com/photo-1488477181946-6428a0291777?q=80&w=600&auto=format&fit=crop",
-  spritz: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?q=80&w=600&auto=format&fit=crop",
-  vino: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?q=80&w=600&auto=format&fit=crop",
-  agua: "https://images.unsplash.com/photo-1523362628745-0c100150b504?q=80&w=600&auto=format&fit=crop",
-};
-
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
 :root{--bg:#080705;--panel:#15120f;--panel2:#201a15;--line:rgba(var(--surface-rgb),.09);--text:#fff7ed;--muted:#bfae9d;--dim:#948577;--gold:#d9a441;--gold2:#f7d37b;--red:#ef4444;--green:#34d399;--r:22px;--shadow:0 26px 70px rgba(0,0,0,.45);--surface-rgb:255,255,255;--nav-bg:rgba(7,6,5,.88);--drawer-bg:rgba(15,12,9,.96);--body-glow-1:rgba(217,164,65,.22);--body-glow-2:rgba(126,58,242,.18)}
@@ -277,7 +262,7 @@ function Menu({ session, openCart, qrContext = FALLBACK_CONTEXT, menu = [] }) {
   const cats = ["Todos", ...Array.from(new Set(menu.map((d) => d.category)))];
   const list = menu.filter((d) => (cat === "Todos" || d.category === cat) && (d.name + " " + d.subtitle + " " + d.detail + " " + (Array.isArray(d.tags) ? d.tags.join(" ") : String(d.tags || ""))).toLowerCase().includes(q.toLowerCase()));
   const subtotal = Object.values(session.cart).reduce((s, i) => s + i.price * i.qty, 0); const count = getCartCount(session.cart);
-  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.length === 0 && <div className="empty">La carta todavía no está publicada. Llama al camarero y con gusto te ayudamos.</div>}{list.map((d) => { const imgUrl = d.imageUrl || photos[d.id] || ""; const tagList = Array.isArray(d.tags) ? d.tags : String(d.tags || "").split(",").map((t) => t.trim()).filter(Boolean); const qty = session.cart[d.id]?.qty || 0; return <article className={`dish glass${imgUrl ? "" : " nophoto"}`} key={d.id}>{imgUrl && <div className="photo tap" onClick={() => setDetail(d)} style={{ backgroundImage: `url(${JSON.stringify(imgUrl)})` }} />}<div className="dish-body tap" role="button" tabIndex={0} aria-label={`Ver detalle de ${d.name}`} onClick={() => setDetail(d)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetail(d); } }}><h3>{d.name}</h3>{d.subtitle && <p>{d.subtitle}</p>}<div className="meta">{tagList.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}<span>{d.minutes || d.avgPrep || 0} min{d.kcal ? ` · ${d.kcal} kcal` : ""}</span></div><div className="price">{money(d.price)}</div></div><button className={`add${qty > 0 ? " on" : ""}`} aria-label={qty > 0 ? `${d.name}: ${qty} en tu pedido, agregar otro` : `Agregar ${d.name}`} onClick={() => session.addItem(d)}>{qty > 0 ? qty : icons.plus}</button></article>; })}</div>{detail && <DishDetail dish={detail} inCart={session.cart[detail.id]?.qty || 0} onClose={() => setDetail(null)} onAdd={(qty, note) => { session.addItem(detail, qty, note); setDetail(null); }} />}{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
+  return <main className="screen fade"><Header title="Carta" qrContext={qrContext} /><div className="searchbar"><div className="icon">{icons.search}</div><input className="searchbox" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato o categoría..." /></div><div className="cat-row">{cats.map((c) => <button key={c} className={`cat ${cat === c ? "on" : ""}`} onClick={() => setCat(c)}>{c}</button>)}</div><div className="dish-list">{list.length === 0 && <div className="empty">La carta todavía no está publicada. Llama al camarero y con gusto te ayudamos.</div>}{list.map((d) => { const imgUrl = d.imageUrl || ""; const tagList = Array.isArray(d.tags) ? d.tags : String(d.tags || "").split(",").map((t) => t.trim()).filter(Boolean); const qty = session.cart[d.id]?.qty || 0; return <article className={`dish glass${imgUrl ? "" : " nophoto"}`} key={d.id}>{imgUrl && <div className="photo tap" onClick={() => setDetail(d)} style={{ backgroundImage: `url(${JSON.stringify(imgUrl)})` }} />}<div className="dish-body tap" role="button" tabIndex={0} aria-label={`Ver detalle de ${d.name}`} onClick={() => setDetail(d)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetail(d); } }}><h3>{d.name}</h3>{d.subtitle && <p>{d.subtitle}</p>}<div className="meta">{tagList.slice(0, 2).map((t) => <span className="tag" key={t}>{t}</span>)}<span>{d.minutes || d.avgPrep || 0} min{d.kcal ? ` · ${d.kcal} kcal` : ""}</span></div><div className="price">{money(d.price)}</div></div><button className={`add${qty > 0 ? " on" : ""}`} aria-label={qty > 0 ? `${d.name}: ${qty} en tu pedido, agregar otro` : `Agregar ${d.name}`} onClick={() => session.addItem(d)}>{qty > 0 ? qty : icons.plus}</button></article>; })}</div>{detail && <DishDetail dish={detail} inCart={session.cart[detail.id]?.qty || 0} onClose={() => setDetail(null)} onAdd={(qty, note) => { session.addItem(detail, qty, note); setDetail(null); }} />}{count > 0 && <button className="floating-cart" onClick={openCart}><span>{count} item{count > 1 ? "s" : ""}</span><span>{money(subtotal)} · Ver pedido</span></button>}</main>;
 }
 
 function DishDetail({ dish, inCart = 0, onClose, onAdd }) {
@@ -285,7 +270,7 @@ function DishDetail({ dish, inCart = 0, onClose, onAdd }) {
   useEffect(() => { const h = (e) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
   const tagList = Array.isArray(dish.tags) ? dish.tags : String(dish.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
   const allergens = (Array.isArray(dish.allergens) ? dish.allergens : String(dish.allergens || "").split(",")).map((a) => String(a).trim()).filter(Boolean);
-  const imgUrl = dish.imageUrl || photos[dish.id] || "";
+  const imgUrl = dish.imageUrl || "";
   return <><div className="sheet-back" onClick={onClose} /><section className="sheet" role="dialog" aria-modal="true" aria-label={dish.name}>
     {imgUrl && <div className="sheet-photo" style={{ backgroundImage: `url(${JSON.stringify(imgUrl)})` }} />}
     <button className="icon sheet-close" aria-label="Cerrar" onClick={onClose}>{icons.x}</button>

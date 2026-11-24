@@ -9,10 +9,9 @@
   que cobrar uno antes de tomar el siguiente. Falta, si hace falta: dividir la cuenta por pedido.
 - ~~Bug de números de pedido (n8n)~~: arreglado, ahora `ORD-` + 8 caracteres hex (probado con un pedido real).
 
-- **Fotos del demo**: la carta del demo ya trae detalle y alérgenos (se resiembran con `reset_demo()`),
-  pero no fotos: desde aquí no se podía verificar ningún enlace de imagen. Subirlas desde el panel se
-  pierde en el siguiente reseteo (cada 30 min); para fotos fijas hay que ponerlas en la semilla de
-  `reset_demo()` con URL propias.
+- **Fotos del demo**: no hay. La idea del producto es que cada dueño suba las suyas en el panel (Carta → Editar)
+  y se compartan solas en mesa, kiosco y delivery, porque las tres leen `menu_items.image_url`. Una foto
+  subida al demo se pierde en el siguiente reseteo (cada 30 min).
 
 ## Después
 - **WhatsApp en el aviso de fallos**: agregar en n8n `EVOLUTION_API_URL`,
