@@ -34,12 +34,6 @@ const GOOGLE_MAPS_API_KEY = getEnv("VITE_GOOGLE_MAPS_API_KEY", "");
 const WHATSAPP_NUMBER = getEnv("VITE_WHATSAPP_NUMBER", "56912345678");
 const LANDING_URL = getEnv("VITE_LANDING_URL", "https://holu.pro");
 
-// The showroom account. These credentials are meant to be public: the demo is
-// its own tenant, RLS keeps it away from every real restaurant, and reset_demo()
-// puts it back if a visitor rearranges it.
-const DEMO_EMAIL    = getEnv("VITE_DEMO_EMAIL", "demo@holu.pro");
-const DEMO_PASSWORD = getEnv("VITE_DEMO_PASSWORD", "HoluDemo2026");
-
 // ── Tenant ────────────────────────────────────────────────────────────────────
 // Each restaurant gets its own admin deployment with VITE_RESTAURANT_ID set.
 // After an admin signs in, the restaurant_id in their JWT overrides this and is
@@ -2995,15 +2989,8 @@ function SessionLogin({ onAuth, onBack }) {
     catch (err) { setError(err.message); setLoading(false); }
   };
 
-  // Signing up used to happen here too, which handed out working accounts for
-  // free and left two doors to the same room, each sending a different email.
-  // An account is now created only once MercadoPago confirms the payment, so
-  // this screen only signs people in.
-  const enterDemo = async () => {
-    setLoading(true); setError("");
-    try { onAuth(await supaSignIn(DEMO_EMAIL, DEMO_PASSWORD)); }
-    catch { setError("La demo no está disponible en este momento."); setLoading(false); }
-  };
+  // This screen only signs people in. Accounts are created from the landing
+  // form (free 30-day trial, email confirmation required); there is no open demo.
 
   const base = { minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"var(--bg)", gap:24, padding:20 };
   const brand = <BrandMark size={64} sub="BACKOFFICE" />;
@@ -3020,8 +3007,7 @@ function SessionLogin({ onAuth, onBack }) {
         <button className="btn primary" type="submit" disabled={loading} style={{ marginTop:4 }}>{loading ? "Verificando..." : "Ingresar"}</button>
       </form>
       {onBack && <button onClick={onBack} style={{ background:"none", border:"none", color:"var(--dim)", cursor:"pointer", fontSize:13, padding:0 }}>← Volver</button>}
-      <button onClick={enterDemo} disabled={loading} style={{ background:"none", border:"none", color:"var(--gold2)", cursor:"pointer", fontSize:13, fontWeight:700, padding:0 }}>Ver la demo, sin registrarse →</button>
-      <a href={LANDING_URL} style={{ color:"var(--dim)", fontSize:13, textDecoration:"none" }}>¿Quieres tu propia cuenta? →</a>
+      <a href={`${LANDING_URL}#registro`} style={{ color:"var(--gold2)", fontSize:13, fontWeight:700, textDecoration:"none" }}>¿No tienes cuenta? Pruébalo 30 días gratis →</a>
     </div>
   );
 }
