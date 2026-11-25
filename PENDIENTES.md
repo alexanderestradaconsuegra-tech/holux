@@ -13,6 +13,11 @@
   y se compartan solas en mesa, kiosco y delivery, porque las tres leen `menu_items.image_url`. Una foto
   subida al demo se pierde en el siguiente reseteo (cada 30 min).
 
+- **Landing (25 nov.)**: sin plan A Medida, con copy de venta, 4 videos del sistema real y carta con platos
+  ilustrados. Pendiente tuyo: fotos reales de platos (`landing/public/platos/<nombre>.jpg` reemplaza la
+  ilustración sola), videos con voz si quieres (mismo nombre en `landing/public/videos/`), y revisar que la
+  boleta electrónica con Tuu esté probada antes de anunciarla. Ver `landing/videos-src/README.md`.
+
 ## Después
 - **WhatsApp en el aviso de fallos**: agregar en n8n `EVOLUTION_API_URL`,
   `EVOLUTION_API_KEY` y `EVOLUTION_ADMIN_INSTANCE`. Hoy el aviso sale solo por correo.
