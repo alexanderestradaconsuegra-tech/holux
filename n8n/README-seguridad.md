@@ -161,6 +161,18 @@ para no perder el hilo en la próxima sesión.
   simulados: precio falso ignorado, cocina rechazada, mesa de otro restaurante y
   platos inexistentes rechazados, cantidades inválidas rechazadas.
 
+- **Panel "abierto" pero anónimo (25 nov. 2026).** El token de acceso de Supabase dura 1 hora
+  y el panel nunca usaba el `refresh_token`. Al recargar pasada la hora, la sesión vencida se
+  descartaba pero el usuario guardado en `sessionStorage` no: el panel seguía "logueado" y
+  hablaba como visitante anónimo (listas vacías con 200, y todo lo que se guardaba o leía de
+  tablas protegidas respondía 401 en silencio: abrir caja, crear mesas, configuración fiscal).
+  Visto en los logs de la API: `POST /rest/v1/cash_sessions` 401 y `GET restaurant_fiscal` 401
+  desde `app.holu.pro` mientras los sondeos de `orders`/`tables` daban 200. Ahora el panel renueva
+  el token antes de vencer (y reintenta una vez si recibe 401), no entra sin sesión real y vuelve
+  al login con un aviso si la sesión se pierde. `Abrir caja` muestra el error en vez de callarlo.
+  Los inicios de sesión por PIN que no obtengan sesión (si la función `staff-login` falla) ya no
+  entran como anónimos.
+
 ## Acción requerida AHORA en EasyPanel
 
 Agregar `HOLU_INTERNAL_SECRET` como variable de entorno en el servicio de

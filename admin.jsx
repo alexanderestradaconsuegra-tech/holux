@@ -38,7 +38,7 @@ const dteCall = async (token, action, extra = {}) => {
     const res = await fetch(buildWebhookUrl("holu-dte"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_token: token, action, ...extra }),
+      body: JSON.stringify({ access_token: await freshToken(token), action, ...extra }),
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => null);
@@ -132,27 +132,108 @@ const staffPinLogin = async (restaurantId, pin) => {
   return found?.id ? { staff: found, session: null } : null;
 };
 
-const supaFetch = (path, opts = {}, authToken = null) => {
-  const token = authToken || SUPABASE_ANON_KEY;
-  const headers = {
-    apikey: SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    Prefer: opts.prefer || "return=representation",
-  };
-  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...opts, headers }).then((r) => {
-    // Errors raised on purpose inside a database function ("La caja está
-    // cerrada...") come back as JSON with a readable `message`; show that to
-    // the cashier instead of a truncated blob.
-    if (!r.ok) return r.text().then((t) => {
-      let msg = "";
-      try { msg = JSON.parse(t)?.message || ""; } catch {}
-      return Promise.reject(new Error(msg || `Supabase ${r.status}: ${t.slice(0, 120)}`));
-    });
-    const ct = r.headers.get("content-type") || "";
-    if (r.status === 204 || !ct.includes("json")) return null;
-    return r.json();
+// ── Sesión ────────────────────────────────────────────────────────────────────
+// El token de acceso de Supabase dura 1 hora. El panel guardaba el refresh_token pero
+// nunca lo usaba: pasada la hora, todo lo que se escribía respondía 401 (abrir caja, crear
+// mesas, cobrar...) y fallaba en silencio hasta recargar la página. Ahora el token se
+// renueva antes de vencer, y si una petición recibe 401 se renueva una vez y se reintenta.
+const jwtExpMs = (token) => {
+  try { const p = JSON.parse(atob(String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); return p.exp ? p.exp * 1000 : 0; }
+  catch { return 0; }
+};
+let LIVE_SESSION = null;                 // espejo de localStorage "holu:session"
+let REFRESHING = null;                   // renovación en curso (una sola a la vez)
+const TOKEN_REPLACED = new Map();        // token viejo -> token nuevo
+const SESSION_HOOKS = { onRefreshed: null, onLost: null };
+const latestToken = (t) => { let x = t; for (let i = 0; i < 6 && TOKEN_REPLACED.has(x); i++) x = TOKEN_REPLACED.get(x); return x; };
+const setLiveSession = (sess) => { LIVE_SESSION = sess && sess.access_token ? sess : null; };
+const readStoredSession = () => { try { return JSON.parse(localStorage.getItem("holu:session") || "null"); } catch { return null; } };
+// Otra pestaña del mismo navegador pudo renovar ya: se adopta su sesión en vez de renovar de nuevo
+// (el refresh_token rota y el viejo deja de servir).
+const adoptStoredSession = () => {
+  const stored = readStoredSession();
+  if (!stored?.access_token || !LIVE_SESSION || stored.access_token === LIVE_SESSION.access_token) return null;
+  if (jwtExpMs(stored.access_token) - Date.now() < 30_000) return null;
+  TOKEN_REPLACED.set(LIVE_SESSION.access_token, stored.access_token);
+  LIVE_SESSION = stored;
+  SESSION_HOOKS.onRefreshed?.(stored);
+  return stored.access_token;
+};
+const refreshSession = (staleToken) => {
+  const newer = staleToken ? latestToken(staleToken) : null;
+  if (staleToken && newer && newer !== staleToken) return Promise.resolve(newer);
+  if (REFRESHING) return REFRESHING;
+  const adopted = adoptStoredSession();
+  if (adopted) return Promise.resolve(adopted);
+  const cur = LIVE_SESSION;
+  if (!cur?.refresh_token) return Promise.resolve(null);
+  REFRESHING = (async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: cur.refresh_token }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.access_token) {
+        // Si la rotó otra pestaña, su sesión sirve; si no, la sesión se perdió de verdad.
+        const again = adoptStoredSession();
+        if (again) return again;
+        if (res.status >= 400 && res.status < 500) SESSION_HOOKS.onLost?.();
+        return null;
+      }
+      const next = {
+        ...cur,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || cur.refresh_token,
+        expires_at: jwtExpMs(data.access_token) || Date.now() + (data.expires_in || 3600) * 1000,
+      };
+      TOKEN_REPLACED.set(cur.access_token, next.access_token);
+      LIVE_SESSION = next;
+      try { localStorage.setItem("holu:session", JSON.stringify(next)); } catch {}
+      SESSION_HOOKS.onRefreshed?.(next);
+      return next.access_token;
+    } catch { return null; }
+    finally { REFRESHING = null; }
+  })();
+  return REFRESHING;
+};
+// El token que hay que usar ahora: el más nuevo y, si vence en menos de un minuto, renovado.
+const freshToken = async (token) => {
+  const t = token ? latestToken(token) : token;
+  const exp = t ? jwtExpMs(t) : 0;
+  if (t && exp && exp - Date.now() < 60_000) { const f = await refreshSession(t); if (f) return f; }
+  return t;
+};
+
+const supaFetch = async (path, opts = {}, authToken = null) => {
+  const send = (tok) => fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${tok}`,
+      "Content-Type": "application/json",
+      Prefer: opts.prefer || "return=representation",
+    },
   });
+  let tok = authToken ? await freshToken(authToken) : SUPABASE_ANON_KEY;
+  let r = await send(tok);
+  if (r.status === 401 && authToken) {
+    const fresh = await refreshSession(tok);
+    if (fresh && fresh !== tok) r = await send(fresh);
+  }
+  // Errors raised on purpose inside a database function ("La caja está
+  // cerrada...") come back as JSON with a readable `message`; show that to
+  // the cashier instead of a truncated blob.
+  if (!r.ok) {
+    const t = await r.text();
+    let msg = "";
+    try { msg = JSON.parse(t)?.message || ""; } catch {}
+    throw new Error(msg || `Supabase ${r.status}: ${t.slice(0, 120)}`);
+  }
+  const ct = r.headers.get("content-type") || "";
+  if (r.status === 204 || !ct.includes("json")) return null;
+  return r.json();
 };
 
 // Live updates over a websocket instead of asking every few seconds. Polling
@@ -228,12 +309,13 @@ const supaUploadImage = async (file, token, bucket = "menu-images") => {
   const folder = getRestaurantId();
   if (!folder) throw new Error("No se pudo identificar tu restaurante. Cierra sesión y vuelve a entrar.");
   const body = await shrinkImage(file);
+  const accessToken = await freshToken(token);
   const type = body.type || file.type || "image/jpeg";
   const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
   const name = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${name}`, {
     method: "POST",
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": type },
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}`, "Content-Type": type },
     body,
   });
   if (!res.ok) {
@@ -998,7 +1080,7 @@ function useBackofficeState(authToken = null) {
         expected: Number(openingCash) || 0, counted: 0, difference: 0, history: [],
       }));
       await logMovement(userId, "Abrió caja", `Fondo inicial ${money(openingCash)} · Turno ${turn}`, Number(openingCash) || 0);
-    } catch (e) { console.error("[holu caja] abrir:", e.message); }
+    } catch (e) { console.error("[holu caja] abrir:", e.message); throw e; }
   };
 
   // The database works out the expected cash and stores the count and the
@@ -1839,6 +1921,7 @@ function CashClosingView({ state, staffId, role }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [turn, setTurn] = useState(state.cashSession.activeTurn);
+  const [openErr, setOpenErr] = useState("");
   const [openingCash, setOpeningCash] = useState("");
   const [countedCash, setCountedCash] = useState("");
   const session = state.cashSession;
@@ -1891,7 +1974,7 @@ Diferencia: ${money(session.difference)}`;
     URL.revokeObjectURL(url);
   };
   return <div className="grid"><div className="shift-banner"><div><h2 style={{margin:0,fontFamily:"Playfair Display",fontSize:30}}>Caja {session.status}</h2><p style={{margin:"6px 0 0",color:"var(--muted)"}}>Turno {session.activeTurn} · Responsable actual: {responsible.name} · Apertura {session.openedAt}</p></div><div className="shift-actions">{session.status !== "abierta"
-      ? <><input className="input" style={{width:150}} type="number" min="0" placeholder="Fondo inicial" value={openingCash} onChange={(e)=>setOpeningCash(e.target.value)} /><button className="btn primary" onClick={()=>state.openCash(staffId, Number(openingCash)||0, turn)}>Abrir caja</button></>
+      ? <><input className="input" style={{width:150}} type="number" min="0" placeholder="Fondo inicial" value={openingCash} onChange={(e)=>setOpeningCash(e.target.value)} /><button className="btn primary" onClick={async()=>{ setOpenErr(""); try { await state.openCash(staffId, Number(openingCash)||0, turn); } catch (e) { setOpenErr(`No se pudo abrir la caja: ${String(e.message).slice(0,120)}`); } }}>Abrir caja</button>{openErr && <small style={{color:"var(--red2)",flexBasis:"100%"}}>{openErr}</small>}</>
       : <><button className="btn ghost" onClick={()=>state.closeTurn(staffId)}>Cerrar turno</button><input className="input" style={{width:150}} type="number" min="0" placeholder="Efectivo contado" value={countedCash} onChange={(e)=>setCountedCash(e.target.value)} /><button className="btn danger" onClick={closeShift}>Cerrar caja</button></>}</div></div><div className="panel"><div className="panel-head"><div><h2>Cambio de turno</h2><p style={{margin:"4px 0 0"}}>Cada acción queda asociada al usuario responsable.</p></div><span className={`badge ${session.status === "abierta" ? "green" : "red"}`}>{session.status}</span></div><div className="form-grid"><div className="field"><label>Turno activo</label><select className="input" value={turn} onChange={(e)=>setTurn(e.target.value)}><option>Día</option><option>Noche</option><option>Full</option></select></div><div className="field"><label>Responsable</label><select className="input" value={staffId} disabled><option>{getStaff(staffId).name}</option></select></div></div><button className="btn primary" style={{marginTop:12}} onClick={()=>state.changeTurn(staffId, turn)}>Cambiar turno</button></div><ExpenseRegister state={state} staffId={staffId} /><div className="panel"><div className="panel-head"><div><h2>Cierre de caja</h2><p style={{margin:"4px 0 0"}}>Control diario de ventas, propinas y diferencias de caja.</p></div><span className={`badge ${!counted ? "blue" : diffOk ? "green" : "red"}`}>{!counted ? "Turno en curso" : diffOk ? "Cuadrado" : "Diferencia"}</span></div><div className="cash-grid"><div className="cash-card"><span>Efectivo</span><strong>{money(session.cash)}</strong></div><div className="cash-card"><span>Tarjeta</span><strong>{money(session.card)}</strong></div><div className="cash-card"><span>Transferencia</span><strong>{money(session.transfer)}</strong></div><div className="cash-card"><span>Propinas</span><strong>{money(session.tips)}</strong></div><div className="cash-card"><span>Gastos</span><strong>{money(session.expenses)}</strong></div></div></div><div className="two"><div className="panel"><div className="panel-head"><h2>Resumen final</h2><span className="badge blue">Caja</span></div><div className="list"><div className="row"><span className="badge">Esperado</span><div className="row-main"><b>Efectivo esperado</b><small>Fondo inicial + cobros y propinas en efectivo − gastos. Tarjeta y transferencia no pasan por el cajón.</small></div><strong>{money(session.expected)}</strong></div><div className="row"><span className="badge green">Contado</span><div className="row-main"><b>Efectivo contado</b><small>Conteo físico del cajón al cerrar</small></div><strong>{money(session.counted)}</strong></div><div className="row"><span className={`badge ${diffOk ? "green" : "red"}`}>Diferencia</span><div className="row-main"><b>Ajuste</b><small>Debe ser 0 para cierre correcto</small></div><strong>{money(session.difference)}</strong></div></div><div style={{display:"flex",gap:10,marginTop:14,flexWrap:"wrap"}}><button className="btn primary" onClick={()=>setReportOpen(true)}>Ver cierre</button><button className="btn ghost" onClick={()=>window.print()}>Imprimir</button><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button></div></div><div className="panel"><div className="panel-head"><h2>Propinas registradas</h2><span className="badge">10%</span></div><div className="list">{state.tables.filter((t)=>t.bill > 0).map((t)=><div className="row" key={t.id}><span className={`badge ${t.tipAccepted ? "green" : "red"}`}>Mesa {t.id}</span><div className="row-main"><b>{getStaff(t.waiterId).name}</b><small>{t.tipAccepted ? "Cliente aceptó propina" : "Cliente rechazó propina"}</small></div><strong>{money(t.tipAmount)}</strong></div>)}</div></div></div><BoletasDelDia authToken={state.authToken} isAdmin={role === "admin"} /><div className="panel"><div className="panel-head"><h2>Historial de caja/turno</h2><span className="badge purple">Auditoría</span></div><div className="list">{session.history.map((h,idx)=><div className="row" key={idx}><span className="badge">{h.time}</span><div className="row-main"><b>{h.action}</b><small>{h.detail}</small></div><strong>{getStaff(h.userId).name}</strong></div>)}</div></div>{reportOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Reporte de cierre</h2><button className="btn ghost" onClick={()=>setReportOpen(false)}>Cerrar</button></div><CashCloseReport session={session} userId={staffId} /><div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:14}}><button className="btn ghost" onClick={downloadReport}>Descargar</button><button className="btn ghost" onClick={()=>setWhatsappOpen(true)}>WhatsApp</button><button className="btn primary" onClick={()=>window.print()}>Imprimir</button></div></div></div>}{whatsappOpen && <div className="modal-backdrop"><div className="modal"><div className="panel-head"><h2>Enviar cierre por WhatsApp</h2><button className="btn ghost" onClick={()=>setWhatsappOpen(false)}>Cerrar</button></div><div className="whatsapp-card"><b>Mensaje listo para enviar</b><p style={{color:"var(--muted)",lineHeight:1.5}}>Se enviará resumen del cierre, responsable, métodos de pago, propinas y diferencia.</p><a className="btn primary" style={{display:"inline-block",textDecoration:"none"}} href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp</a></div></div></div>}</div>;
 }
 
@@ -3427,7 +3510,7 @@ function SessionLogin({ onAuth, onBack }) {
   );
 }
 
-function LoginEntry({ onAdminAuth, onStaffAuth }) {
+function LoginEntry({ onAdminAuth, onStaffAuth, notice = "" }) {
   const [mode, setMode] = useState(null);
   if (mode === "admin") return <SessionLogin onAuth={onAdminAuth} onBack={() => setMode(null)} />;
   if (mode === "employee") return <PinGate onAuth={onStaffAuth} onBack={() => setMode(null)} />;
@@ -3437,6 +3520,7 @@ function LoginEntry({ onAdminAuth, onStaffAuth }) {
       <div style={{ position:"absolute", top:16, right:16 }}><ThemeToggle /></div>
       <BrandMark size={70} sub="BACKOFFICE" />
       <div style={{ display:"flex", flexDirection:"column", gap:14, width:"min(360px,100%)" }}>
+        {notice && <div role="alert" style={{ background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.3)", borderRadius:14, padding:"12px 14px", color:"#fca5a5", fontSize:13, lineHeight:1.5, textAlign:"center" }}>{notice}</div>}
         <button className="btn primary" style={{ padding:"22px 0", fontSize:17, borderRadius:20, lineHeight:1.4 }} onClick={() => setMode("admin")}>
           Administrador<br /><span style={{ fontSize:12, fontWeight:400, opacity:.7 }}>Correo y contraseña</span>
         </button>
@@ -3556,7 +3640,7 @@ function TrialBlockedScreen({ restaurantName, onActivate, ownerEmail, subscripti
       const res = await fetch(buildWebhookUrl("subscription-resubscribe"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurant_id: getRestaurantId(), payer_email: ownerEmail, plan, access_token: accessToken }),
+        body: JSON.stringify({ restaurant_id: getRestaurantId(), payer_email: ownerEmail, plan, access_token: await freshToken(accessToken) }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.init_point) throw new Error("sin enlace de pago");
@@ -3701,12 +3785,15 @@ export default function HoluAdmin() {
         return null;
       }
       s.restaurant_id = payload.app_metadata.restaurant_id;
-      // Expire check
-      if (s.expires_at && s.expires_at < Date.now()) {
+      // El vencimiento sale del propio token (la sesión de empleados guarda segundos y la de
+      // administradores milisegundos). Una sesión vencida con refresh_token se renueva sola.
+      s.expires_at = jwtExpMs(s.access_token) || s.expires_at;
+      if (s.expires_at && s.expires_at < Date.now() && !s.refresh_token) {
         localStorage.removeItem("holu:session");
         return null;
       }
       if (s.restaurant_id) setRestaurantId(s.restaurant_id);
+      setLiveSession(s);
       return s;
     } catch { localStorage.removeItem("holu:session"); return null; }
   });
@@ -3731,6 +3818,36 @@ export default function HoluAdmin() {
   // bought sitting idle in its own sidebar.
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const state = useBackofficeState(session?.access_token || null);
+  const logoutRef = useRef(null);
+  const [loginNotice, setLoginNotice] = useState("");
+
+  // Renovación de la sesión: el panel se queda abierto todo el turno y el token dura 1 hora.
+  useEffect(() => {
+    SESSION_HOOKS.onRefreshed = (next) => setSession(next);
+    SESSION_HOOKS.onLost = () => { if (logoutRef.current) logoutRef.current("Tu sesión venció. Vuelve a entrar."); };
+    return () => { SESSION_HOOKS.onRefreshed = null; SESSION_HOOKS.onLost = null; };
+  }, []);
+  useEffect(() => {
+    if (!session?.access_token) return undefined;
+    const token = session.access_token;
+    const check = () => {
+      const exp = jwtExpMs(latestToken(token));
+      if (exp && exp - Date.now() < 5 * 60_000) refreshSession(token);
+    };
+    const exp = jwtExpMs(token);
+    const timer = setTimeout(check, exp ? Math.max(5_000, exp - Date.now() - 5 * 60_000) : 30 * 60_000);
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", check);
+    window.addEventListener("online", check);
+    check();
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", check);
+      window.removeEventListener("online", check);
+    };
+  }, [session?.access_token]);
 
   // Load restaurant name + trial status as soon as we have an auth token.
   // The restaurants table is no longer readable with the anon key, so the login
@@ -3822,6 +3939,8 @@ export default function HoluAdmin() {
   const handleSessionAuth = (sess) => {
     // The restaurant_id in the admin's JWT wins over the build-time default.
     if (sess?.restaurant_id) setRestaurantId(sess.restaurant_id);
+    if (sess?.access_token) sess = { ...sess, expires_at: jwtExpMs(sess.access_token) || sess.expires_at };
+    setLiveSession(sess);
     try { localStorage.setItem("holu:session", JSON.stringify(sess)); } catch {}
     setSession(sess);
   };
@@ -3830,6 +3949,13 @@ export default function HoluAdmin() {
     // A PIN login now carries a real Supabase session, so the employee's own
     // restaurant_id claim drives every query they make from here on.
     if (staffSession?.access_token) handleSessionAuth(staffSession);
+    else if (!session?.access_token) {
+      // Sin sesión de Supabase el panel quedaría como visitante anónimo: listas vacías y
+      // todo lo que se guarda rechazado sin avisar. Mejor no entrar y decirlo.
+      setLoginNotice("No se pudo iniciar una sesión segura. Inténtalo de nuevo en un momento.");
+      return;
+    }
+    setLoginNotice("");
     try { sessionStorage.setItem("holu:staff", JSON.stringify(staff)); } catch {}
     setAuthed(staff);
     setRole(staff.role);
@@ -3843,7 +3969,9 @@ export default function HoluAdmin() {
     handleStaffAuth(adminStaff);
   };
 
-  const handleLogout = () => {
+  const handleLogout = (msg) => {
+    setLiveSession(null);
+    setLoginNotice(typeof msg === "string" ? msg : "");
     try {
       localStorage.removeItem("holu:session");
       sessionStorage.removeItem("holu:staff");
@@ -3856,6 +3984,15 @@ export default function HoluAdmin() {
     setStaffId(null);
   };
 
+  logoutRef.current = handleLogout;
+  useEffect(() => {
+    if (authed && !session?.access_token) {
+      try { sessionStorage.removeItem("holu:staff"); } catch {}
+      setAuthed(null);
+      setLoginNotice((n) => n || "Tu sesión venció. Vuelve a entrar.");
+    }
+  }, [authed, session]);
+
   const handleActivate = async (code) => {
     try {
       const result = await supaRpc("activate_restaurant", { p_code: code }, session?.access_token);
@@ -3865,7 +4002,10 @@ export default function HoluAdmin() {
     } catch { return false; }
   };
 
-  if (!authed) return <LoginEntry onAdminAuth={handleAdminAuth} onStaffAuth={handleStaffAuth} />;
+  // Sin sesión de Supabase no hay panel: antes, si el token vencía y la página se recargaba, el
+  // panel seguía abierto "como" el usuario pero hablando como anónimo (sin datos, sin poder
+  // guardar nada y sin avisar).
+  if (!authed || !session?.access_token) return <LoginEntry notice={loginNotice} onAdminAuth={handleAdminAuth} onStaffAuth={handleStaffAuth} />;
 
   if (session && emailVerifiedAt === null) {
     return <EmailUnverifiedScreen restaurantName={restaurantName} ownerEmail={session?.email || ""} />;
