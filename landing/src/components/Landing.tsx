@@ -16,15 +16,6 @@ const Icons = {
   server: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/></svg>,
 };
 
-const socialProof = [
-  "Restaurantes modernos",
-  "Cafés y brunch",
-  "Fast food",
-  "Bares y terrazas",
-  "Dark kitchens",
-  "Food trucks",
-];
-
 const showcase = [
   {
     icon: "phone",
@@ -60,27 +51,19 @@ const showcase = [
   },
 ];
 
-const modules = [
-  { name: "HOLU Mesas",          eyebrow: "Cliente en mesa",     desc: "Carta digital, pedidos, llamado al camarero, solicitud de cobro, propina, reseñas y seguimiento del pedido desde un QR." },
-  { name: "HOLU Camareros",      eyebrow: "Equipo de servicio",  desc: "Llamados de mesa, pedidos activos, mensajes del cliente, mesas asignadas y colaboración del administrador en tiempo real." },
-  { name: "HOLU Cocina",         eyebrow: "Pantalla de cocina",  desc: "Pedidos organizados por estado para acelerar el servicio, reducir errores y mantener al equipo coordinado." },
-  { name: "HOLU Administración", eyebrow: "Control total",       desc: "Ventas, empleados, carta, QR de mesas, inventario, propinas, caja, turnos, boletas, reportes y auditoría." },
-  { name: "HOLU Autoservicio",   eyebrow: "Tótem de barra",      desc: "Clientes hacen pedidos solos desde una pantalla en barra o mostrador, sin filas, sin esperar atención." },
-];
-
 const metrics = [
-  ["-40%", "menos tiempo perdido entre cocina y salón"],
-  ["+22%", "más pedidos usando carta QR visual"],
-  ["24/7",  "restaurante conectado desde cualquier lugar"],
+  ["30 días", "gratis, sin tarjeta"],
+  ["$19.990", "al mes, todo incluido"],
+  ["5 en 1", "mesa, camareros, cocina, caja y kiosco"],
 ];
 
 const benefits = [
-  "Aumenta el ticket promedio con una carta visual, ordenada y fácil de usar.",
-  "Reduce esperas entre cliente, camarero, cocina y caja.",
-  "Centraliza pedidos, llamados, cobros, propinas, reseñas y boletas.",
-  "Convierte cada mesa en una experiencia moderna y conectada.",
-  "Permite operar con roles claros: administración, camareros, cocina y caja.",
-  "Entrega una imagen premium y diferente frente a otros restaurantes.",
+  "Tus clientes piden solos desde el QR de la mesa: menos esperas y menos errores al tomar el pedido.",
+  "Una carta con fotos, alérgenos y notas por plato vende más que una carta de papel.",
+  "La cocina recibe cada pedido al instante, sin papelitos ni gritos.",
+  "Si un cliente no usa el QR, el camarero le toma el pedido desde su celular; en el mostrador cobras en el momento.",
+  "Caja con turnos, propinas, cuenta dividida y cuadre de efectivo. Boleta electrónica con tu propia cuenta de Tuu.",
+  "Cada persona del equipo entra con su PIN y ve solo lo suyo.",
 ];
 
 // Precio único de la sección "#precios" (activación manual por WhatsApp).
@@ -94,69 +77,93 @@ const PLAN = {
   annual: 199900, // 10 meses de 12 = "2 meses gratis"
   blurb: "Todo tu restaurante en un solo sistema: mesa, camareros, cocina, caja y kiosco.",
   features: [
-    "Administración completa: carta, inventario, reportes y empleados",
-    "Mesas con QR y carta digital premium",
-    "Camareros con su propio perfil y sus mesas asignadas",
-    "Pantalla de cocina organizada, sin papel",
-    "Caja, turnos, boletas y propinas",
-    "Kiosco de autoservicio en pantalla, sin filas",
-    "Seguimiento del pedido en vivo para el cliente",
+    "Mesas con QR y carta digital con fotos, alérgenos y notas por plato",
+    "Camareros con su PIN, sus mesas y toma de pedidos desde el celular",
+    "Pantalla de cocina en vivo, sin papel",
+    "Caja con turnos, propinas, cuenta dividida y cuadre de efectivo",
+    "Boleta electrónica con tu propia cuenta de Tuu",
+    "Kiosco de autoservicio y venta de mostrador",
+    "Administración: carta, inventario, reportes y equipo",
   ],
 };
 
 // Mini pantalla interactiva dentro de la sección de precios — no llama al
 // backend, solo muestra cómo se siente pedir en el kiosco.
 const KIOSCO_ITEMS = [
-  { id: "k1", name: "Hamburguesa", price: 6500, img: "🍔", bg: "linear-gradient(160deg,rgba(240,212,141,.32),rgba(200,169,107,.12))" },
-  { id: "k2", name: "Papas fritas", price: 3000, img: "🍟", bg: "linear-gradient(160deg,rgba(251,191,36,.32),rgba(240,212,141,.12))" },
-  { id: "k3", name: "Limonada", price: 2500, img: "🍋", bg: "linear-gradient(160deg,rgba(163,230,53,.32),rgba(52,211,153,.12))" },
-  { id: "k4", name: "Helado", price: 3500, img: "🍦", bg: "linear-gradient(160deg,rgba(96,165,250,.32),rgba(167,139,250,.12))" },
+  { id: "k1", name: "Empanada de pino", price: 4500, img: "empanada" },
+  { id: "k2", name: "Limonada de menta", price: 5500, img: "limonada" },
+  { id: "k3", name: "Pisco sour", price: 6900, img: "pisco" },
+  { id: "k4", name: "Leche asada", price: 5500, img: "leche" },
 ];
 
 function clp(n: number) {
   return `$${n.toLocaleString("es-CL")}`;
 }
 
-// El plan a medida no tiene precio de lista a propósito: es un servidor
-// dedicado por restaurante, se cotiza según lo que cada uno necesita.
-const ENTERPRISE = {
-  name: "A Medida — Servidor Dedicado",
-  tag: "Personalizado",
-  blurb: "Tu propio servidor, con tu marca — colores, logo y nombre propios en toda la experiencia — y dos agentes de IA trabajando para ti las 24 horas.",
-  agents: [
-    {
-      name: "Agente de WhatsApp",
-      icon: "message",
-      color: "#25d366",
-      desc: "Responde, arma el pedido conversando con el cliente y lo cobra — vendiendo directo por chat, sin que nadie del equipo tenga que escribir.",
-      chat: [
-        { who: "in", text: "Hola! Quiero pedir 2 hamburguesas y una limonada" },
-        { who: "out", text: "¡Buenas! Anoté 2 Hamburguesas Clásicas y 1 Limonada 🍔 ¿Retiras o te lo llevamos?" },
-        { who: "in", text: "Delivery, mi dirección es Av. Principal 482" },
-        { who: "out", text: "El total es $18.500. Te mando el link para pagar 👇" },
-        { who: "out", text: "✅ Pago recibido — tu pedido ya está en cocina" },
-      ],
-    },
-    {
-      name: "Agente de Telegram",
-      icon: "telegram",
-      color: "#60a5fa",
-      desc: "Tu mano derecha con toda la información del restaurante: ventas del día, alertas de inventario, reportes — lo que necesites, con solo preguntarle.",
-      chat: [
-        { who: "in", text: "¿Cómo van las ventas hoy?" },
-        { who: "out", text: "Vas en $184.500 con 12 pedidos. El más vendido: Hamburguesa Clásica (9 veces) 📈" },
-        { who: "in", text: "¿Por qué se demoró el pedido de la mesa 5?" },
-        { who: "out", text: "Estuvo 14 min en cocina, 4 más que el promedio — hubo 3 pedidos a la vez a las 20:15" },
-      ],
-    },
-  ],
-  includes: [
-    "Todo el sistema: Admin, Mesa, Camareros, Cocina, Caja, Kiosco y Delivery",
-    "Servidor con capacidad dedicada, exclusiva para tu restaurante",
-    "Colores, logo y nombre propios en toda la experiencia del cliente",
-    "Los dos agentes configurados con el tono y los datos de tu negocio",
-  ],
-};
+// Imagen de un plato. Si existe la foto real /platos/<nombre>.jpg se usa; si no, la
+// ilustración /platos/<nombre>.svg. Para cambiar una ilustración por una foto basta con
+// subir el .jpg con el mismo nombre a landing/public/platos/.
+function DishImg({ name, alt }: { name: string; alt: string }) {
+  // Se muestra siempre la ilustración y, si existe la foto, se cambia por ella al cargarla
+  // (así no hay imagen rota ni carrera con la hidratación).
+  const [src, setSrc] = useState(`/platos/${name}.svg`);
+  useEffect(() => {
+    const probe = new Image();
+    probe.onload = () => setSrc(`/platos/${name}.jpg`);
+    probe.src = `/platos/${name}.jpg`;
+  }, [name]);
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} loading="lazy" />;
+}
+
+// Videos de "Míralo en acción". Se suben a landing/public/videos/ (mp4 corto, sin audio o con
+// subtítulos grabados). Mientras un archivo no exista, la tarjeta muestra "Video en preparación".
+const VIDEOS = [
+  { src: "/videos/mesa-qr.mp4", poster: "/videos/mesa-qr.jpg", ratio: "tall", eyebrow: "Tu cliente", title: "Escanea, mira la carta y pide", desc: "El cliente escanea el QR de su mesa, ve tu carta con fotos y alérgenos, agrega sus platos y los envía a cocina. Sin esperar al camarero." },
+  { src: "/videos/camarero.mp4", poster: "/videos/camarero.jpg", ratio: "wide", eyebrow: "Tu equipo", title: "El camarero toma el pedido en segundos", desc: "Para quien no usa el QR: eliges la mesa, tocas los platos, agregas una nota y se envía a cocina. También sirve para vender en el mostrador." },
+  { src: "/videos/cocina.mp4", poster: "/videos/cocina.jpg", ratio: "wide", eyebrow: "Cocina", title: "La cocina lo ve al instante", desc: "Los pedidos llegan a la pantalla de cocina en vivo, con las notas de cada plato. Sin papelitos y sin gritar la comanda." },
+  { src: "/videos/caja.mp4", poster: "/videos/caja.jpg", ratio: "wide", eyebrow: "Caja", title: "Cobra, divide la cuenta y cierra el turno", desc: "Abres la caja, cobras en efectivo, tarjeta o transferencia, divides la cuenta entre varios y cierras el turno con el cuadre de efectivo." },
+];
+
+function VideoCard({ v, i }: { v: (typeof VIDEOS)[number]; i: number }) {
+  // El video solo se muestra si el archivo existe (si no, "Video en preparación").
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch(v.src, { method: "HEAD" }).then((r) => { if (alive && r.ok) setReady(true); }).catch(() => {});
+    return () => { alive = false; };
+  }, [v.src]);
+  return (
+    <article className="video-card reveal" style={{ ["--d" as string]: i }}>
+      <div className="video-frame">
+        {ready ? (
+          <video src={v.src} poster={v.poster} autoPlay muted loop playsInline preload="metadata" aria-label={v.title} />
+        ) : (
+          <div className="video-ph">
+            <span className="video-play" aria-hidden="true">▶</span>
+            <b>Video en preparación</b>
+            <small>{v.title}</small>
+          </div>
+        )}
+      </div>
+      <div className="video-info">
+        <span className="label">{v.eyebrow}</span>
+        <h3>{v.title}</h3>
+        <p>{v.desc}</p>
+      </div>
+    </article>
+  );
+}
+
+// Carta de ejemplo de la sección "Una carta que da hambre".
+const DISHES = [
+  { img: "ceviche", name: "Ceviche de reineta", desc: "Cítricos, cebolla morada y cilantro", price: 9900, tag: "TOP" },
+  { img: "empanada", name: "Empanada de pino", desc: "Masa casera, horno de barro", price: 4500, tag: "" },
+  { img: "lomo", name: "Lomo a lo pobre", desc: "Papas fritas, cebolla y huevo", price: 15900, tag: "TOP" },
+  { img: "pastel", name: "Pastel de choclo", desc: "En greda, con pino tradicional", price: 13900, tag: "CHEF" },
+  { img: "leche", name: "Leche asada", desc: "Caramelo natural", price: 5500, tag: "" },
+  { img: "pisco", name: "Pisco sour", desc: "Pisco 35°, limón de pica", price: 6900, tag: "TOP" },
+];
 
 // Cada extensión se conecta al mismo Admin gratuito — no son sistemas
 // aparte, ni instalaciones aparte, ni cartas aparte.
@@ -198,23 +205,17 @@ const teamRoles = [
   },
 ];
 
-const stats = [
-  ["4 roles",   "Mesas, camareros, cocina y caja"],
-  ["1 QR",      "Toda la experiencia desde la mesa"],
-  ["En vivo",   "Todo sincronizado en tiempo real"],
-  ["A medida", "Delivery propio y agente de WhatsApp, cuando lo necesites"],
-  ["Cloud",     "Accede desde cualquier dispositivo"],
-];
-
 const faqs = [
-  { q: "¿Qué incluye el plan?", a: "HOLU Completo ($19.990/mes) incluye todo: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja y kiosco de autoservicio. Un solo precio, sin niveles — y 30 días gratis para probarlo antes de pagar nada. ¿Necesitas delivery propio o un agente de WhatsApp? Eso lo armamos a medida para tu negocio." },
+  { q: "¿Qué incluye el plan?", a: "HOLU Completo ($19.990/mes) incluye todo: mesas con QR, camareros con su propio perfil, pantalla de cocina, caja y kiosco de autoservicio. Un solo precio, sin niveles — y 30 días gratis para probarlo antes de pagar nada. Todo desde el navegador, sin instalar nada." },
   { q: "¿HOLU reemplaza al camarero?",         a: "No. HOLU ayuda al equipo a trabajar mejor. El camarero sigue siendo clave para la atención, la experiencia humana y el cobro presencial cuando corresponde." },
   { q: "¿Funciona con QR por mesa?",           a: "Sí. Cada mesa tiene un QR único. El cliente entra directamente a la experiencia de su mesa y todo queda conectado con pedidos, cocina, camareros y administración." },
   { q: "¿Puedo agregar o editar platos?",       a: "Sí. Desde administración puedes crear platos, cambiar precios, subir imágenes, activar o desactivar disponibilidad y decidir qué ve el cliente." },
   { q: "¿El sistema incluye propinas y caja?",  a: "Sí. HOLU permite registrar propinas aceptadas o rechazadas, abrir caja, cerrar caja, cambiar turnos, imprimir cierres y revisar reportes." },
   { q: "¿Qué es el tótem de autoservicio?",    a: "Es una pantalla en barra o mostrador desde donde los clientes hacen sus propios pedidos sin esperar atención. Está conectada en tiempo real con cocina, caja y administración." },
   { q: "¿Sirve para comida rápida o cafés?",   a: "Sí. El tótem de autoservicio de barra es ideal para cafés, comida rápida y cualquier negocio con flujo alto de pedidos. Todo queda conectado a la misma carta, cocina y caja." },
-  { q: "¿Tienen delivery propio o agente de WhatsApp?", a: "Sí, pero como parte del plan A Medida: servidor dedicado, tu marca propia y delivery o agente de WhatsApp configurados para tu negocio. No es parte del plan básico — escríbenos por WhatsApp para cotizarlo." },
+  { q: "¿Puedo tomar pedidos de clientes que no usan el QR?", a: "Sí. El camarero toma el pedido desde su celular o tablet, y en el mostrador puedes hacer una venta directa y cobrarla en el momento. Todo llega a la misma cocina y a la misma caja." },
+  { q: "¿Necesito comprar equipos?", a: "No. HOLU funciona desde el navegador de cualquier celular, tablet o computador. Para la cocina te sirve una tablet o pantalla que ya tengas." },
+  { q: "¿Emite boleta electrónica?", a: "Sí: conectas tu propia cuenta de Tuu en la configuración y HOLU emite la boleta al cerrar la mesa. Cada restaurante usa su propia clave." },
 ];
 
 const flow = [
@@ -288,8 +289,6 @@ a{color:inherit;text-decoration:none}
 .trust{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px;color:var(--dim);font-size:13px;font-weight:500}
 .trust span{display:flex;gap:7px;align-items:center}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.12);flex:0 0 auto}
-.logos{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
-.logo-pill{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:#c8bba8;font-size:12px;font-weight:500}
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
 .metric{padding:16px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
 .metric b{display:block;font-size:28px;font-weight:700;color:var(--gold2);line-height:1}
@@ -348,13 +347,6 @@ a{color:inherit;text-decoration:none}
 @keyframes tabOrderFlash{0%{background:rgba(179,120,28,.22)}100%{background:var(--ts-panel)}}
 
 /* STATS */
-.stats-shell{margin-top:32px}
-.stats-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
-.stats::-webkit-scrollbar{display:none}
-.stat{border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.02));border:1px solid var(--line);padding:16px;min-width:160px}
-.stat b{font-size:22px;color:var(--gold2);display:block;font-weight:700;line-height:1}
-.stat span{display:block;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.4}
 
 .section{padding:72px 0}
 .section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:28px}
@@ -365,15 +357,11 @@ a{color:inherit;text-decoration:none}
    grid de 3 columnas iguales sin tocar la paleta. Las demás quedan chicas
    alrededor, como corresponde a módulos que se conectan al núcleo en vez de
    competir con él en tamaño. */
-.modules{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:12px}
 .card{border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);padding:22px;transition:.2s ease}
 .card:hover{transform:translateY(-2px);border-color:rgba(240,212,141,.18)}
 .card .label{font-size:10px;color:var(--gold2);letter-spacing:.14em;text-transform:uppercase;font-weight:600}
 .card h3{font-size:19px;margin:10px 0 8px;font-weight:600;letter-spacing:-.03em}
 .card p{color:var(--muted);line-height:1.6;font-size:14px;margin:0}
-.modules .card:nth-child(4){grid-column:span 2;padding:28px 26px;background:linear-gradient(155deg,rgba(200,169,107,.16),rgba(255,255,255,.03));border-color:rgba(240,212,141,.3)}
-.modules .card:nth-child(4) h3{font-size:23px}
-.modules .card:nth-child(4) p{max-width:420px}
 @media(max-width:960px){.modules .card:nth-child(4){grid-column:auto}}
 
 .showcase-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
@@ -485,7 +473,7 @@ a{color:inherit;text-decoration:none}
 .device-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px}
 .device-tile{position:relative;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);padding:8px;cursor:pointer;text-align:left;font-family:inherit;color:inherit;transition:.15s ease}
 .device-tile:hover{background:rgba(255,255,255,.08)}
-.device-tile-img{width:100%;aspect-ratio:1;border-radius:10px;display:grid;place-items:center;font-size:26px;margin-bottom:6px}
+.device-tile-img{width:100%;aspect-ratio:1;border-radius:10px;display:block;overflow:hidden;margin-bottom:6px;background:#120c07}
 .device-tile b{display:block;font-size:11px;font-weight:600}
 .device-tile span{display:block;font-size:10px;color:var(--muted)}
 .device-tile-qty{position:absolute;top:6px;right:6px;background:#a78bfa;color:#160f02;font-size:10px;font-weight:800;border-radius:999px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px}
@@ -509,37 +497,7 @@ a{color:inherit;text-decoration:none}
 .device-cta:disabled{opacity:.4;cursor:not-allowed}
 .device-done{display:flex;align-items:center;gap:6px;justify-content:center;padding:9px;border-radius:10px;font-size:11px;font-weight:600}
 
-/* CHAT MOCK — conversación real de los agentes IA, sin teléfono grande */
-.chat-head{display:flex;align-items:center;gap:8px;margin-top:16px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
-.chat-head-dot{width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.06);flex:0 0 auto}
-.chat-head span{font-size:11px;color:var(--dim);font-weight:600;letter-spacing:.02em}
-.chat-mock{display:grid;gap:8px;margin-top:12px}
-.chat-bubble{max-width:88%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.5;opacity:0;transform:translateY(6px);animation:chatIn .5s ease forwards}
-.chat-bubble.in{justify-self:end;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.1);border-bottom-right-radius:4px;color:#e8e0d4}
-.chat-bubble.out{justify-self:start;border-bottom-left-radius:4px;color:#f2fbf6}
-@keyframes chatIn{to{opacity:1;transform:translateY(0)}}
-@media(prefers-reduced-motion:reduce){.chat-bubble{animation:none;opacity:1;transform:none}}
 
-/* ENTERPRISE — plan a medida, sin precio de lista */
-.enterprise{position:relative;overflow:hidden;margin:28px auto 0;max-width:920px;border-radius:28px;padding:36px 32px;background:linear-gradient(160deg,rgba(96,165,250,.1),rgba(37,211,102,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.14)}
-.enterprise::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 12% -10%,rgba(96,165,250,.16),transparent 42%),radial-gradient(circle at 90% 110%,rgba(37,211,102,.14),transparent 42%);pointer-events:none}
-.enterprise-head{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:26px}
-.enterprise-title{font-size:25px;font-weight:700;letter-spacing:-.03em;margin:10px 0 8px}
-.enterprise-blurb{color:var(--muted);font-size:14.5px;line-height:1.65;max-width:440px;margin:0}
-.enterprise-cta{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
-.enterprise-price{color:var(--dim);font-size:12.5px;font-weight:600}
-.enterprise-agents{position:relative;display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:22px}
-.enterprise-agent{border-radius:20px;padding:20px;background:rgba(255,255,255,.045);border:1px solid var(--line)}
-.enterprise-agent-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;margin-bottom:12px}
-.enterprise-agent h4{margin:0 0 6px;font-size:16px;font-weight:700}
-.enterprise-agent p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
-.enterprise-includes{position:relative;display:grid;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:18px}
-.enterprise-includes div{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5}
-@media(max-width:760px){
-  .enterprise{padding:28px 22px}
-  .enterprise-agents{grid-template-columns:1fr}
-  .enterprise-head{flex-direction:column}
-}
 
 /* REGISTER FORM */
 .register-section{padding:80px 0;background:radial-gradient(circle at 50% 50%,rgba(200,169,107,.06),transparent 60%)}
@@ -586,6 +544,33 @@ a{color:inherit;text-decoration:none}
 .spinner{width:18px;height:18px;border:2px solid rgba(0,0,0,.2);border-top-color:#160f02;border-radius:50%;animation:spin .7s linear infinite}
 
 /* SCROLL REVEAL — le da vida a toda la página al bajar, no solo al hero */
+/* VIDEOS + CARTA CON IMÁGENES */
+.video-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.video-card{border-radius:24px;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);display:flex;flex-direction:column}
+.video-frame{position:relative;background:#0c0a07;display:grid;place-items:center;overflow:hidden}
+.video-frame{aspect-ratio:16/10}
+.video-frame video{width:100%;height:100%;object-fit:contain;display:block;background:#0c0a07}
+.video-ph{display:grid;gap:8px;justify-items:center;text-align:center;padding:24px;color:var(--muted)}
+.video-ph b{color:var(--text);font-size:15px}
+.video-ph small{font-size:12px;color:var(--dim);max-width:260px;line-height:1.5}
+.video-play{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:rgba(240,212,141,.14);border:1px solid rgba(240,212,141,.35);color:var(--gold2);font-size:18px;padding-left:3px}
+.video-info{padding:18px 20px 22px}
+.video-info .label{font-size:10px;color:var(--gold2);letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+.video-info h3{font-size:20px;margin:8px 0 6px;letter-spacing:-.03em;font-weight:700}
+.video-info p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+.dish-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.dish-card{border-radius:20px;padding:10px 10px 14px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--line);display:flex;flex-direction:column;gap:3px}
+.dish-photo{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;margin-bottom:8px;background:#120c07}
+.dish-photo img,.device-tile-img img{width:100%;height:100%;object-fit:cover;display:block}
+.dish-tag{position:absolute;top:8px;left:8px;font-size:9px;font-weight:900;color:#201405;background:rgba(247,211,123,.95);border-radius:999px;padding:3px 7px}
+.dish-card b{font-size:14px;letter-spacing:-.02em}
+.dish-desc{color:var(--muted);font-size:12px;line-height:1.4}
+.dish-price{color:var(--gold2);font-weight:800;font-size:15px;margin-top:4px}
+.dish-note{color:var(--dim);font-size:12px;margin:12px 4px 0}
+@media(max-width:760px){
+  .video-grid{grid-template-columns:1fr}
+  .dish-grid{grid-template-columns:repeat(2,1fr)}
+}
 .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--d,0) * 70ms)}
 .reveal.in-view{opacity:1;transform:translateY(0)}
 @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
@@ -602,9 +587,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
   .hero h1{font-size:clamp(40px,9vw,62px)}
   .hero p{font-size:15px}
   .trust{display:none}
-  .logos{display:none}
   .metrics{display:none}
-  .stats-shell{display:none}
   .cta-row{margin-top:20px}
   .metrics,.modules,.showcase-grid,.flow-track{grid-template-columns:1fr}
   .section{padding:52px 0}
@@ -704,8 +687,9 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             <img src="/holu-logo-256.png" alt="HOLU" style={{ height: 64, width: "auto", display: "block" }} />
           </a>
           <div className="nav-links">
+            <a href="#videos">Míralo en acción</a>
+            <a href="#carta">La carta</a>
             <a href="#conectado">Cómo funciona</a>
-            <a href="#modulos">Módulos</a>
             <a href="#precios">Planes</a>
             <a href="#faq">Preguntas</a>
             <a className="btn primary" href="#registro">Crear cuenta gratis</a>
@@ -716,19 +700,18 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
       <header id="top" className="hero">
         <div className="container hero-grid">
           <div>
-            <div className="eyebrow">Mesa · Camareros · Cocina · Caja · Administración</div>
-            <h1>El caos del restaurante termina con <span style={{ color: "var(--gold2)" }}>HOLU</span>.</h1>
-            <p>HOLU conecta la mesa, los camareros, la cocina, la caja, el kiosco y la administración de tu restaurante en un solo sistema en tiempo real. ¿Necesitas delivery propio o un agente de WhatsApp? Lo armamos a medida para tu negocio.</p>
+            <div className="eyebrow">Para restaurantes, cafés y bares</div>
+            <h1>Tu restaurante, <span style={{ color: "var(--gold2)" }}>conectado</span> de la mesa a la caja.</h1>
+            <p>Tus clientes piden desde un QR con una carta con fotos, la cocina recibe el pedido al instante y tú cobras y emites la boleta desde el mismo sistema. Sin instalar nada y desde $19.990 al mes.</p>
             <div className="cta-row">
               <a className="btn primary" href="#registro">Crear mi cuenta gratis</a>
-              <a className="btn ghost" href="#conectado">Ver cómo se conecta</a>
+              <a className="btn ghost" href="#videos">Ver cómo funciona</a>
             </div>
             <div className="trust">
-              <span><i className="dot" />Sistema completo desde el primer día</span>
               <span><i className="dot" />30 días gratis · Sin tarjeta</span>
-              <span><i className="dot" />Kiosco de autoservicio incluido</span>
+              <span><i className="dot" />Listo en minutos, desde el navegador</span>
+              <span><i className="dot" />Mesa, camareros, cocina, caja y kiosco incluidos</span>
             </div>
-            <div className="logos">{socialProof.map(item => <div className="logo-pill" key={item}>{item}</div>)}</div>
             <div className="metrics">{metrics.map(([value, label]) => <div className="metric" key={value}><b>{value}</b><span>{label}</span></div>)}</div>
           </div>
 
@@ -790,14 +773,53 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
           </div>
         </div>
 
-        <div className="container stats-shell">
-          <div className="stats-head">
-            <div className="eyebrow">Experiencia HOLU</div>
-            <div style={{ color: "var(--dim)", fontSize: 12, fontWeight: 500 }}>Desliza →</div>
-          </div>
-          <div className="stats">{stats.map(([value, label]) => <div className="stat" key={value}><b>{value}</b><span>{label}</span></div>)}</div>
-        </div>
       </header>
+
+      <section id="videos" className="section">
+        <div className="container">
+          <div className="section-head reveal">
+            <h2>Míralo funcionando, en menos de 2 minutos.</h2>
+            <p>Cuatro videos cortos con el sistema real: lo que ve tu cliente, lo que hace tu equipo y cómo cobras.</p>
+          </div>
+          <div className="video-grid">
+            {VIDEOS.map((v, i) => <VideoCard v={v} i={i} key={v.src} />)}
+          </div>
+          <div style={{ textAlign: "center", marginTop: 28 }}>
+            <a className="btn primary" href="#registro">Probarlo gratis 30 días</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="carta" className="section">
+        <div className="container split">
+          <div>
+            <div className="eyebrow">Una carta que da hambre</div>
+            <h2>Tus platos, con foto, en el celular de cada cliente.</h2>
+            <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 15 }}>Sube la foto de cada plato desde tu celular y listo: aparece en la carta de la mesa, en el kiosco y en el panel. El cliente toca un plato, ve el detalle, los alérgenos y puede dejar una nota para cocina.</p>
+            <div className="benefits" style={{ marginTop: 20 }}>
+              {[
+                "Fotos de tus platos, listas para subir desde el celular",
+                "Alérgenos y descripción en cada plato",
+                "Notas para cocina por plato: sin cebolla, punto de la carne…",
+                "Cambias precios y disponibilidad al instante",
+              ].map((b) => <div className="benefit" key={b}><span className="check">{Icons.check}</span><span>{b}</span></div>)}
+            </div>
+          </div>
+          <div>
+            <div className="dish-grid">
+              {DISHES.map((d, i) => (
+                <article className="dish-card reveal" style={{ ["--d" as string]: i }} key={d.img}>
+                  <div className="dish-photo"><DishImg name={d.img} alt={d.name} />{d.tag ? <span className="dish-tag">{d.tag}</span> : null}</div>
+                  <b>{d.name}</b>
+                  <span className="dish-desc">{d.desc}</span>
+                  <span className="dish-price">{clp(d.price)}</span>
+                </article>
+              ))}
+            </div>
+            <p className="dish-note">Carta de ejemplo con platos ilustrados. En tu cuenta subes tus propias fotos.</p>
+          </div>
+        </div>
+      </section>
 
       <section id="conectado" className="section">
         <div className="container hub-wrap">
@@ -851,18 +873,6 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             </div>
 
             <p className="hub-foot">Nada corre por su cuenta: un pedido de mesa, un plato listo en cocina o un llamado del cliente se actualizan al instante en toda la cadena — de la mesa a la cocina, de la cocina a la caja, de la caja a tus reportes.</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="modulos" className="section">
-        <div className="container">
-          <div className="section-head reveal">
-            <h2>La experiencia moderna que transforma restaurantes.</h2>
-            <p>HOLU une clientes, camareros, cocina, caja y administración en una experiencia visual, rápida y moderna.</p>
-          </div>
-          <div className="modules">
-            {modules.map((m, i) => <article className="card reveal" style={{ ["--d" as string]: i }} key={m.name}><span className="label">{m.eyebrow}</span><h3>{m.name}</h3><p>{m.desc}</p></article>)}
           </div>
         </div>
       </section>
@@ -936,7 +946,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
               <span style={{ color: "var(--gold2)" }}>restaurante</span>.
             </h2>
             <p style={{ color: "var(--muted)", lineHeight: 1.75, fontSize: 16, marginBottom: 24 }}>
-              Completa tus datos y en minutos tenés tu restaurante funcionando en HOLU: mesas, camareros, cocina y caja conectados en tiempo real. 30 días gratis, sin tarjeta.
+              Completa tus datos y en minutos tienes tu restaurante funcionando en HOLU: mesas, camareros, cocina y caja conectados en tiempo real. 30 días gratis, sin tarjeta.
             </p>
             <div className="register-benefits">
               {[
@@ -998,7 +1008,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
         <div className="container">
           <div className="section-head reveal">
             <h2>Un precio. Todo incluido.</h2>
-            <p>Mesa, camareros, cocina, caja y kiosco, sin niveles ni letra chica. 30 días gratis antes de pagar nada. ¿Necesitas delivery propio o un agente de WhatsApp? Bajá un poco más.</p>
+            <p>Mesa, camareros, cocina, caja y kiosco, sin niveles ni letra chica. 30 días gratis antes de pagar nada.</p>
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
             <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,.06)", border: "1px solid var(--line)", borderRadius: 16, padding: 4 }}>
@@ -1052,7 +1062,7 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
                     {KIOSCO_ITEMS.map((it) => (
                       <button type="button" key={it.id} className="device-tile" onClick={() => addKiosco(it.id)}>
                         {kioscoCart[it.id] ? <span className="device-tile-qty">{kioscoCart[it.id]}</span> : null}
-                        <span className="device-tile-img" style={{ background: it.bg }}>{it.img}</span>
+                        <span className="device-tile-img"><DishImg name={it.img} alt={it.name} /></span>
                         <b>{it.name}</b>
                         <span>{clp(it.price)}</span>
                       </button>
@@ -1076,51 +1086,6 @@ export default function Landing({ adminUrl }: { n8nBase?: string; adminUrl?: str
             </div>
           </div>
 
-          <div className="enterprise">
-            <div className="enterprise-head">
-              <div>
-                <span className="tag" style={{ position: "static", background: "rgba(96,165,250,.16)", color: "#93c5fd" }}>{ENTERPRISE.tag}</span>
-                <h3 className="enterprise-title">{ENTERPRISE.name}</h3>
-                <p className="enterprise-blurb">{ENTERPRISE.blurb}</p>
-              </div>
-              <div className="enterprise-cta">
-                <span className="enterprise-price">Precio a medida — se cotiza según tu operación</span>
-                <a className="btn wa" href={`${WA}?text=${encodeURIComponent("Hola, quiero cotizar el plan A Medida de HOLU (servidor dedicado + agentes de WhatsApp y Telegram)")}`} target="_blank" rel="noopener noreferrer">{Icons.message} Cotizar este plan</a>
-              </div>
-            </div>
-            <div className="enterprise-agents">
-              {ENTERPRISE.agents.map((a) => (
-                <div className="enterprise-agent" key={a.name}>
-                  <span className="enterprise-agent-icon" style={{ background: `${a.color}1c`, color: a.color }}>{Icons[a.icon as keyof typeof Icons]}</span>
-                  <h4>{a.name}</h4>
-                  <p>{a.desc}</p>
-                  <div className="chat-head">
-                    <span className="chat-head-dot" style={{ background: a.color }} />
-                    <span>{a.name} · en línea</span>
-                  </div>
-                  <div className="chat-mock">
-                    {a.chat.map((m, i) => (
-                      <div
-                        key={i}
-                        className={`chat-bubble ${m.who}`}
-                        style={{
-                          animationDelay: `${i * 0.7 + 0.3}s`,
-                          ...(m.who === "out" ? { background: `${a.color}22`, border: `1px solid ${a.color}40` } : {}),
-                        }}
-                      >
-                        {m.text}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="enterprise-includes">
-              {ENTERPRISE.includes.map((f) => (
-                <div key={f}><span style={{ color: "var(--green)", flex: "0 0 auto", marginTop: 2 }}>{Icons.check}</span><span>{f}</span></div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
