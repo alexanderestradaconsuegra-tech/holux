@@ -3964,9 +3964,9 @@ export default function HoluAdmin() {
   };
 
   const handleAdminAuth = (sess) => {
-    handleSessionAuth(sess);
     const adminStaff = { id: "a1", name: "Admin", role: "admin", shift: "Full", avatar: "A", photoUrl: "" };
-    handleStaffAuth(adminStaff);
+    // La sesión viaja junto con el usuario: handleStaffAuth la guarda y exige que exista.
+    handleStaffAuth(adminStaff, sess);
   };
 
   const handleLogout = (msg) => {
