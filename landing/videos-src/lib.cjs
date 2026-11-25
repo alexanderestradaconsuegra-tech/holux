@@ -28,7 +28,7 @@ async function record({ name, viewport, scale = 1, setupContext, scene }) {
   const cap = (text) => { if (caps.length) caps[caps.length - 1].end = now(); caps.push({ text, start: now() + 0.15, end: null }); };
   const sleep = (s) => page.waitForTimeout(s * 1000);
   await scene(page, cap, sleep);
-  if (caps.length) { caps[caps.length - 1].end = now() + 0.8; }
+  if (caps.length) { caps[caps.length - 1].end = now() + 0.8; caps[0].start = 0; }  // el primer cuadro (y el póster) ya lleva subtítulo
   await sleep(0.8);
   const total = now();
   const video = page.video();

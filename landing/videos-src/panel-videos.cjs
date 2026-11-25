@@ -91,10 +91,11 @@ const SCENES = {
     await page.locator('.modal button', { hasText: /^\+ \$/ }).first().click().catch(() => {}); await sleep(1);
     await page.locator('.modal button', { hasText: 'Tarjeta' }).first().click(); await sleep(2);
     cap('¿Pagan varios? Divide la cuenta');
-    await page.getByRole('button', { name: 'Dividir la cuenta' }).click(); await sleep(2.8);
-    await page.getByRole('button', { name: 'Dividir la cuenta' }).click().catch(() => {}); await sleep(0.8);
+    await page.getByRole('button', { name: 'Dividir la cuenta' }).click(); await sleep(1.6);
+    await page.locator('.modal button', { hasText: /^3$/ }).first().click(); await sleep(2);
+    await page.getByRole('button', { name: 'Cobrar todo junto' }).click(); await sleep(1);
     cap('Cobra y la mesa queda libre');
-    await page.locator('.modal button.primary, .modal .btn.primary').last().click(); await sleep(3);
+    await page.getByRole('button', { name: /^Cobrar \$/ }).click(); await sleep(3);
     await nav(page, 'Caja'); await sleep(0.6);
     cap('Todo queda en la caja del turno, con su cuadre'); await sleep(4);
   },
